@@ -1,0 +1,66 @@
+import React, { memo } from 'react';
+import { Handle, Position } from '@xyflow/react';
+import { Crosshair, MousePointer2, Hash } from 'lucide-react';
+import { Input } from '../ui/input';
+import BaseNode, { getHandleStyle } from './BaseNode';
+
+const CoordClickNode = memo(({ id, data }: any) => {
+  return (
+    <BaseNode id={id} data={data} icon={<Crosshair size={16} />} title="Клік (X,Y)" bgColor="bg-cyan-500" type="coordClickNode" width="w-52">
+      {/* Входи */}
+      <Handle type="target" position={Position.Left} id="execute" style={getHandleStyle('#06b6d4', '20px', data.miniCollapsed)} className="!left-[-6px]" />
+      <Handle type="target" position={Position.Left} id="update_coords" style={getHandleStyle('#14b8a6', data.miniCollapsed ? '20px' : '85px', data.miniCollapsed)} className="!left-[-6px]" />
+      <Handle type="target" position={Position.Left} id="update_count" style={getHandleStyle('#f59e0b', data.miniCollapsed ? '20px' : '135px', data.miniCollapsed)} className="!left-[-6px]" />
+
+      {/* Вихід */}
+      <Handle type="source" position={Position.Right} style={getHandleStyle('#a855f7', '20px', data.miniCollapsed)} className="!right-[-6px]" />
+
+      {!data.miniCollapsed && (
+        <div className="p-3 space-y-3">
+          {/* Координати */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[8px] font-bold text-cyan-600 uppercase">Координати</span>
+              <span className="text-[7px] text-teal-500 font-bold italic">← Порт запису</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+               <div className="flex items-center gap-1 bg-muted/30 p-1 rounded border border-border">
+                  <span className="text-[9px] font-bold text-cyan-500">X:</span>
+                  <Input type="number" value={data.x || 0} onChange={(e) => data.onDataChange(id, { x: parseInt(e.target.value) || 0 })} className="h-6 text-[10px] border-none bg-transparent p-0 focus-visible:ring-0 text-center text-foreground" />
+               </div>
+               <div className="flex items-center gap-1 bg-muted/30 p-1 rounded border border-border">
+                  <span className="text-[9px] font-bold text-cyan-500">Y:</span>
+                  <Input type="number" value={data.y || 0} onChange={(e) => data.onDataChange(id, { y: parseInt(e.target.value) || 0 })} className="h-6 text-[10px] border-none bg-transparent p-0 focus-visible:ring-0 text-center text-foreground" />
+               </div>
+            </div>
+          </div>
+
+          {/* Кількість повторів */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1 text-[8px] font-bold text-amber-600 uppercase">
+                 <Hash size={10} />
+                 <span>Кількість кліків</span>
+              </div>
+              <span className="text-[7px] text-amber-500 font-bold italic">← Порт числа</span>
+            </div>
+            <Input 
+              type="number" 
+              min="1" 
+              value={data.clickCount || 1} 
+              onChange={(e) => data.onDataChange(id, { clickCount: parseInt(e.target.value) || 1 })} 
+              className="h-7 text-xs border-border bg-muted/30 text-foreground" 
+            />
+          </div>
+
+          <div className="pt-1 border-t border-border flex items-center justify-center gap-2">
+             <MousePointer2 size={10} className="text-cyan-400" />
+             <span className="text-[9px] text-muted-foreground italic">Клікне {data.clickCount || 1} раз(и)</span>
+          </div>
+        </div>
+      )}
+    </BaseNode>
+  );
+});
+
+export default CoordClickNode;

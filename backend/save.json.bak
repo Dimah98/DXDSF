@@ -1,0 +1,406 @@
+{
+  "nodes": [
+    {
+      "id": "start_1",
+      "type": "startNode",
+      "data": {
+        "label": "Початок"
+      },
+      "position": {
+        "x": -195.43025115832492,
+        "y": -367.75567893236285
+      },
+      "measured": {
+        "width": 128,
+        "height": 107
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "dndnode_2",
+      "type": "imageSearchNode",
+      "position": {
+        "x": -635.6130048639227,
+        "y": -177.5652391078498
+      },
+      "data": {
+        "label": "Пошук картинки",
+        "selector": "",
+        "imageName": "plant.png"
+      },
+      "measured": {
+        "width": 256,
+        "height": 177
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "dndnode_3",
+      "type": "coordClickNode",
+      "position": {
+        "x": 422.1113084668062,
+        "y": -235.02786335275732
+      },
+      "data": {
+        "label": "Клік (X,Y)",
+        "selector": ""
+      },
+      "measured": {
+        "width": 256,
+        "height": 177
+      },
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "dndnode_4",
+      "type": "infoNode",
+      "position": {
+        "x": -323.97697621594295,
+        "y": 489.51798071779046
+      },
+      "data": {
+        "label": "Сканер",
+        "selector": ""
+      },
+      "measured": {
+        "width": 256,
+        "height": 289
+      },
+      "selected": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      },
+      "dragging": false
+    },
+    {
+      "id": "dndnode_5",
+      "type": "actionNode",
+      "position": {
+        "x": 101.9884781467951,
+        "y": -116.60212237965365
+      },
+      "data": {
+        "label": "Дія",
+        "selector": "div.relative.w-full.h-full > div.absolute:nth-of-type(46) > div.w-full.h-full.relative > div.w-full.h-full.relative > div.w-full.h-full.relative.cursor-pointer",
+        "actionType": "click"
+      },
+      "measured": {
+        "width": 256,
+        "height": 135
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "dndnode_6",
+      "type": "browserNode",
+      "position": {
+        "x": 403.3734758626384,
+        "y": -64.17128498825214
+      },
+      "data": {
+        "label": "Браузер",
+        "selector": ""
+      },
+      "measured": {
+        "width": 224,
+        "height": 99
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "dndnode_7",
+      "type": "apiNode",
+      "position": {
+        "x": 774.9743840303403,
+        "y": -335.34733596086625
+      },
+      "data": {
+        "label": "API",
+        "selector": "",
+        "url": "https://api.sunflower-land.com/farm/status",
+        "apiKey": "sfl.NzM0MzkzNDI0NjI3Mjg5.JxLV2It_rRaa65vBpkwPEaZ872JOzLw35WBlRhQ_8FU"
+      },
+      "measured": {
+        "width": 256,
+        "height": 314
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "dndnode_8",
+      "type": "variableNode",
+      "position": {
+        "x": 667.2750580172171,
+        "y": -19.308016021973735
+      },
+      "data": {
+        "label": "Пам'ять",
+        "selector": "",
+        "variables": [
+          {
+            "name": "gold",
+            "path": "balance"
+          }
+        ]
+      },
+      "measured": {
+        "width": 288,
+        "height": 166
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "dndnode_9",
+      "type": "multiLogicNode",
+      "position": {
+        "x": -245.82441623762583,
+        "y": 149.58899655695677
+      },
+      "data": {
+        "label": "ХАБ",
+        "selector": "",
+        "conditions": [
+          {
+            "expression": "gold > 100"
+          }
+        ]
+      },
+      "measured": {
+        "width": 320,
+        "height": 185
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "dndnode_10",
+      "type": "selectorCheckNode",
+      "position": {
+        "x": 101.20616429564546,
+        "y": 108.68425132299703
+      },
+      "data": {
+        "label": "Перевірка",
+        "selector": ""
+      },
+      "measured": {
+        "width": 256,
+        "height": 95
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "dndnode_11",
+      "type": "nestedCheckNode",
+      "position": {
+        "x": 392.8174125764551,
+        "y": 51.94541115976257
+      },
+      "data": {
+        "label": "Вкладена",
+        "selector": ""
+      },
+      "measured": {
+        "width": 256,
+        "height": 170
+      },
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "dndnode_12",
+      "type": "valueLoopNode",
+      "position": {
+        "x": 669.914073838763,
+        "y": 185.21571014782492
+      },
+      "data": {
+        "label": "Цикл",
+        "selector": "div#hud-container > div.pointer-events-auto > div.absolute.right-0.top-0.p-2\\.5:nth-of-type(5) > div.flex.flex-col.space-y-1.items-end.\\!text-\\[28px\\].text-stroke"
+      },
+      "measured": {
+        "width": 256,
+        "height": 95
+      },
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      },
+      "selected": false
+    },
+    {
+      "id": "dndnode_14",
+      "type": "keyboardNode",
+      "position": {
+        "x": 108.48694207261339,
+        "y": 239.65715360106532
+      },
+      "data": {
+        "label": "Макрос",
+        "selector": "",
+        "keys": [
+          {
+            "key": "Enter",
+            "delay": 100
+          },
+          {
+            "key": "Enter",
+            "delay": 100
+          },
+          {
+            "key": "Enter",
+            "delay": 100
+          }
+        ]
+      },
+      "measured": {
+        "width": 256,
+        "height": 203
+      },
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "dndnode_15",
+      "type": "visualSearchNode",
+      "position": {
+        "x": 391.91949788150157,
+        "y": 248.10313251744705
+      },
+      "data": {
+        "label": "Зір",
+        "selector": ""
+      },
+      "measured": {
+        "width": 256,
+        "height": 197
+      },
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "dndnode_17",
+      "type": "displayNode",
+      "position": {
+        "x": 40.1419354475878,
+        "y": 469.0142658408857
+      },
+      "data": {
+        "label": "Вивід",
+        "selector": "",
+        "receivedValue": "{}"
+      },
+      "measured": {
+        "width": 224,
+        "height": 122
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "dndnode_2",
+      "type": "imageSearchNode",
+      "position": {
+        "x": -635.6130048639227,
+        "y": -177.5652391078498
+      },
+      "data": {
+        "label": "Пошук картинки",
+        "selector": ""
+      },
+      "measured": {
+        "width": 256,
+        "height": 177
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "dndnode_3",
+      "type": "imageSearchNode",
+      "position": {
+        "x": -543.6130048639228,
+        "y": 270.4347608921501
+      },
+      "data": {
+        "label": "Пошук картинки",
+        "selector": ""
+      },
+      "measured": {
+        "width": 256,
+        "height": 177
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "dndnode_4",
+      "sourceHandle": "data",
+      "target": "dndnode_17",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__dndnode_4data-dndnode_17"
+    }
+  ]
+}

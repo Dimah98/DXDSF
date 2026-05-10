@@ -1,0 +1,38 @@
+# Залежності
+node_modules/
+.pnp
+.pnp.js
+
+# Збірка
+dist/
+build/
+.cache/
+
+# Секрети (ОБОВ'ЯЗКОВО ІГНОРУЄМО)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+ngrok_tokens.txt
+backend/current_url.txt
+
+# Логи та тимчасові файли
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend/images/debug/
+backend/images/snapshots/
+
+# Налаштування IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Операційна система
+Thumbs.db
+.DS_Store

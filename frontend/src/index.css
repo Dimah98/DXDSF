@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+
+    /* Глобальні налаштування за замовчуванням */
+    --global-border-color: 216 34% 17%;
+    --global-text-color: 213 31% 91%;
+    --global-map-color: 224 71% 4%;
+    --global-primary-color: 210 40% 98%;
+    --global-header-color: 224 71% 4%;
+    --global-sidebar-color: 224 71% 4%;
+    --global-node-body-color: 224 71% 4%;
+    --global-node-title-color: 0 0% 100%;
+  }
+
+  .dark {
+    --background: var(--global-map-color);
+    --foreground: var(--global-text-color);
+    --card: var(--global-node-body-color);
+    --card-foreground: var(--global-text-color);
+    --popover: var(--global-node-body-color);
+    --popover-foreground: var(--global-text-color);
+    --primary: 210 40% 98%;
+    --primary-foreground: var(--global-map-color);
+    --secondary: 222.2 47.4% 11.2%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: var(--global-input-bg-color);
+    --muted-foreground: var(--global-input-text-color);
+    --accent: var(--global-btn-bg-color);
+    --accent-foreground: var(--global-text-color);
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: var(--global-border-color);
+    --input: var(--global-border-color);
+    --ring: var(--global-border-color);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.react-flow__node {
+  /* Дозволяємо виділення тексту тільки в спокійному стані */
+  user-select: text !important;
+}
+
+/* Вимикаємо виділення тексту під час будь-якого драгу на полотні */
+.react-flow__pane--dragging, 
+.react-flow__container.dragging *,
+.react-flow__edge-path {
+  user-select: none !important;
+}
+
+/* Запобігаємо виділенню при створенні зв'язків */
+.react-flow__handle {
+  user-select: none !important;
+  width: var(--global-handle-size, 8px) !important;
+  height: var(--global-handle-size, 8px) !important;
+  transition: all 0.2s ease;
+  border: 2px solid var(--background) !important; /* Додаємо обводку щоб точка виглядала чіткіше на межі */
+}
+
+/* Ідеальне центрування центру точки на межі ноди */
+.react-flow__handle-left {
+  left: 0 !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+.react-flow__handle-right {
+  right: 0 !important;
+  transform: translate(50%, -50%) !important;
+}
+
+/* Приховуємо точки для згорнутих (круглих) нод — лінії йтимуть з центру */
+.node-style-round .react-flow__handle {
+  opacity: 0 !important;
+  pointer-events: none !important; /* Щоб вони не заважали клікати по самій ноді */
+}
+
+/* Збільшуємо активну область для легшого потрапляння пальцем */
+.react-flow__handle:after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(var(--global-handle-size, 8px) * 3);
+  height: calc(var(--global-handle-size, 8px) * 3);
+}
+
+.select-text {
+  user-select: text !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 10px;
+}
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6) !important;
+}
+
+/* Telegram Mini App адаптація */
+@media (max-width: 768px) {
+  .tg-mobile-sidebar {
+    position: fixed;
+    left: -100%;
+    top: 0;
+    height: 100vh;
+    z-index: 200;
+    transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 85% !important;
+    max-width: 320px;
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: blur(12px);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
+  }
+  .tg-mobile-sidebar.open {
+    left: 0;
+  }
+  .tg-mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 199;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .tg-mobile-overlay.open {
+    display: block;
+  }
+  .react-flow__controls {
+    bottom: 80px !important;
+    left: 10px !important;
+  }
+}

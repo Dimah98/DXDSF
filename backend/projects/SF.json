@@ -1,0 +1,269 @@
+{
+  "nodes": [
+    {
+      "id": "node_1778379521364",
+      "type": "startNode",
+      "position": {
+        "x": 380,
+        "y": 520
+      },
+      "dragHandle": ".drag-handle",
+      "data": {
+        "label": "Затримка",
+        "selector": ""
+      },
+      "measured": {
+        "width": 160,
+        "height": 138
+      },
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "node_1778386983128",
+      "type": "infoNode",
+      "position": {
+        "x": 520,
+        "y": 0
+      },
+      "dragHandle": ".drag-handle",
+      "data": {
+        "label": "Сканер",
+        "selector": "div#SeasonSeeds > div.flex:nth-of-type(2) > div.relative:nth-of-type(1) > div.bg-brown-600",
+        "lastCoords": "X:275, Y:184",
+        "lastText": "11",
+        "lastNum": 11,
+        "lastChildrenCount": 2,
+        "lastImagesCount": 1,
+        "imageNames": [
+          "crop.png"
+        ],
+        "childrenNames": [
+          {
+            "name": "div",
+            "selector": "div.absolute"
+          },
+          {
+            "name": "11",
+            "selector": "div"
+          }
+        ]
+      },
+      "measured": {
+        "width": 256,
+        "height": 408
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "node_1778387869655",
+      "type": "multiScanNode",
+      "position": {
+        "x": 680,
+        "y": 460
+      },
+      "dragHandle": ".drag-handle",
+      "data": {
+        "label": "Затримка",
+        "selector": "",
+        "scanItems": [
+          {
+            "selector": "div#SeasonSeeds > div.flex:nth-of-type(2) > div.relative:nth-of-type(6)",
+            "condition": ">",
+            "value": "3"
+          },
+          {
+            "selector": "div#SeasonSeeds > div.flex:nth-of-type(2) > div.relative:nth-of-type(5)",
+            "condition": ">",
+            "value": "3"
+          },
+          {
+            "selector": "div#SeasonSeeds > div.flex:nth-of-type(2) > div.relative:nth-of-type(1)",
+            "condition": ">",
+            "value": "3"
+          },
+          {
+            "selector": "div.relative:nth-of-type(7) > div.bg-brown-600 > div.absolute > div.flex > img.relative",
+            "condition": ">",
+            "value": "3"
+          }
+        ],
+        "status": "Знайдено #3",
+        "lastFound": "div#SeasonSeeds > div.flex:nth-of-type(2) > div.relative:nth-of-type(1)"
+      },
+      "measured": {
+        "width": 320,
+        "height": 430
+      },
+      "selected": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "node_1778387869656",
+      "type": "displayNode",
+      "position": {
+        "x": 1040,
+        "y": 560
+      },
+      "dragHandle": ".drag-handle",
+      "data": {
+        "label": "Вивід",
+        "selector": ""
+      },
+      "measured": {
+        "width": 256,
+        "height": 164
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    },
+    {
+      "id": "node_1778387869657",
+      "type": "displayNode",
+      "position": {
+        "x": 1040,
+        "y": 300
+      },
+      "dragHandle": ".drag-handle",
+      "data": {
+        "label": "Вивід",
+        "selector": "",
+        "receivedValue": "📍 Координати: 275, 184\n📝 Текст: 11\n🔢 Число: 11\n🖼️ Картинки (1): crop.png\n🌿 Діти (2): [object Object], [object Object]"
+      },
+      "measured": {
+        "width": 256,
+        "height": 164
+      },
+      "selected": false,
+      "dragging": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "node_1778387869655",
+      "sourceHandle": "success",
+      "target": "node_1778387869657",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__node_1778387869655success-node_1778387869657",
+      "animated": false,
+      "style": {
+        "stroke": "#334155",
+        "strokeWidth": 1.5,
+        "opacity": 0.4
+      }
+    },
+    {
+      "source": "node_1778387869655",
+      "sourceHandle": "fail",
+      "target": "node_1778387869656",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__node_1778387869655fail-node_1778387869656",
+      "animated": false,
+      "style": {
+        "stroke": "#334155",
+        "strokeWidth": 1.5,
+        "opacity": 0.4
+      }
+    },
+    {
+      "source": "node_1778379521364",
+      "target": "node_1778387869655",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__node_1778379521364-node_1778387869655",
+      "animated": false,
+      "style": {
+        "stroke": "#334155",
+        "strokeWidth": 1.5,
+        "opacity": 0.4
+      }
+    },
+    {
+      "source": "node_1778386983128",
+      "sourceHandle": "coords",
+      "target": "node_1778387869657",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__node_1778386983128coords-node_1778387869657"
+    },
+    {
+      "source": "node_1778379521364",
+      "target": "node_1778386983128",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__node_1778379521364-node_1778386983128"
+    },
+    {
+      "source": "node_1778386983128",
+      "sourceHandle": "text",
+      "target": "node_1778387869657",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__node_1778386983128text-node_1778387869657"
+    },
+    {
+      "source": "node_1778386983128",
+      "sourceHandle": "num",
+      "target": "node_1778387869657",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__node_1778386983128num-node_1778387869657"
+    },
+    {
+      "source": "node_1778386983128",
+      "sourceHandle": "children",
+      "target": "node_1778387869657",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__node_1778386983128children-node_1778387869657"
+    },
+    {
+      "source": "node_1778386983128",
+      "sourceHandle": "images",
+      "target": "node_1778387869657",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__node_1778386983128images-node_1778387869657"
+    }
+  ]
+}
