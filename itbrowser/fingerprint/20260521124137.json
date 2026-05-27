@@ -1,0 +1,74 @@
+{
+	"scriptGui": {
+		"id": "20260521124137",
+		"group": "Default",
+		"name": "SF5",
+		"des": "",
+		"AutoLaunch": false,
+		"autoOpenPage": [
+			"https://www.itbrowser.net"
+		],
+		"proxyId": "2befe9f5-9ea4-48b2-b8d3-a3977cadf0d2",
+		"tempPort": ""
+	},
+	"canvas.noise1": 128,
+	"canvas.noise2": 31,
+	"canvas.noise3": 25,
+	"canvas.noise4": 100,
+	"audio.noise": 116,
+	"webgl.vendor": "Google Inc. (NVIDIA)",
+	"webgl.renderer": "ANGLE (NVIDIA, NVIDIA NVS 3100M Direct3D11 vs_4_1 ps_4_1, D3D11)",
+	"fonts.remove": [
+		"Ebrima",
+		"Gadugi",
+		"Javanese Text"
+	],
+	"cleanCdpFlag": true,
+	"deviceMemory": 16,
+	"hardwareConcurrency": 14,
+	"doNotTrack": "1",
+	"cleanWebDriver": true,
+	"event": 150,
+	"timezone": "Europe/Kyiv",
+	"language": "uk-UA",
+	"acceptLanguages": [
+		"de-DE",
+		"fr-DZ",
+		"fr",
+		"de",
+		"en-US",
+		"en"
+	],
+	"userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
+	"version": "131.0.6778.204",
+	"brand": "Microsoft Edge",
+	"hideInfoBar": true,
+	"dns": "https://dns.google/dns-query",
+	"frame": true,
+	"replacements": {
+		"__playwright__binding__": "__chromium_devtools_metrics_reporter",
+		"__playwright_utility_world__": "__chromium_utility_world__",
+		"__pwInitScripts__": "__itIgitscropts__",
+		"cdc_": "cba_"
+	},
+	"blockedList": [],
+	"commandsAdd": [
+		"--disable-blink-features=AutomationControlled",
+		"--disable-features=ReduceAcceptLanguage",
+		"--disable-crash-reporter",
+		"--disable-component-update",
+		"--no-default-browser-check"
+	],
+	"commandsRemove": [
+		"--enable-automation",
+		"--disable-component-update",
+		"--disable-popup-blocking",
+		"--disable-default-apps",
+		"--disable-extensions"
+	],
+	"webrtc.disabled": true,
+	"webrtc.publicIpv6": "",
+	"webrtc.privateIpv6": "",
+	"webrtc.publicIp": "213.5.196.206",
+	"webrtc.privateIp": "192.168.1.1"
+}

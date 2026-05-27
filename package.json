@@ -1,0 +1,25 @@
+{
+  "name": "sf",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dimah98/DXDSF.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Dimah98/DXDSF/issues"
+  },
+  "homepage": "https://github.com/Dimah98/DXDSF#readme",
+  "devDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.60.4",
+    "rollup": "^4.60.4"
+  }
+}

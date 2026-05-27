@@ -29,21 +29,23 @@ export default function DelayEdge({
     targetPosition,
   });
 
+  const edgeData = data as any;
+
   const onDelayChange = (evt: React.ChangeEvent<HTMLInputElement>) => {
-    if (data?.onDelayChange) {
-      data.onDelayChange(id, parseInt(evt.target.value) || 0);
+    if (edgeData?.onDelayChange) {
+      edgeData.onDelayChange(id, parseInt(evt.target.value) || 0);
     }
   };
 
   const onDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (data?.onDelete) {
-      data.onDelete(id);
+    if (edgeData?.onDelete) {
+      edgeData.onDelete(id);
     }
   };
 
   // Показуємо поле тільки якщо лінія виділена АБО якщо там вже є затримка
-  if (!selected && !(data?.delay > 0)) return <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />;
+  if (!selected && !(edgeData?.delay > 0)) return <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />;
 
   return (
     <>
@@ -74,7 +76,7 @@ export default function DelayEdge({
              <div className="flex items-center gap-0.5">
                <input
                   type="number"
-                  defaultValue={data?.delay || 0}
+                  defaultValue={edgeData?.delay || 0}
                   onChange={onDelayChange}
                   className="w-10 h-5 text-[10px] font-bold text-center outline-none bg-transparent [appearance:textfield] text-slate-700"
                   placeholder="0"

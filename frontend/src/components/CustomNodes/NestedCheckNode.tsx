@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Layers, Target } from 'lucide-react';
+import { Layers, Target, MousePointer, Camera } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import BaseNode, { getHandleStyle } from './BaseNode';
@@ -25,9 +25,22 @@ const NestedCheckNode = memo(({ id, data }: any) => {
                 placeholder=".parent-class"
                 className="h-7 text-[10px] border-border bg-muted text-muted-foreground" 
               />
-              <Button size="sm" className="h-7 w-7 p-0 bg-pink-500 hover:bg-pink-600 text-white" onClick={() => data.onPickElement && data.onPickElement(id, 'parent')}>
-                <Target size={14} />
-              </Button>
+              <div className="flex gap-1">
+                <button 
+                  onClick={() => data.onPickElement && data.onPickElement(id, 'parent')}
+                  className="p-1.5 bg-pink-500/20 hover:bg-pink-500/40 text-pink-500 rounded-md transition-colors"
+                  title="Вибрати у браузері (ПК)"
+                >
+                  <MousePointer size={14} />
+                </button>
+                <button 
+                  onClick={() => data.onPickElement?.(id, 'parent')}
+                  className="p-1.5 bg-purple-500/20 hover:bg-purple-500/40 text-purple-500 rounded-md transition-colors"
+                  title="Live View (Трансляція)"
+                >
+                  <Camera size={14} />
+                </button>
+              </div>
             </div>
           </div>
           <div className="space-y-1.5">
@@ -39,9 +52,22 @@ const NestedCheckNode = memo(({ id, data }: any) => {
                 placeholder=".child-class"
                 className="h-7 text-[10px] border-border bg-muted text-muted-foreground" 
               />
-              <Button size="sm" className="h-7 w-7 p-0 bg-pink-500 hover:bg-pink-600 text-white" onClick={() => data.onPickElement && data.onPickElement(id, 'child')}>
-                <Target size={14} />
-              </Button>
+              <div className="flex gap-1">
+                <button 
+                  onClick={() => data.onPickElement && data.onPickElement(id, 'child')}
+                  className="p-1.5 bg-pink-500/20 hover:bg-pink-500/40 text-pink-500 rounded-md transition-colors"
+                  title="Вибрати у браузері (ПК)"
+                >
+                  <MousePointer size={14} />
+                </button>
+                <button 
+                  onClick={() => data.onPickElement?.(id, 'child')}
+                  className="p-1.5 bg-purple-500/20 hover:bg-purple-500/40 text-purple-500 rounded-md transition-colors"
+                  title="Live View (Трансляція)"
+                >
+                  <Camera size={14} />
+                </button>
+              </div>
             </div>
           </div>
           
@@ -56,3 +82,4 @@ const NestedCheckNode = memo(({ id, data }: any) => {
 });
 
 export default NestedCheckNode;
+

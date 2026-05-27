@@ -1,14 +1,17 @@
+// Нода API запиту — отримує дані від Sunflower Land або інших серверів
 import { memo, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import * as LucideIcons from 'lucide-react';
-import { CloudDownload, Key, Database, ChevronRight, ChevronDown, Copy, Check, Globe } from 'lucide-react';
+import { CloudDownload, Key, Database, ChevronRight, ChevronDown, Copy, Check, Globe, Download } from 'lucide-react';
 import { Input } from '../ui/input';
 import BaseNode, { getHandleStyle } from './BaseNode';
 
+// Компонент для візуалізації JSON дерева з можливістю копіювання шляху до змінної
 const JsonTree = ({ data, path = '', depth = 0 }: { data: any, path?: string, depth?: number }) => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
 
+  // Копіювання JSON-шляху (наприклад balance.inventory.wood)
   const copyPath = (fullPath: string) => {
     try {
       const ta = document.createElement('textarea');
@@ -105,6 +108,18 @@ const ApiNode = memo(({ id, data }: { id: string, data: any }) => {
     ? (LucideIcons as any)[data.customIcon] 
     : CloudDownload;
 
+  // Функція для завантаження JSON результату у файл
+  const downloadJson = () => {
+    if (!data.lastResponse) return;
+    const blob = new Blob([JSON.stringify(data.lastResponse, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `api_response_${data.farmId || id}_${Date.now()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <BaseNode id={id} data={data} icon={<IconComponent size={16} />} title={data.label || 'API Запит'} bgColor="bg-indigo-600" type="apiNode" width="w-80">
       <Handle type="target" position={Position.Left} style={getHandleStyle('#6366f1', '20px', data.miniCollapsed)} className="!left-[-6px]" />
@@ -143,6 +158,16 @@ const ApiNode = memo(({ id, data }: { id: string, data: any }) => {
                    <Database size={10} />
                    <span>Дані (клік = копія шляху)</span>
                 </div>
+                {/* Кнопка завантаження результату */}
+                {data.lastResponse && (
+                  <button 
+                    onClick={downloadJson}
+                    className="p-1 text-indigo-400 hover:text-emerald-400 transition-colors"
+                    title="Завантажити JSON результат"
+                  >
+                    <Download size={12} />
+                  </button>
+                )}
              </div>
               <div className="bg-background/50 p-1.5 rounded border border-border min-h-[60px] max-h-[200px] overflow-y-auto custom-scrollbar">
                 {data.lastResponse ? <JsonTree data={data.lastResponse} /> : <div className="text-[9px] text-muted-foreground italic p-2 text-center">Натисніть ▶ щоб отримати дані</div>}

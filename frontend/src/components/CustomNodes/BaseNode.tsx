@@ -1,24 +1,28 @@
+// Базовий шаблон для всіх нод — відповідає за зовнішній вигляд, заголовок та стан згортання
 import React, { useEffect } from 'react';
 import { useUpdateNodeInternals } from '@xyflow/react';
 import NodeHeader from './NodeHeader';
 
 /**
- * Глобальна функція для стилізації портів (Handles).
- * Використовує наш преміальний стандарт 12px/-6px з 50% центруванням.
+ * Єдиний стандарт портів (Handles).
+ * ВАЖЛИВО: top — пікселі від верху ноди (включно з заголовком ~30px).
  */
-export const getHandleStyle = (color: string, defaultTop: string | number = '20px', miniCollapsed: boolean = false) => ({
+export const getHandleStyle = (
+  color: string,
+  defaultTop: string | number = '20px',
+  miniCollapsed: boolean = false
+) => ({
   background: color,
-  backgroundClip: 'content-box' as const,
-  padding: '1px',
-  border: 'none',
+  border: '2px solid rgba(255,255,255,0.25)',
   borderRadius: '50%',
   boxSizing: 'border-box' as const,
+  width: 12,
+  height: 12,
   zIndex: 10,
+  // При міні-режимі — порти центруються на іконці
   top: miniCollapsed ? '50%' : defaultTop,
-  left: miniCollapsed ? '50%' : undefined, // Центруємо по горизонталі
-  right: miniCollapsed ? 'auto' : undefined,
-  transform: miniCollapsed ? 'translate(-50%, -50%)' : 'none',
-  transition: 'all 0.3s ease-in-out',
+  transition: 'all 0.2s ease',
+  cursor: 'crosshair',
 });
 
 interface BaseNodeProps {
@@ -28,62 +32,82 @@ interface BaseNodeProps {
   title: string;
   bgColor: string;
   type: string;
-  children: React.ReactNode; // Внутрішній контент ноди
-  width?: string;           // Кастомна ширина (за замовчуванням w-64)
-  className?: string;       // Додаткові класи
+  children: React.ReactNode;
+  width?: string;
+  className?: string;
 }
 
-/**
- * Базовий шаблон для всіх нод бота.
- * Відповідає за зовнішній вигляд, заголовок та стан згортання.
- */
-const BaseNode: React.FC<BaseNodeProps> = ({ 
-  id, 
-  data, 
-  icon, 
-  title, 
-  bgColor, 
-  type, 
-  children, 
-  width = 'w-64',
-  className = ''
+const BaseNode: React.FC<BaseNodeProps> = ({
+  id, data, icon, title, bgColor, type,
+  children, width = 'w-64', className = '',
 }) => {
   const updateNodeInternals = useUpdateNodeInternals();
 
-  // Оновлюємо внутрішні параметри ноди при зміні стану згортання
-  // Це важливо для того, щоб лінії (edges) завжди сходилися в правильну точку
+  // Оновлюємо позиції handles після анімації згортання
   useEffect(() => {
     updateNodeInternals(id);
-    const timer = setTimeout(() => updateNodeInternals(id), 300); // Затримка для плавних анімацій
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => updateNodeInternals(id), 320);
+    return () => clearTimeout(t);
   }, [id, data.miniCollapsed, updateNodeInternals]);
 
-  // Визначаємо колір межі на основі фону заголовка
-  const borderColor = bgColor.replace('bg-', 'border-');
+  // Колір межі — hex або Tailwind
+  const isTailwindColor = !bgColor.startsWith('#');
+  const borderColorClass = isTailwindColor ? bgColor.replace('bg-', 'border-') : '';
+  const borderColorStyle = !isTailwindColor ? { borderColor: bgColor } : {};
 
+  // ── Режим міні-іконки ──────────────────────────────────────────────────────
+  if (data.miniCollapsed) {
+    return (
+      // node-style-round → CSS ховає handles, але вони ЗАЛИШАЮТЬСЯ в DOM
+      <div className={`relative node-style-round ${className}`}>
+        {/* Іконка-заголовок (кнопка розгорнути) */}
+        <NodeHeader id={id} icon={icon} title={title} data={data} bgColor={bgColor} type={type} />
+
+        {/* Handles завжди в DOM — НЕ можна видаляти, інакше лінії обриваються */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            overflow: 'visible',
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Повний режим ───────────────────────────────────────────────────────────
   return (
-    <div 
+    <div
       className={`
-        ${data.miniCollapsed ? 'w-auto border-none bg-transparent node-style-round' : `${width} border-2 shadow-xl`} 
-        rounded-lg ${borderColor} text-card-foreground relative transition-all duration-300 ${className}
+        ${width} border-2 shadow-lg rounded-xl
+        relative transition-all duration-300
+        ${borderColorClass} ${className}
       `}
-      style={!data.miniCollapsed ? { 
-        backgroundColor: 'hsla(var(--card) / var(--global-node-opacity))',
-        backdropFilter: 'blur(4px)'
-      } : {}}
+      style={{
+        // Використовуємо --node-bg з персоналізації
+        backgroundColor: 'var(--node-bg)',
+        color: 'var(--interface-text-primary)',
+        backdropFilter: 'blur(8px)',
+        ...borderColorStyle,
+      }}
     >
-      {/* Спільний заголовок з логікою згортання */}
-      <NodeHeader 
-        id={id} 
-        icon={icon} 
-        title={title} 
-        data={data} 
-        bgColor={bgColor} 
-        type={type} 
+      {/* Кольорова смужка зліва — акцент кольору ноди */}
+      <div
+        className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl opacity-70"
+        style={{ backgroundColor: isTailwindColor ? undefined : bgColor }}
       />
-      
-      {/* Контент ноди (порти та інпути) */}
-      {children}
+
+      {/* Заголовок */}
+      <NodeHeader id={id} icon={icon} title={title} data={data} bgColor={bgColor} type={type} />
+
+      {/* Контент з вертикальним скролом */}
+      <div className="nowheel nodrag select-text max-h-[440px] overflow-y-auto custom-scrollbar">
+        {children}
+      </div>
     </div>
   );
 };

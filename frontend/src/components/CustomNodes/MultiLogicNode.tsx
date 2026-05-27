@@ -53,7 +53,8 @@ const VarSelect = ({ value, onChange, variables }: { value: string, onChange: (v
 
 const MultiLogicNode = memo(({ id, data }: any) => {
   const conditions = data.conditions || [];
-  const savedVarNames = data.currentValues ? Object.keys(data.currentValues) : [];
+  // Отримуємо список назв із глобальних змінних проекту
+  const savedVarNames = data.globalVariables ? Object.keys(data.globalVariables) : [];
 
   const buildExpression = (cond: any) => {
     const rules = cond.rules || [];
@@ -102,12 +103,24 @@ const MultiLogicNode = memo(({ id, data }: any) => {
       {/* Динамічні порти умов */}
       {conditions.map((_: any, i: number) => (
         <Handle
-          key={i}
+          key={`out_${i}`}
           type="source"
           position={Position.Right}
           id={`out_${i}`}
           style={getHandleStyle('#a855f7', 100 + i * 80, data.miniCollapsed)}
           className="!right-[-6px]"
+        />
+      ))}
+
+      {/* Динамічні вхідні порти значень умов */}
+      {conditions.map((_: any, i: number) => (
+        <Handle
+          key={`in_${i}`}
+          type="target"
+          position={Position.Left}
+          id={`val_${i}`}
+          style={getHandleStyle('#f59e0b', 100 + i * 80, data.miniCollapsed)}
+          className="!left-[-6px]"
         />
       ))}
       

@@ -53,9 +53,20 @@ const CoordClickNode = memo(({ id, data }: any) => {
             />
           </div>
 
-          <div className="pt-1 border-t border-border flex items-center justify-center gap-2">
-             <MousePointer2 size={10} className="text-cyan-400" />
-             <span className="text-[9px] text-muted-foreground italic">Клікне {data.clickCount || 1} раз(и)</span>
+          <div className="pt-1 border-t border-border flex flex-col items-center justify-center gap-2">
+             <label className="flex items-center gap-2 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
+               <input 
+                 type="checkbox" 
+                 checked={data.isUIElement || false} 
+                 onChange={(e) => data.onDataChange(id, { isUIElement: e.target.checked })} 
+                 className="rounded bg-muted/50 border-border text-cyan-500 focus:ring-cyan-500 w-3 h-3" 
+               />
+               <span>Елемент інтерфейсу (не тягнути карту)</span>
+             </label>
+             <div className="flex items-center gap-2">
+               <MousePointer2 size={10} className="text-cyan-400" />
+               <span className="text-[9px] text-muted-foreground italic">Клікне {data.clickCount || 1} раз(и)</span>
+             </div>
           </div>
         </div>
       )}

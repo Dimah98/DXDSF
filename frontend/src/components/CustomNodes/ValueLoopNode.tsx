@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Repeat, Target, Filter, Check, X } from 'lucide-react';
+import { Repeat, Target, Filter, Check, X, MousePointer, Camera } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import BaseNode, { getHandleStyle } from './BaseNode';
@@ -38,9 +38,22 @@ const ValueLoopNode = memo(({ id, data }: any) => {
                 placeholder="Оберіть через 🎯..." 
                 className="h-7 text-[10px] border-border bg-muted text-muted-foreground flex-1" 
               />
-              <Button size="sm" className="h-7 w-7 p-0 bg-fuchsia-500 hover:bg-fuchsia-600 text-white shrink-0" onClick={() => data.onPickElement && data.onPickElement(id)}>
-                <Target size={14} />
-              </Button>
+              <div className="flex gap-1 shrink-0">
+                <button 
+                  onClick={() => data.onPickElement && data.onPickElement(id)}
+                  className="p-1.5 bg-fuchsia-500/20 hover:bg-fuchsia-500/40 text-fuchsia-500 rounded-md transition-colors"
+                  title="Вибрати у браузері (ПК)"
+                >
+                  <MousePointer size={14} />
+                </button>
+                <button 
+                  onClick={() => data.onPickElement?.(id)}
+                  className="p-1.5 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-500 rounded-md transition-colors"
+                  title="Live View (Трансляція)"
+                >
+                  <Camera size={14} />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -91,3 +104,4 @@ const ValueLoopNode = memo(({ id, data }: any) => {
 });
 
 export default ValueLoopNode;
+

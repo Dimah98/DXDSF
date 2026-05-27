@@ -80,7 +80,7 @@ const MultiScanNode = memo(({ id, data }: { id: string, data: any }) => {
                         <MousePointer size={12} />
                       </button>
                       <button 
-                        onClick={() => window.dispatchEvent(new CustomEvent('trigger-stream-picker', { detail: { nodeId: id, pickType: `item_${index}` } }))}
+                        onClick={() => data.onPickElement?.(id, `item_${index}`)}
                         className="p-1.5 hover:bg-indigo-500/20 text-muted-foreground hover:text-indigo-500 rounded transition-colors"
                         title="Вибрати через трансляцію"
                       >

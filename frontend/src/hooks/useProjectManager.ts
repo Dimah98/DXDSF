@@ -1,0 +1,133 @@
+import { useState, useCallback, useEffect, useRef } from 'react';
+import type { Node, Edge } from '@xyflow/react';
+import { attachEdgeCallbacks } from '../utils/flowUtils';
+
+interface UseProjectManagerProps {
+  API_HOST: string;
+  setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
+  attachCallbacks: (nodes: Node[]) => Node[];
+  setGlobalVariables: (vars: any) => void;
+  nodesRef: React.MutableRefObject<Node[]>;
+  edgesRef: React.MutableRefObject<Edge[]>;
+  globalVariablesRef: React.MutableRefObject<Record<string, any>>;
+  addLog: (message: string, type?: 'info' | 'error' | 'success' | 'debug', data?: any) => void;
+}
+
+export function useProjectManager({
+  API_HOST,
+  setNodes,
+  setEdges,
+  attachCallbacks,
+  setGlobalVariables,
+  nodesRef,
+  edgesRef,
+  globalVariablesRef,
+  addLog
+}: UseProjectManagerProps) {
+  const [activeProjectName, setActiveProjectName] = useState('default');
+
+  // Зберігаємо актуальну версію attachCallbacks у ref — щоб loadProject не залежав від неї
+  const attachCallbacksRef = useRef(attachCallbacks);
+  useEffect(() => { attachCallbacksRef.current = attachCallbacks; }, [attachCallbacks]);
+
+  const saveProject = useCallback(async (name: string = 'default') => {
+    try {
+      setActiveProjectName(name);
+      addLog(`Збереження проекту "${name}"...`, 'info');
+      const savedLaunch = localStorage.getItem(`sfl_launch_settings_${name}`);
+      const launchSettings = savedLaunch ? JSON.parse(savedLaunch) : { mode: 'single' };
+      const savedBrowser = localStorage.getItem(`sfl_browser_${name}`);
+      const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {};
+
+      await fetch(`${API_HOST}/api/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name, 
+          data: { 
+            nodes: nodesRef.current, 
+            edges: edgesRef.current,
+            variables: globalVariablesRef.current,
+            launchSettings,
+            browserSettings
+          } 
+        }),
+      });
+      addLog(`Проект "${name}" успішно збережено`, 'success');
+    } catch (e) {
+      addLog(`Помилка збереження: ${e}`, 'error');
+      console.error('Помилка збереження проекту:', e);
+    }
+  }, [API_HOST, nodesRef, edgesRef, globalVariablesRef, addLog]);
+
+  const loadProject = useCallback(async (name: string = 'default') => {
+    try {
+      setActiveProjectName(name);
+      addLog(`Завантаження проекту "${name}"...`, 'info');
+      const res = await fetch(`${API_HOST}/api/load?name=${encodeURIComponent(name)}`);
+      
+      if (!res.ok) {
+        throw new Error(`Сервер повернув помилку: ${res.status} ${res.statusText}`);
+      }
+
+      const text = await res.text();
+      if (!text) {
+        throw new Error('Отримано порожню відповідь від сервера');
+      }
+
+      const data = JSON.parse(text);
+      
+      if (data.variables) setGlobalVariables(data.variables);
+      
+      // Використовуємо ref для attachCallbacks — стабільна залежність
+      setNodes(attachCallbacksRef.current(data.nodes || []));
+      
+      // Відновлюємо стилі та колбеки ребер через уніфіковану утиліту
+      const rawEdges = (data.edges || []).map((edge: any) => ({
+        ...edge,
+        animated: false,
+        style: { ...edge.style, strokeWidth: 1.5, opacity: 0.4 }
+      }));
+      setEdges(attachEdgeCallbacks(rawEdges, setEdges));
+      addLog(`Проект "${name}" завантажено`, 'success');
+    } catch (e) {
+      addLog(`Помилка завантаження: ${e}`, 'error');
+      console.error('Помилка завантаження проекту:', e);
+    }
+  // attachCallbacks НЕ в залежностях — читаємо через ref, щоб уникнути нескінченного циклу
+  }, [API_HOST, setNodes, setEdges, setGlobalVariables, addLog]);
+
+  const onClear = useCallback(() => {
+    if (window.confirm('Ви впевнені, що хочете очистити проект?')) {
+      setNodes([]);
+      setEdges([]);
+    }
+  }, [setNodes, setEdges]);
+
+  // Зберігаємо loadProject у ref для стабільного useEffect
+  const loadProjectRef = useRef(loadProject);
+  useEffect(() => { loadProjectRef.current = loadProject; }, [loadProject]);
+
+  // Завантажуємо проект за замовчуванням ОДИН РАЗ при монтуванні
+  useEffect(() => {
+    const loadInitial = async () => {
+      try {
+        const projectName = localStorage.getItem('sfl_current_project') || 'default';
+        await loadProjectRef.current(projectName);
+      } catch (e) {
+        console.error('Initial load error:', e);
+      }
+    };
+    loadInitial();
+  // Порожній масив залежностей — виконується лише при монтуванні
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return {
+    activeProjectName,
+    saveProject,
+    loadProject,
+    onClear
+  };
+}

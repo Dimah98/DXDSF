@@ -1,1548 +1,1868 @@
+// Імпортуємо фреймворк Express для створення HTTP сервера
 import express from 'express';
+// Імпортуємо мідлвар CORS для дозволу крос-доменних запитів
 import cors from 'cors';
+// Імпортуємо класи WebSocketServer та WebSocket для роботи з веб-сокетами
 import { WebSocketServer, WebSocket } from 'ws';
-import { chromium, Browser, Page, BrowserContext } from 'playwright';
+// Імпортуємо модуль fs для роботи з файловою системою
 import fs from 'fs';
+// Імпортуємо модуль path для роботи зі шляхами до файлів
 import path from 'path';
-import dotenv from 'dotenv';
+// Імпортуємо модуль http для створення HTTP сервера
+import http from 'http';
+// Читаємо налаштування з файлу .env
+import 'dotenv/config';
+// Імпортуємо структурований логер
+import { Logger } from './logger';
+// Імпортуємо rate limiting middleware
+import { apiRateLimiter, wsRateLimiter, runMultipleRateLimiter } from './auth/RateLimiter';
+// Імпортуємо JWT authentication middleware
+import { authMiddleware, AuthMiddleware } from './auth/AuthMiddleware';
+// Імпортуємо CSRF protection middleware
+import { csrfMiddleware, CSRFMiddleware } from './auth/CSRFMiddleware';
+// Імпортуємо input validation service
+import { inputValidator } from './validation/InputValidator';
+// Імпортуємо обробники нод з папки nodes
+import { nodeHandlers } from './nodes';
+// Імпортуємо двигун бота BotEngine
+import { BotEngine } from './engine/BotEngine';
+// Імпортуємо методи та класи з нашого менеджера браузерів
+import { 
+  sessions,
+  getOrCreateSession,
+  setSessionActiveWs,
+  isSessionBrowserAlive,
+  closeSessionBrowser,
+  connectToBrowser,
+  injectPicker,
+  takeDebugSnapshot
+} from './browserManager';
+import { ProjectSession, ExtendedWebSocket } from './types';
+// Імпортуємо WebSocket lifecycle manager (Requirement 8)
+import { WebSocketLifecycle } from './lifecycle/WebSocketLifecycle';
+// Імпортуємо Browser lifecycle manager (Requirement 9)
+import { BrowserLifecycle } from './lifecycle/BrowserLifecycle';
+// Імпортуємо Timer manager (Requirement 10)
+import { TimerManager } from './lifecycle/TimerManager';
+// Імпортуємо Memory monitor (Requirement 11)
+import { MemoryMonitor } from './lifecycle/MemoryMonitor';
+// Імпортуємо Semaphore для concurrency control (Requirement 19)
+import { browserSemaphore } from './concurrency/Semaphore';
 
-// Завантаження секретів
-dotenv.config();
+// Створюємо логер для основного модуля
+const logger = new Logger('Server');
 
-import { Telegraf, Markup } from 'telegraf';
+// Створюємо WebSocket lifecycle manager (Requirement 8)
+const wsLifecycle = new WebSocketLifecycle((projectName: string) => sessions.get(projectName));
 
+// Створюємо Browser lifecycle manager (Requirement 9)
+const browserLifecycle = new BrowserLifecycle();
+
+// Створюємо Timer manager (Requirement 10)
+const timerManager = new TimerManager((projectName: string) => sessions.get(projectName));
+
+// Створюємо Memory monitor (Requirement 11)
+const memoryMonitor = new MemoryMonitor();
+
+// Глобальні обробники необроблених відхилень Promise та виключень (Requirement 13.2)
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  logger.error('Unhandled Promise rejection', reason instanceof Error ? reason : new Error(String(reason)), {
+    promise: String(promise)
+  });
+});
+
+process.on('uncaughtException', (err: Error) => {
+  logger.error('Uncaught exception', err);
+  // Даємо час на логування перед виходом
+  setTimeout(() => process.exit(1), 500);
+});
+
+// Створюємо додаток Express
 const app = express();
+// Дозволяємо CORS запити для нашого додатку
 app.use(cors());
-app.use(express.json());
+// Встановлюємо ліміт розміру тіла JSON запитів до 50МБ для великих проектів
+app.use(express.json({ limit: '50mb' }));
+// Дозволяємо парсинг urlencoded запитів з великим лімітом
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Налаштовуємо роздачу статичних зображень з папки images
 app.use('/api/images', express.static(path.join(__dirname, '../images')));
 
-// Конфігурація Telegram Бота
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const bot = new Telegraf(BOT_TOKEN);
+// Застосовуємо rate limiting для всіх /api/* ендпоінтів (Requirement 7.1)
+app.use('/api', apiRateLimiter);
 
-// Динамічний URL для Mini App
-let MINI_APP_URL = 'https://bot.dxdiven.com'; 
-const urlFilePath = path.join(__dirname, '../current_url.txt');
+// Створюємо HTTP сервер на базі додатку Express
+const server = http.createServer(app);
 
-const updateUrl = () => {
-  if (fs.existsSync(urlFilePath)) {
-    MINI_APP_URL = fs.readFileSync(urlFilePath, 'utf8').trim();
-    console.log(`📡 MINI_APP_URL оновлено: ${MINI_APP_URL}`);
+// Застосовуємо rate limiting для WebSocket підключень через HTTP upgrade (Requirement 7.2)
+// express-rate-limit працює з Express req/res, тому перехоплюємо upgrade запит
+server.on('upgrade', (req: http.IncomingMessage, socket: any, head: Buffer) => {
+  // Перевіряємо чи це запит до /ws
+  const url = req.url || '';
+  if (!url.startsWith('/ws')) return;
+
+  // Створюємо mock Express req/res для перевірки rate limit
+  const mockReq = Object.assign(req, {
+    ip: (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ||
+        (req.socket as any)?.remoteAddress || 'unknown',
+    method: 'GET',
+    path: '/ws',
+    route: undefined,
+    app: app,
+    // Expose user if JWT was already parsed (not applicable at upgrade stage)
+    user: undefined,
+  }) as any;
+
+  const mockRes = {
+    status: (code: number) => ({
+      json: (body: any) => {
+        // Rate limit exceeded — відхиляємо WebSocket підключення
+        socket.write(
+          `HTTP/1.1 ${code} Too Many Requests\r\n` +
+          'Content-Type: application/json\r\n' +
+          'Connection: close\r\n' +
+          `X-RateLimit-Limit: 10\r\n` +
+          '\r\n' +
+          JSON.stringify(body)
+        );
+        socket.destroy();
+      },
+    }),
+    set: () => mockRes,
+    setHeader: () => mockRes,
+    getHeader: () => undefined,
+    removeHeader: () => mockRes,
+    end: () => {},
+    json: (body: any) => {
+      socket.write(
+        'HTTP/1.1 429 Too Many Requests\r\n' +
+        'Content-Type: application/json\r\n' +
+        'Connection: close\r\n' +
+        '\r\n' +
+        JSON.stringify(body)
+      );
+      socket.destroy();
+    },
+    headersSent: false,
+  } as any;
+
+  wsRateLimiter(mockReq, mockRes, () => {
+    // Rate limit passed — WebSocket server handles the upgrade normally
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req);
+    });
+  });
+});
+// Створюємо WebSocket сервер без автоматичного прив'язування до HTTP сервера
+// (upgrade обробляється вручну для підтримки rate limiting)
+const wss = new WebSocketServer({ noServer: true });
+// Отримуємо HTTP порт з .env або використовуємо порт 3001
+const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3001');
+
+// Визначаємо шлях до папки з проектами
+const PROJECTS_DIR = path.join(__dirname, '../projects');
+// Якщо папка з проектами не існує, створюємо її
+try {
+  if (!fs.existsSync(PROJECTS_DIR)) {
+    fs.mkdirSync(PROJECTS_DIR, { recursive: true });
+    logger.info('Created projects directory', { path: PROJECTS_DIR });
+  }
+} catch (err) {
+  logger.error('Failed to create projects directory', err instanceof Error ? err : new Error(String(err)), { path: PROJECTS_DIR });
+  throw new Error(`Cannot create projects directory: ${err instanceof Error ? err.message : String(err)}`);
+}
+// Визначаємо шлях до резервного файлу збереження save.json
+const SAVE_PATH = path.join(__dirname, '../save.json');
+
+// Requirement 24: Health check endpoint (no authentication required)
+app.get('/health', (req, res) => {
+  try {
+    // Збираємо інформацію про стан системи
+    const memoryUsage = process.memoryUsage();
+    const uptime = process.uptime();
+    
+    // Підраховуємо активні сесії та браузери
+    let activeSessionCount = 0;
+    let activeBrowserCount = 0;
+    
+    sessions.forEach((session) => {
+      activeSessionCount++;
+      if (session.page && session.isBotRunning) {
+        activeBrowserCount++;
+      }
+    });
+    
+    // Формуємо відповідь
+    const healthResponse = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor(uptime),
+      memory: {
+        heapUsed: Math.floor(memoryUsage.heapUsed / 1024 / 1024), // MB
+        heapTotal: Math.floor(memoryUsage.heapTotal / 1024 / 1024), // MB
+        rss: Math.floor(memoryUsage.rss / 1024 / 1024), // MB
+        external: Math.floor(memoryUsage.external / 1024 / 1024) // MB
+      },
+      activeSessionCount,
+      activeBrowserCount
+    };
+    
+    res.status(200).json(healthResponse);
+  } catch (err) {
+    logger.error('Health check error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ status: 'error', message: 'Health check failed' });
+  }
+});
+
+// Створюємо роут для отримання списку імен всіх збережених проектів
+// Requirement 1: JWT authentication for /api/projects/*
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.get('/api/projects', authMiddleware, async (req, res) => {
+  try {
+    // Читаємо файли в папці проектів і фільтруємо лише файли .json
+    const files = await fs.promises.readdir(PROJECTS_DIR);
+    const projectFiles = files.filter(f => f.endsWith('.json') && !f.endsWith('_stats.json'));
+    // Повертаємо список імен проектів без розширення .json
+    res.json(projectFiles.map(f => f.replace('.json', '')));
+  } catch (err: any) { 
+    // У разі помилки відправляємо статус 500 та повідомлення
+    logger.error('Failed to read projects directory', err instanceof Error ? err : new Error(String(err)), { path: PROJECTS_DIR });
+    res.status(500).json({ success: false, error: 'Failed to load project list. Please try again later.' }); 
+  }
+});
+
+// Створюємо роут для завантаження проекту за іменем
+// Requirement 1: JWT authentication for /api/projects/*
+// Requirement 3: Input validation for project names
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.get('/api/load', authMiddleware, async (req, res) => {
+  try {
+    // Отримуємо ім'я проекту з query-параметрів або використовуємо default
+    const name = req.query.name as string || 'default';
+    
+    // Валідуємо назву проекту (Requirement 3)
+    const validation = inputValidator.validateProjectName(name);
+    if (!validation.isValid) {
+      logger.warn('Load project failed: invalid project name', { name });
+      return res.status(400).json({ success: false, error: validation.error });
+    }
+    
+    // Отримуємо або створюємо сесію для цього проекту
+    const session = getOrCreateSession(name);
+    // Формуємо шлях до файлу проекту
+    const projectPath = path.join(PROJECTS_DIR, `${name}.json`);
+    
+    // Визначаємо, який файл читати (проект або резервний save.json)
+    let pathToRead: string | null = null;
+    try {
+      if (fs.existsSync(projectPath)) {
+        pathToRead = projectPath;
+      } else if (fs.existsSync(SAVE_PATH)) {
+        pathToRead = SAVE_PATH;
+      }
+    } catch (err) {
+      logger.error('Failed to check file existence', err instanceof Error ? err : new Error(String(err)), { projectPath, savePath: SAVE_PATH });
+    }
+    
+    // Якщо файлів немає, повертаємо порожню структуру
+    if (!pathToRead) {
+      logger.info('No project file found, returning empty structure', { projectName: name });
+      return res.json({ nodes: [], edges: [], variables: {} });
+    }
+    
+    // Читаємо дані проекту з файлу
+    let projectData: any;
+    try {
+      const fileContent = await fs.promises.readFile(pathToRead, 'utf-8');
+      projectData = JSON.parse(fileContent);
+    } catch (parseErr) {
+      logger.error(`Failed to read or parse project file`, parseErr instanceof Error ? parseErr : new Error(String(parseErr)), { path: pathToRead });
+      return res.status(500).json({ success: false, error: 'Failed to load project. The project file may be corrupted.' });
+    }
+    
+    // Отримуємо збережені змінні з даних проекту
+    const rawVars = projectData.variables;
+    // Перевіряємо чи змінні є валідним об'єктом
+    if (rawVars && typeof rawVars === 'object') {
+      // Підтримуємо старий формат збереження
+      if ('lastProject' in rawVars && 'variables' in rawVars) {
+        session.globalVariables = rawVars.variables || {};
+      } else {
+        session.globalVariables = rawVars;
+      }
+      // Оновлюємо змінні у WebSocket сесії цього конкретного проекту
+      const msg = JSON.stringify({ type: 'GLOBAL_VARIABLES_UPDATE', variables: session.globalVariables });
+      if (session.activeWs && session.activeWs.readyState === 1) {
+        session.activeWs.send(msg);
+      }
+    }
+    
+    // Повертаємо дані проекту клієнту
+    res.json(projectData);
+  } catch (err: any) { 
+    // У разі помилки відправляємо статус 500
+    logger.error('Load project error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to load project. Please try again later.' }); 
+  }
+});
+
+// Створюємо роут для збереження проекту
+// Requirement 1: JWT authentication for /api/projects/*
+// Requirement 2: CSRF protection for POST requests
+// Requirement 3: Input validation for project names
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.post('/api/save', authMiddleware, csrfMiddleware, async (req, res) => {
+  try {
+    // Отримуємо ім'я проекту та дані з тіла запиту
+    const { name, data } = req.body;
+    // Якщо ім'я не вказано, повертаємо помилку 400
+    if (!name) return res.status(400).json({ success: false, error: 'Name is required' });
+    
+    // Валідуємо назву проекту (Requirement 3)
+    const validation = inputValidator.validateProjectName(name);
+    if (!validation.isValid) {
+      logger.warn('Save project failed: invalid project name', { name });
+      return res.status(400).json({ success: false, error: validation.error });
+    }
+    
+    // Отримуємо або створюємо сесію для проекту
+    const session = getOrCreateSession(name);
+    
+    // Валідуємо структуру проекту
+    if (!data || typeof data !== 'object') {
+      return res.status(400).json({ success: false, error: 'Invalid project data structure' });
+    }
+    
+    // Перевіряємо обов'язкові поля
+    if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+      return res.status(400).json({ success: false, error: 'Project must contain nodes and edges arrays' });
+    }
+    
+    // Беремо змінні з запиту або з поточного стану сесії
+    const vars = (data.variables && typeof data.variables === 'object' && Object.keys(data.variables).length > 0)
+      ? data.variables 
+      : session.globalVariables;
+    
+    // Оновлюємо змінні у сесії
+    if (data.variables && typeof data.variables === 'object') {
+      session.globalVariables = { ...session.globalVariables, ...data.variables };
+    }
+    
+    // Формуємо шлях для збереження файлу
+    const filePath = path.join(PROJECTS_DIR, `${name}.json`);
+
+    // Створюємо об'єкт для зчитування існуючих налаштувань з диска
+    let existingSettings: any = {};
+    try {
+      // Перевіряємо чи існує файл проекту на диску
+      if (fs.existsSync(filePath)) {
+        // Зчитуємо та розпаршуємо існуючі дані проекту
+        const existingContent = await fs.promises.readFile(filePath, 'utf-8');
+        existingSettings = JSON.parse(existingContent);
+      }
+    } catch (e) {
+      // Ігноруємо можливі помилки при зчитуванні файлу
+      logger.warn(`Failed to read existing project file`, { projectName: name, error: String(e) });
+    }
+
+    // Отримуємо налаштування запуску: пріоритетно з запиту, інакше з диска, інакше дефолтний об'єкт
+    const launchSettings = data.launchSettings || existingSettings.launchSettings || {};
+    // Отримуємо налаштування браузера: пріоритетно з запиту, інакше з диска, інакше дефолтний об'єкт
+    const browserSettings = data.browserSettings || existingSettings.browserSettings || {};
+
+    // Готуємо структуру для запису у файл
+    const projectData = {
+      nodes: data.nodes || [],
+      edges: data.edges || [],
+      variables: vars,
+      launchSettings,
+      browserSettings,
+      updatedAt: Date.now()
+    };
+    
+    // Записуємо JSON дані проекту у файл
+    try {
+      await fs.promises.writeFile(filePath, JSON.stringify(projectData, null, 2), 'utf-8');
+      logger.info(`Project saved successfully`, { projectName: name, variableCount: Object.keys(vars).length });
+    } catch (writeErr) {
+      logger.error('Failed to write project file', writeErr instanceof Error ? writeErr : new Error(String(writeErr)), { path: filePath });
+      return res.status(500).json({ success: false, error: 'Failed to save project. Please try again.' });
+    }
+    
+    // Записуємо резервну копію у save.json
+    try {
+      await fs.promises.writeFile(SAVE_PATH, JSON.stringify(projectData, null, 2), 'utf-8');
+    } catch (backupErr) {
+      // Не критична помилка - логуємо але продовжуємо
+      logger.warn('Failed to write backup file', { path: SAVE_PATH, error: String(backupErr) });
+    }
+    
+    // Повертаємо успішний статус клієнту
+    res.json({ success: true });
+  } catch (err: any) { 
+    // У разі помилки відправляємо статус 500
+    logger.error('Save project error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to save project. Please try again later.' }); 
+  }
+});
+
+// Створюємо роут для видалення проекту за його назвою
+// Requirement 1: JWT authentication for /api/projects/*
+// Requirement 2: CSRF protection for DELETE requests
+// Requirement 3: Input validation for project names
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.delete('/api/projects/:name', authMiddleware, csrfMiddleware, async (req, res) => {
+  try {
+    // Отримуємо назву проекту з параметрів роуту
+    const name = req.params.name;
+    
+    // Валідуємо назву проекту (Requirement 3)
+    const validation = inputValidator.validateProjectName(name);
+    if (!validation.isValid) {
+      logger.warn('Delete project failed: invalid project name', { name });
+      return res.status(400).json({ success: false, error: validation.error });
+    }
+    
+    // Формуємо шлях до файлу проекту
+    const filePath = path.join(PROJECTS_DIR, `${name}.json`);
+    
+    // Перевіряємо чи існує файл проекту
+    let fileExists = false;
+    try {
+      fileExists = fs.existsSync(filePath);
+    } catch (err) {
+      logger.error('Failed to check project file existence', err instanceof Error ? err : new Error(String(err)), { path: filePath });
+      return res.status(500).json({ success: false, error: 'Failed to check project existence. Please try again.' });
+    }
+    
+    // Якщо файл проекту не існує, повертаємо помилку 404
+    if (!fileExists) {
+      return res.status(404).json({ success: false, error: 'Project not found' });
+    }
+    
+    // Видаляємо файл проекту
+    try {
+      await fs.promises.unlink(filePath);
+      logger.info('Project file deleted', { projectName: name });
+    } catch (deleteErr) {
+      logger.error('Failed to delete project file', deleteErr instanceof Error ? deleteErr : new Error(String(deleteErr)), { path: filePath });
+      return res.status(500).json({ success: false, error: 'Failed to delete project. Please try again.' });
+    }
+    
+    // Видаляємо також файл статистики проекту, якщо він є
+    const statsPath = path.join(PROJECTS_DIR, `${name}_stats.json`);
+    try {
+      if (fs.existsSync(statsPath)) {
+        await fs.promises.unlink(statsPath);
+        logger.info('Project stats file deleted', { projectName: name });
+      }
+    } catch (statsErr) {
+      // Не критична помилка - логуємо але продовжуємо
+      logger.warn('Failed to delete stats file', { path: statsPath, error: String(statsErr) });
+    }
+    
+    // Видаляємо сесію проекту з нашої карти сесій
+    sessions.delete(name);
+
+    logger.info('Project deleted successfully', { projectName: name });
+    // Повертаємо статус успіху
+    res.json({ success: true });
+  } catch (err: any) { 
+    // У разі помилки відправляємо статус 500
+    logger.error('Delete project error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to delete project. Please try again later.' }); 
+  }
+});
+
+// Додаємо HTTP роут для отримання змінних оточення за замовчуванням
+// Requirement 1: JWT authentication for /api/*
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.get('/api/browser-env', authMiddleware, (req, res) => {
+  try {
+    // Повертаємо дефолтні налаштування профілю з файлу .env
+    res.json({
+      defaultProfile: process.env.ITBROWSER_PROFILE || 'Default',
+      defaultProfileDir: process.env.ITBROWSER_PROFILE_DIR || 'Default'
+    });
+  } catch (err: any) {
+    // Відправляємо помилку 500 у разі збою
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Додаємо HTTP роут для отримання списку файлів у папці images
+// Requirement 1: JWT authentication for /api/*
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.get('/api/images', authMiddleware, async (req, res) => {
+  try {
+    // Визначаємо шлях до папки зображень
+    const imagesDir = path.join(__dirname, '../images');
+    
+    // Якщо папка не існує, створюємо її
+    try {
+      if (!fs.existsSync(imagesDir)) {
+        await fs.promises.mkdir(imagesDir, { recursive: true });
+        logger.info('Created images directory', { path: imagesDir });
+      }
+    } catch (mkdirErr) {
+      logger.error('Failed to create images directory', mkdirErr instanceof Error ? mkdirErr : new Error(String(mkdirErr)), { path: imagesDir });
+      return res.status(500).json({ success: false, error: 'Failed to access images directory.' });
+    }
+    
+    // Повертаємо список файлів, що мають розширення png, jpg або jpeg
+    try {
+      const files = await fs.promises.readdir(imagesDir);
+      const imageFiles = files.filter(f => /\.(png|jpg|jpeg)$/i.test(f));
+      res.json(imageFiles);
+    } catch (readErr) {
+      logger.error('Failed to read images directory', readErr instanceof Error ? readErr : new Error(String(readErr)), { path: imagesDir });
+      return res.status(500).json({ success: false, error: 'Failed to load images list.' });
+    }
+  } catch (err: any) { 
+    // Відправляємо помилку 500 у разі збою
+    logger.error('Images endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to process images request.' }); 
+  }
+});
+
+// Роут для отримання глобальної статистики (по всім проектам)
+// Requirement 1: JWT authentication for /api/*
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.get('/api/global-stats', authMiddleware, async (req, res) => {
+  try {
+    // Читаємо список файлів у папці проектів (async)
+    let files: string[];
+    try {
+      files = await fs.promises.readdir(PROJECTS_DIR);
+    } catch (readErr) {
+      logger.error('Failed to read projects directory for global stats', readErr instanceof Error ? readErr : new Error(String(readErr)), { path: PROJECTS_DIR });
+      return res.status(500).json({ success: false, error: 'Failed to read projects directory.' });
+    }
+    
+    const globalStats: { projectName: string; stats: any[] }[] = [];
+    
+    for (const file of files) {
+      if (file.endsWith('_stats.json')) {
+        const projectName = file.replace('_stats.json', '');
+        const statPath = path.join(PROJECTS_DIR, file);
+        try {
+          const fileContent = await fs.promises.readFile(statPath, 'utf-8');
+          const raw = JSON.parse(fileContent);
+          const stats = Array.isArray(raw) ? raw : [];
+          globalStats.push({ projectName, stats });
+        } catch (readErr) {
+          // Не критична помилка - логуємо та продовжуємо
+          logger.warn(`Failed to read or parse stats file for ${projectName}`, { path: statPath, error: String(readErr) });
+        }
+      }
+    }
+    res.json(globalStats);
+  } catch (err: any) {
+    logger.error('Global stats endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to load global statistics. Please try again later.' });
+  }
+});
+
+// Додаємо роут для отримання файлу статистики конкретного проекту
+// Requirement 1: JWT authentication for /api/*
+// Requirement 3: Input validation for project names
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.get('/api/stats/:name', authMiddleware, async (req, res) => {
+  try {
+    // Отримуємо назву проекту з параметрів запиту
+    const name = req.params.name;
+    
+    // Валідуємо назву проекту (Requirement 3)
+    const validation = inputValidator.validateProjectName(name);
+    if (!validation.isValid) {
+      logger.warn('Stats endpoint failed: invalid project name', { name });
+      return res.status(400).json({ success: false, error: validation.error });
+    }
+    
+    // Формуємо шлях до файлу статистики
+    const statPath = path.join(PROJECTS_DIR, `${name}_stats.json`);
+    
+    // Перевіряємо чи існує файл
+    let fileExists = false;
+    try {
+      await fs.promises.access(statPath);
+      fileExists = true;
+    } catch (accessErr) {
+      // Файл не існує - це нормально, повертаємо порожній масив
+      fileExists = false;
+    }
+    
+    // Якщо файл існує, читаємо його і повертаємо вміст
+    if (fileExists) {
+      try {
+        const fileContent = await fs.promises.readFile(statPath, 'utf-8');
+        const raw = JSON.parse(fileContent);
+        // Перевіряємо що отримали масив, а не об'єкт (захист від пошкоджених файлів)
+        const stats = Array.isArray(raw) ? raw : [];
+        res.json(stats);
+      } catch (readErr) {
+        logger.error(`Failed to read or parse stats file for ${name}`, readErr instanceof Error ? readErr : new Error(String(readErr)), { path: statPath });
+        return res.status(500).json({ success: false, error: 'Failed to load project statistics.' });
+      }
+    } else {
+      // Якщо файл не існує — повертаємо порожній масив
+      res.json([]);
+    }
+  } catch (err: any) { 
+    // Відправляємо помилку 500 у разі збою
+    logger.error('Stats endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to process statistics request.' }); 
+  }
+});
+
+// Роут для отримання поточного статусу роботи та активних нод усіх сесій проектів
+// Requirement 1: JWT authentication for /api/projects/*
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.get('/api/projects/status', authMiddleware, (req, res) => {
+  try {
+    // Створюємо об'єкт для зведення статусів
+    const statusMap: Record<string, { isRunning: boolean; activeNodeTitle: string | null }> = {}; // Збереження пар: Назва проекту -> Стан роботи
+    
+    // Обходимо всі сесії в нашій карті сесій
+    sessions.forEach((session, projectName) => {
+      statusMap[projectName] = {
+        isRunning: session.isBotRunning, // Прапорець чи запущений бот
+        activeNodeTitle: session.lastActiveNodeTitle // Назва останньої активної ноди
+      };
+    });
+    
+    // Відправляємо сформовану карту статусів клієнту
+    res.json(statusMap); // Повертаємо JSON відповідь
+  } catch (err: any) {
+    // У разі помилки відправляємо статус 500
+    logger.error('Projects status endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to retrieve project status. Please try again later.' }); // Повертаємо опис помилки
+  }
+});
+
+// Роут для одночасного масового запуску кількох вибраних проектів у фоновому режимі
+// Requirement 1: JWT authentication for /api/projects/*
+// Requirement 2: CSRF protection for POST requests
+// Requirement 3: Input validation for project names
+// Застосовуємо суворіший rate limiter для цього ендпоінту (Requirement 7.3: 5 req/15min)
+app.post('/api/projects/run-multiple', authMiddleware, csrfMiddleware, runMultipleRateLimiter, async (req, res) => {
+  try {
+    // Отримуємо список назв проектів та їх налаштування браузера з тіла запиту
+    // projectSettings — об'єкт вигляду { [назваПроекту]: browserSettings } з localStorage фронтенду
+    const { projectNames, projectSettings } = req.body; // Очікуємо масив рядків та об'єкт налаштувань
+    
+    // Перевіряємо чи є вхідні дані масивом
+    if (!projectNames || !Array.isArray(projectNames)) {
+      return res.status(400).json({ success: false, error: 'projectNames must be an array of strings' }); // Помилка 400
+    }
+
+    // Валідуємо кожну назву проекту (Requirement 3)
+    for (const name of projectNames) {
+      const validation = inputValidator.validateProjectName(name);
+      if (!validation.isValid) {
+        logger.warn('Run-multiple failed: invalid project name', { name });
+        return res.status(400).json({ success: false, error: `Invalid project name: ${name}` });
+      }
+    }
+
+    // Створюємо об'єкт для збереження результатів запуску по кожному проекту
+    const results: Record<string, boolean> = {}; // Карта: Назва -> Статус запуску
+    
+    // Пробігаємось по кожному проекту та запускаємо його
+    for (const name of projectNames) {
+      // Отримуємо налаштування браузера для цього проекту з переданого об'єкту
+      // Якщо фронтенд надіслав налаштування — використовуємо їх, інакше undefined (буде зчитано з файлу)
+      const overrideSettings = projectSettings && projectSettings[name] ? projectSettings[name] : undefined;
+      // Запускаємо проект, передаючи налаштування профілю з localStorage фронтенду
+      results[name] = await startProject(name, overrideSettings);
+    }
+
+    // Повертаємо успішну відповідь разом із результатами запуску
+    res.json({ success: true, results }); // Повертаємо зведений звіт
+  } catch (err: any) {
+    // У разі помилки відправляємо статус 500
+    logger.error('Run-multiple endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to run multiple projects. Please try again later.' }); // Повертаємо опис помилки
+  }
+});
+
+// Роут для одночасної масової зупинки кількох вибраних проектів
+// Requirement 1: JWT authentication for /api/projects/*
+// Requirement 2: CSRF protection for POST requests
+// Requirement 3: Input validation for project names
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.post('/api/projects/stop-multiple', authMiddleware, csrfMiddleware, async (req, res) => {
+  try {
+    // Отримуємо список назв проектів з тіла запиту
+    const { projectNames } = req.body; // Очікуємо масив рядків
+    
+    // Перевіряємо чи є вхідні дані масивом
+    if (!projectNames || !Array.isArray(projectNames)) {
+      return res.status(400).json({ success: false, error: 'projectNames must be an array of strings' }); // Помилка 400
+    }
+
+    // Валідуємо кожну назву проекту (Requirement 3)
+    for (const name of projectNames) {
+      const validation = inputValidator.validateProjectName(name);
+      if (!validation.isValid) {
+        logger.warn('Stop-multiple failed: invalid project name', { name });
+        return res.status(400).json({ success: false, error: `Invalid project name: ${name}` });
+      }
+    }
+
+    // Створюємо об'єкт для збереження результатів зупинки по кожному проекту
+    const results: Record<string, boolean> = {}; // Карта: Назва -> Статус зупинки
+    
+    // Пробігаємось по кожному проекту та зупиняємо його
+    for (const name of projectNames) {
+      results[name] = await stopProject(name); // Зупиняємо проект та записуємо true/false результату
+    }
+
+    // Повертаємо успішну відповідь разом із результатами зупинки
+    res.json({ success: true, results }); // Повертаємо зведений звіт
+  } catch (err: any) {
+    // У разі помилки відправляємо статус 500
+    logger.error('Stop-multiple endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to stop multiple projects. Please try again later.' }); // Повертаємо опис помилки
+  }
+});
+
+
+// Створюємо шлях для авто-збереження глобальних змінних за замовчуванням
+const STATE_PATH = path.join(__dirname, '../state.json');
+
+// Допоміжна функція для надсилання повідомлень логування у веб-сокет клієнта сесії
+const logToClient = (session: ProjectSession, message: string, type: 'info' | 'error' | 'success' | 'debug' = 'info') => {
+  // Якщо веб-сокет з'єднання активне, надсилаємо повідомлення
+  if (session.activeWs && session.activeWs.readyState === 1) {
+    session.activeWs.send(JSON.stringify({ type: 'CONSOLE_LOG', message, logType: type }));
   }
 };
 
-updateUrl();
-fs.watchFile(urlFilePath, updateUrl);
-
-bot.start((ctx) => {
-  ctx.reply('🌻 Вітаємо у Sunflower Land Bot Constructor!', Markup.keyboard([
-    [Markup.button.webApp('Відкрити Конструктор', MINI_APP_URL)]
-  ]).resize());
-});
-
-bot.launch().then(() => console.log('🤖 Telegram Bot запущено!'));
-
-const PROJECTS_DIR = path.join(__dirname, '../projects');
-if (!fs.existsSync(PROJECTS_DIR)) fs.mkdirSync(PROJECTS_DIR);
-
-const SAVE_PATH = path.join(__dirname, '../save.json');
-
-// Отримання списку проектів
-app.get('/api/projects', (req, res) => {
-  try {
-    const files = fs.readdirSync(PROJECTS_DIR).filter(f => f.endsWith('.json'));
-    const projects = files.map(f => f.replace('.json', ''));
-    res.json(projects);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+// Допоміжна функція для надсилання стану виконання ноди клієнту сесії
+const broadcastNodeExecuting = (session: ProjectSession, nodeId: string, nodeTitle?: string) => {
+  // Зберігаємо останню активну ноду в об'єкті сесії
+  session.lastActiveNodeId = nodeId;
+  // Зберігаємо назву останньої активної ноди в об'єкті сесії для відображення статусу
+  session.lastActiveNodeTitle = nodeTitle || null; // Якщо заголовок передано, зберігаємо його, інакше null
+  // Готуємо повідомлення про виконання ноди
+  const msg = JSON.stringify({ type: 'NODE_EXECUTING', nodeId, nodeTitle });
+  // Надсилаємо його тільки нашому клієнту веб-сокета
+  if (session.activeWs && session.activeWs.readyState === 1) {
+    session.activeWs.send(msg);
   }
-});
+};
 
-// Збереження проекту (за назвою або дефолт)
-app.post('/api/save', (req, res) => {
-  try {
-    const { name = 'default', data } = req.body;
-    const projectPath = path.join(PROJECTS_DIR, `${name}.json`);
-    fs.writeFileSync(projectPath, JSON.stringify(data, null, 2));
-    // Також оновлюємо основний save.json для сумісності
-    fs.writeFileSync(SAVE_PATH, JSON.stringify(data, null, 2));
-    res.json({ success: true, name });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// Черга запису для серіалізації операцій запису файлів проектів (запобігає пошкодженню JSON при паралельних записах)
+const writeQueues = new Map<string, Promise<void>>();
 
-// Завантаження конкретного проекту
-app.get('/api/load', (req, res) => {
-  try {
-    const name = req.query.name as string || 'default';
-    const projectPath = path.join(PROJECTS_DIR, `${name}.json`);
-    
-    let pathToRead = projectPath;
-    if (!fs.existsSync(projectPath)) {
-      if (fs.existsSync(SAVE_PATH)) pathToRead = SAVE_PATH;
-      else return res.json({ nodes: [], edges: [] });
-    }
-
-    const data = fs.readFileSync(pathToRead, 'utf-8');
-    res.json(JSON.parse(data));
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Видалення проекту
-app.delete('/api/projects/:name', (req, res) => {
-  try {
-    const projectPath = path.join(PROJECTS_DIR, `${req.params.name}.json`);
-    if (fs.existsSync(projectPath)) {
-      fs.unlinkSync(projectPath);
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ error: 'Проект не знайдено' });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Отримання списку картинок
-app.get('/api/images', (req, res) => {
-  try {
-    const imagesDir = path.join(__dirname, '../images');
-    if (!fs.existsSync(imagesDir)) {
-      fs.mkdirSync(imagesDir);
-      return res.json([]);
-    }
-    const files = fs.readdirSync(imagesDir).filter(f => f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg'));
-    res.json(files);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-const HTTP_PORT = 3001;
-const WS_PORT = 3002;
-
-// Стан Playwright — всі обнуляються при закритті браузера
-let browser: Browser | null = null;
-let context: BrowserContext | null = null;
-let page: Page | null = null;
-
-// Глобальне посилання на активне WS з'єднання для пікера
-let activeWs: WebSocket | null = null;
-
-// Перевірка чи браузер та сторінка живі
-function isBrowserAlive(): boolean {
-  try {
-    if (!browser || !context || !page) return false;
-    if (!browser.isConnected()) return false;
-    // Перевіряємо чи сторінка ще відкрита (не закрита користувачем)
-    const pages = context.pages();
-    return pages.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-// Скидаємо стан після закриття
-function resetBrowserState() {
-  browser = null;
-  context = null;
-  page = null;
-  console.log('Стан браузера скинуто — буде перезапущено при наступному запиті.');
-}
-
-// Точні шляхи до ITBrowser та профілю Dimah
-const CHROME_EXE = 'D:\\VideoM\\TelegramVideoEditor\\itbrowser\\Chrome-bin\\chrome.exe';
-const USER_DATA = 'C:\\Users\\Dima\\itbrowser\\userData\\20260506212424';
-const DIMAH_PROFILE = 'C:\\Users\\Dima\\itbrowser\\fingerprint\\20260506212424.json';
-
-async function connectToBrowser(): Promise<Page> {
-  // Перевіряємо, чи браузер ще живий
-  if (browser) {
-    try {
-      await browser.version(); // Швидка перевірка зв'язку
-    } catch {
-      console.log('Браузер було закрито, скидаємо стан...');
-      browser = null;
-      context = null;
-      page = null;
-    }
-  }
-
-  // 1. Спочатку пробуємо підключитися до вже запущеного (CDP)
-  if (!browser) {
-    try {
-      browser = await chromium.connectOverCDP('http://localhost:9222');
-      console.log('Підключено до існуючого ITBrowser через CDP');
-    } catch {
-      console.log('Запуск профілю Dimah...');
-      
-      try {
-        // Використовуємо launchPersistentContext для роботи з існуючими даними користувача
-        context = await chromium.launchPersistentContext(USER_DATA, {
-          executablePath: CHROME_EXE,
-          headless: false,
-          args: [
-            `--itbrowser=${DIMAH_PROFILE}`,
-            '--remote-debugging-port=9222',
-            '--profile-directory=20260506212424',
-            '--no-first-run',
-            '--no-default-browser-check',
-            '--disable-blink-features=AutomationControlled'
-          ]
-        });
-        browser = context.browser() as any; // Отримуємо посилання на браузер
-        console.log('Профіль Dimah успішно запустився!');
-      } catch (err: any) {
-        throw new Error(`Не вдалося запустити браузер: ${err.message}`);
-      }
-    }
-  }
-
-  // Налаштовуємо контекст та сторінку
-  if (!context) {
-    if (!browser) throw new Error("Браузер не ініціалізовано");
-    const contexts = browser.contexts();
-    context = contexts[0] || await browser.newContext();
-  }
-  
-  // Додаємо Stealth-скрипт для обходу детекції ботів
-  await context.addInitScript(() => {
-    // Видаляємо navigator.webdriver
-    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    
-    // Підміняємо плагіни
-    Object.defineProperty(navigator, 'languages', { get: () => ['uk-UA', 'uk', 'en-US', 'en'] });
-    
-    // Підміняємо WebGL
-    const originalGetContext = HTMLCanvasElement.prototype.getContext;
-    (HTMLCanvasElement.prototype as any).getContext = function(type: string, ...args: any[]) {
-      const ctx = (originalGetContext as any).apply(this, [type, ...args]);
-      if (ctx && (type === 'webgl' || type === 'experimental-webgl')) {
-        const origGetParameter = ctx.getParameter;
-        ctx.getParameter = function(param: number) {
-          if (param === 37445) return 'Intel Inc.';
-          if (param === 37446) return 'Intel(R) Iris(R) Xe Graphics';
-          return origGetParameter.apply(this, [param]);
-        };
-      }
-      return ctx;
-    };
+// Допоміжна функція для серіалізації записів файлів проекту (запобігає race condition при паралельних записах)
+const enqueueWrite = (projectName: string, fn: () => Promise<void>): void => {
+  const current = writeQueues.get(projectName) || Promise.resolve();
+  const next = current.then(fn).catch(err => {
+    logger.error(`Write queue error for project ${projectName}`, err instanceof Error ? err : new Error(String(err)));
   });
+  writeQueues.set(projectName, next);
+};
 
-  // Шукаємо вже відкриту вкладку Sunflower Land
-  const pages = context.pages();
-  let gamePage = pages.find(p => p.url().includes('sunflower-land'));
-  
-  if (!gamePage) {
-    // Якщо відкритих вкладок немає взагалі — створюємо нову
-    if (pages.length === 0) {
-      gamePage = await context.newPage();
-    } else {
-      gamePage = pages[0];
-    }
-    
-    console.log('Перехід до гри у профілі...');
-    await gamePage.goto('https://sunflower-land.com/play', { waitUntil: 'networkidle' }).catch(e => console.error('Goto error:', e.message));
+// Функція для збереження змінних проекту та надсилання оновлень клієнту
+const broadcastVariables = (session: ProjectSession) => {
+  // Надсилаємо оновлені змінні нашому клієнту
+  const msg = JSON.stringify({ type: 'GLOBAL_VARIABLES_UPDATE', variables: session.globalVariables });
+  if (session.activeWs && session.activeWs.readyState === 1) {
+    session.activeWs.send(msg);
   }
-  
-  page = gamePage;
-  try { 
-    // Встановлюємо розмір який ідеально підходить під ігрове вікно на скріншоті
-    const dimensions = { width: 960, height: 540 };
-    console.log(`Фіксація розміру вікна: ${dimensions.width}x${dimensions.height}`);
-    
-    await page.setViewportSize(dimensions);
-    await page.bringToFront(); 
-  } catch (e: any) {
-    console.error('Помилка при визначенні розміру вікна:', e.message);
-  }
-  return page;
-}
 
-// Розумна пауза, яку можна перервати
+  // Requirement 11: Check and limit nodeRuntimeState size
+  if (session.nodeRuntimeState) {
+    memoryMonitor.limitNodeRuntimeState(session.nodeRuntimeState);
+  }
+
+  // Requirement 10: Clear existing timer using TimerManager
+  const timerKey = `${session.projectName}:autoSave`;
+  timerManager.clearTimer(timerKey);
+
+  // Запускаємо новий таймер на збереження через 500мс
+  const timer = setTimeout(() => {
+    enqueueWrite(session.projectName, async () => {
+      // Формуємо шлях до файлу проекту
+      const projectPath = path.join(PROJECTS_DIR, `${session.projectName}.json`);
+      // Якщо файл існує, оновлюємо в ньому змінні
+      let fileExists = false;
+      try {
+        fileExists = fs.existsSync(projectPath);
+      } catch (checkErr) {
+        logger.error(`Failed to check project file existence for variable save: ${session.projectName}`, checkErr instanceof Error ? checkErr : new Error(String(checkErr)), { path: projectPath });
+        return;
+      }
+      
+      if (fileExists) {
+        try {
+          const raw = await fs.promises.readFile(projectPath, 'utf-8');
+          let projectData: any;
+          try {
+            projectData = JSON.parse(raw);
+          } catch (parseErr) {
+            logger.error(`Failed to parse project file for variable save: ${session.projectName}`, parseErr instanceof Error ? parseErr : new Error(String(parseErr)));
+            return;
+          }
+          projectData.variables = session.globalVariables;
+          await fs.promises.writeFile(projectPath, JSON.stringify(projectData, null, 2));
+        } catch (fileErr) {
+          logger.error(`Failed to save variables for project ${session.projectName}`, fileErr instanceof Error ? fileErr : new Error(String(fileErr)));
+        }
+      }
+    });
+  }, 500);
+
+  // Requirement 10: Register timer with TimerManager
+  timerManager.registerTimer(timerKey, timer);
+};
+
+// Функція плавного очікування, яка перевіряє чи бот сесії досі запущений
 async function smartSleep(ms: number, ws: WebSocket) {
+  // Крок перевірки у мілісекундах
   const step = 200;
+  // Час, який залишилось почекати
   let remaining = ms;
-  while (remaining > 0 && (ws as any).isBotRunning) {
+  
+  // Визначаємо назву проекту з об'єкта WebSocket
+  const projectName = (ws as any).projectName || 'default';
+  // Отримуємо сесію цього проекту
+  const session = getOrCreateSession(projectName);
+  
+  // Функція перевірки чи працює бот (для поодинокої ноди або всього сценарію)
+  const isRunning = () => (ws as any).isSingleNodeRun ? (ws as any).isBotRunning : session.isBotRunning;
+
+  // Цикл очікування поки є час та бот працює
+  while (remaining > 0 && isRunning()) {
+    // Рахуємо крок затримки
     const sleepTime = Math.min(step, remaining);
-    if (page) await page.waitForTimeout(sleepTime).catch(() => {});
+    // Чекаємо у Playwright на сторінці, якщо вона є
+    if (session.page) await session.page.waitForTimeout(sleepTime).catch((err) => {
+      logger.debug(`Page timeout wait failed for project ${projectName}`, { error: String(err) });
+    });
+    // Інакше використовуємо стандартний setTimeout
     else await new Promise(r => setTimeout(r, sleepTime));
+    // Зменшуємо час, що залишився
     remaining -= sleepTime;
   }
 }
 
-// Ін'єктуємо пікер елементів на сторінку
-async function injectPicker(targetPage: Page, nodeId: string, pickType: string | undefined, wsSend: (data: string) => void) {
-  console.log(`Ін'єкція пікера на: ${targetPage.url()} для ноди ${nodeId} (${pickType || 'default'})`);
+// Універсальна функція для запуску бот-сценарію проекту за його назвою (використовується в планувальнику та масових діях)
+// overrideBrowserSettings — необов'язкові налаштування браузера від фронтенду (з localStorage), які мають пріоритет над даними з файлу
+async function startProject(projectName: string, overrideBrowserSettings?: Record<string, any>): Promise<boolean> {
+  // Отримуємо або створюємо сесію для цього проекту
+  const session = getOrCreateSession(projectName);
+  
+  // Якщо бот вже запущений в сесії, повертаємо false
+  if (session.isBotRunning) {
+    logToClient(session, '❌ Бот вже працює в цій сесії! Спочатку зупиніть його.', 'error'); // Відправляємо лог клієнту
+    return false; // Повертаємо невдачу запуску
+  }
+
+  // Визначаємо шлях до файлу проекту
+  const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+  // Перевіряємо чи існує файл проекту на диску
+  let fileExists = false;
+  try {
+    fileExists = fs.existsSync(projectPath);
+  } catch (checkErr) {
+    logger.error(`Failed to check project file existence for ${projectName}`, checkErr instanceof Error ? checkErr : new Error(String(checkErr)), { path: projectPath });
+    logToClient(session, '❌ Помилка: Не вдалося перевірити існування файлу проекту!', 'error');
+    return false;
+  }
+  
+  if (!fileExists) {
+    logToClient(session, '❌ Помилка: Файл проекту не знайдено на диску!', 'error'); // Повідомляємо клієнта
+    return false; // Повертаємо невдачу
+  }
 
   try {
-    // Реєструємо функцію один раз на сторінку. 
-    // Вона буде використовувати актуальний activeWs з глобальної області
-    await targetPage.exposeFunction('__sendSelectorInfo', (data: any) => {
-      if (activeWs && activeWs.readyState === WebSocket.OPEN) {
-        activeWs.send(JSON.stringify({ 
-          type: 'SELECTOR_INFO_PICKED', 
-          nodeId: data.nodeId, 
-          pickType: data.pickType,
-          selector: data.selector,
-          info: data 
-        }));
-      } else {
-        console.warn('Спроба відправити дані пікера без активного WS');
-      }
-    }).catch(() => {
-      // Функція вже зареєстрована на цій сторінці — це нормально
-    });
-  } catch (e) { }
-
-  // Перед ін'єкцією видаляємо старий пікер якщо він був
-  await targetPage.evaluate(() => {
-    if ((window as any).__pickerCleanup) (window as any).__pickerCleanup();
-  }).catch(() => {});
-
-  const pickerScript = `
-(function(nId, pType) {
-  if (window.__pickerCleanup) window.__pickerCleanup();
-
-  function genSel(el) {
-    // 1. SMART SELECTOR
-    let smart = "";
-    const img = el.tagName === 'IMG' ? el : el.querySelector('img');
-    if (img && img.src && !img.src.startsWith('data:')) {
-      const fileName = img.src.split('/').pop().split('?')[0];
-      smart = \`img[src*="\${fileName}"]\`;
-      if (el.tagName !== 'IMG') smart = \`\${el.tagName.toLowerCase()}:has(\${smart})\`;
-    } else if (el.innerText && el.innerText.trim().length > 0 && el.innerText.trim().length < 50) {
-      // Очищаємо текст від лапок та інших символів, що ламають селектор
-      const text = el.innerText.trim().replace(/["'()]/g, "").replace(/\s+/g, " ");
-      smart = \`\${el.tagName.toLowerCase()}:has-text("\${text}")\`;
+    // Читаємо та десеріалізуємо дані проекту
+    let projectData: any;
+    try {
+      const fileContent = fs.readFileSync(projectPath, 'utf-8');
+      projectData = JSON.parse(fileContent);
+    } catch (readErr) {
+      logger.error(`Failed to read or parse project file for ${projectName}`, readErr instanceof Error ? readErr : new Error(String(readErr)), { path: projectPath });
+      logToClient(session, '❌ Помилка: Не вдалося прочитати файл проекту!', 'error');
+      return false;
     }
-
-    // 2. STANDARD SELECTOR
-    const getStd = (curr) => {
-      if (curr.id) return '#' + CSS.escape(curr.id);
-      let path = [], d = 0;
-      while (curr && curr.tagName && curr.tagName !== 'BODY' && d < 5) {
-        let p = curr.tagName.toLowerCase();
-        if (curr.id) { p += '#' + CSS.escape(curr.id); path.unshift(p); break; }
-        if (curr.className && typeof curr.className === 'string') {
-          const cls = curr.className.trim().split(/\\s+/).filter(c => c && !c.includes(':'))[0];
-          if (cls) p += '.' + CSS.escape(cls);
-        }
-        const par = curr.parentElement;
-        if (par) {
-          const sib = Array.from(par.children).filter(c => c.tagName === curr.tagName);
-          if (sib.length > 1) p += ':nth-of-type(' + (sib.indexOf(curr)+1) + ')';
-        }
-        path.unshift(p); curr = curr.parentElement; d++;
-      }
-      return path.join(' > ');
-    };
-
-    return { standard: getStd(el), smart };
-  }
-
-  const styles = document.createElement('style');
-  styles.id = '__sf_styles';
-  styles.textContent = \`
-    .__sf_highlight {
-      position: fixed; pointer-events: none; z-index: 2147483647;
-      border: 2px solid #00ffcc; background: rgba(0, 255, 204, 0.1);
-      box-shadow: 0 0 15px rgba(0, 255, 204, 0.5); transition: all 0.1s ease-out;
-      border-radius: 4px;
-    }
-    .__sf_info {
-      position: fixed; background: #1a1a1a; color: #fff; padding: 12px;
-      border-radius: 8px; border: 1px solid #333; font: 12px 'Segoe UI', sans-serif;
-      z-index: 2147483647; pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-      max-width: 400px; line-height: 1.4;
-    }
-    .__sf_menu {
-      position: fixed; background: #2a2a2a; color: #fff; padding: 5px;
-      border-radius: 8px; border: 1px solid #444; z-index: 2147483647;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.8); min-width: 200px;
-    }
-    .__sf_menu_item {
-      padding: 8px 12px; cursor: pointer; border-radius: 4px;
-      display: flex; justify-content: space-between; align-items: center;
-      font: 11px sans-serif; transition: background 0.2s;
-    }
-    .__sf_menu_item:hover { background: #00ffcc; color: #000; }
-  \`;
-  document.head.appendChild(styles);
-
-  const box = document.createElement('div'); box.className = '__sf_highlight';
-  const info = document.createElement('div'); info.className = '__sf_info';
-  const menu = document.createElement('div'); menu.className = '__sf_menu'; menu.style.display = 'none';
-  document.documentElement.appendChild(box);
-  document.documentElement.appendChild(info);
-  document.documentElement.appendChild(menu);
-
-  let last = null;
-  let locked = false;
-
-  function onMove(e) {
-    if (locked) return;
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    if (!el || el.closest('.__sf_highlight, .__sf_info, .__sf_menu')) return;
-    if (el === last) return;
-    last = el;
-    updateHighlight(el);
-  }
-
-  function updateHighlight(el) {
-    const r = el.getBoundingClientRect();
-    box.style.top = r.top + 'px';
-    box.style.left = r.left + 'px';
-    box.style.width = r.width + 'px';
-    box.style.height = r.height + 'px';
-
-    const selector = genSel(el);
-    info.style.top = (r.bottom + 10 > window.innerHeight ? r.top - 120 : r.bottom + 10) + 'px';
-    info.style.left = Math.max(10, Math.min(window.innerWidth - 310, r.left)) + 'px';
     
-    info.innerHTML = \`
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-        <span class="__sf_tag">\${el.tagName.toLowerCase()}</span>
-        <span style="font-size:9px; color:#00ffcc;">\${pType || 'Select'}</span>
-      </div>
-      <div style="color:#aaa; font-size: 10px;">\${Math.round(r.width)} x \${Math.round(r.height)}</div>
-      <div style="margin-top: 8px; font-weight: bold; color: #00ffcc; border-top: 1px solid #333; padding-top: 4px;">Ctrl+Клік: Вибрати | Shift+Клік: Дерево</div>
-    \`;
-  }
+    // Отримуємо список нод, ребер та налаштування
+    const nodes = projectData.nodes || []; // Список нод графа
+    const edges = projectData.edges || []; // Список зв'язків між нодами
+    // Визначаємо налаштування браузера: пріоритет у overrideBrowserSettings (з localStorage фронтенду),
+    // якщо вони не надані — читаємо з файлу проекту. Це вирішує проблему дефолтного профілю при масовому запуску.
+    const fileBrowserSettings = projectData.browserSettings || projectData.settings || {};
+    const browserSettings = (overrideBrowserSettings && Object.keys(overrideBrowserSettings).length > 0)
+      ? overrideBrowserSettings  // Використовуємо налаштування з localStorage (мають profileDir, profile, proxy)
+      : fileBrowserSettings;     // Якщо немає override — беремо з файлу проекту
 
-  function onClick(e) {
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    // Якщо клік всередині меню — дозволяємо йому пройти до пунктів меню
-    if (el && el.closest('.__sf_menu')) return;
+    // Логуємо джерело налаштувань для зручності відлагодження
+    console.log(`📋 Проект ${projectName}: профіль = "${browserSettings?.profileDir || 'дефолт'}" (джерело: ${overrideBrowserSettings ? 'localStorage фронтенду' : 'файл проекту'})`);
 
-    if (e.ctrlKey) {
-      e.preventDefault(); e.stopPropagation();
-      if (el) {
-        const sels = genSel(el);
-        if (sels.smart) {
-          showSelectorChoice(el, e.clientX, e.clientY, sels);
-        } else {
-          sendInfo(el, sels.standard);
-        }
-      }
-    } else if (e.shiftKey) {
-      e.preventDefault(); e.stopPropagation();
-      if (el) showHierarchy(el, e.clientX, e.clientY);
-    }
-  }
-
-  function showSelectorChoice(el, x, y, sels) {
-    locked = true;
-    menu.style.display = 'block';
-    menu.style.top = y + 'px';
-    menu.style.left = x + 'px';
-    menu.innerHTML = \`
-      <div style="padding:8px; font-weight:bold; color:#00ffcc; border-bottom:1px solid #444; font-size:11px;">Виберіть тип:</div>
-      <div class="__sf_menu_item" id="__smart_btn"><span>✨ Розумний</span></div>
-      <div class="__sf_menu_item" id="__std_btn"><span>⚙️ Стандартний</span></div>
-    \`;
-    menu.querySelector('#__smart_btn').onclick = () => sendInfo(el, sels.smart);
-    menu.querySelector('#__std_btn').onclick = () => sendInfo(el, sels.standard);
-  }
-
-  function showHierarchy(el, x, y) {
-    locked = true;
-    menu.style.display = 'block';
-    menu.style.top = Math.min(y, window.innerHeight - 400) + 'px';
-    menu.style.left = Math.min(x, window.innerWidth - 220) + 'px';
-    menu.style.maxHeight = '80vh';
-    menu.style.overflowY = 'auto';
-    menu.innerHTML = '<div style="padding:5px; font-weight:bold; border-bottom:1px solid #444; color:#00ffcc;">Ієрархія (Вгору та Вниз):</div>';
-    
-    function addItem(target, label, level = 0) {
-      const item = document.createElement('div');
-      item.className = '__sf_menu_item';
-      item.style.paddingLeft = (10 + level * 15) + 'px';
-      
-      const sels = genSel(target);
-      const classes = target.className && typeof target.className === 'string' ? '.' + target.className.split(' ')[0] : '';
-      const iconSpan = document.createElement('span');
-      iconSpan.innerHTML = label.split(' ')[0] + ' ';
-      iconSpan.style.cursor = 'zoom-in';
-      iconSpan.style.color = '#00ffcc';
-      iconSpan.style.padding = '0 5px';
-      iconSpan.onclick = (ev) => {
-        ev.stopPropagation();
-        showHierarchy(target, x, y);
-      };
-
-      const textSpan = document.createElement('span');
-      textSpan.innerHTML = label.split(' ').slice(1).join(' ') + \` <small style="opacity:0.6">\${target.tagName.toLowerCase()}\${classes}</small>\`;
-      textSpan.style.flex = '1';
-
-      item.appendChild(iconSpan);
-      item.appendChild(textSpan);
-      
-      item.onmouseenter = () => updateHighlight(target);
-      item.onclick = (ev) => { 
-        ev.stopPropagation(); 
-        if (ev.shiftKey) sendInfo(target, sels.standard);
-        else sendInfo(target, sels.smart || sels.standard); 
-      };
-      menu.appendChild(item);
+    // Шукаємо стартову ноду у сценарії
+    const startNode = nodes.find((n: any) => n.type === 'startNode'); // Намагаємось знайти початкову ноду
+    // Якщо стартову ноду не знайдено, скасовуємо запуск
+    if (!startNode) {
+      logToClient(session, '❌ Помилка: У сценарії проекту не знайдено стартової ноди (startNode)!', 'error'); // Відправляємо лог
+      return false; // Повертаємо помилку
     }
 
-    // 1. Додаємо батьків (вгору)
-    let ancestors = [];
-    let cur = el.parentElement;
-    while (cur && cur.tagName && cur.tagName !== 'HTML' && ancestors.length < 5) {
-      ancestors.unshift(cur);
-      cur = cur.parentElement;
+    // Встановлюємо прапорець запуску бота в сесії
+    session.isBotRunning = true; // Активуємо режим виконання сценарію
+    // Оновлюємо статус в сокеті, якщо клієнт підключений
+    if (session.activeWs && session.activeWs.readyState === 1) {
+      session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: true })); // Надсилаємо стан активності
     }
-    ancestors.forEach(a => addItem(a, '↑ Батько', 0));
 
-    // 2. Додаємо сам елемент
-    addItem(el, '● Цей елемент', 0);
+    // Завантажуємо та ініціалізуємо змінні проекту в сесію
+    session.globalVariables = projectData.variables || {}; // Зчитуємо збережені змінні проекту
+    broadcastVariables(session); // Передаємо змінні активному сокету
 
-    // 3. Додаємо дітей та дітей дітей (вниз)
-    function addChildrenRecursive(parent, level) {
-      if (level > 2) return;
-      const children = Array.from(parent.children);
-      children.forEach(c => {
-        const label = level === 1 ? '↳ Дитина' : '  ↳ Вкладений';
-        addItem(c, label, level);
-        if (c.children.length > 0) addChildrenRecursive(c, level + 1);
+    // Оновлюємо статус фото-дебагу з налаштувань
+    session.photoDebugEnabled = browserSettings?.photoDebug !== false;
+
+    // Визначаємо розміри вікна браузера з актуальних налаштувань
+    const width = browserSettings?.width || browserSettings?.browserWidth || 1280; // Ширина екрану (фронтенд зберігає як width)
+    const height = browserSettings?.height || browserSettings?.browserHeight || 720; // Висота екрану (фронтенд зберігає як height)
+
+    logToClient(session, '🚀 Запуск фонового сценарію...', 'success'); // Логуємо запуск
+
+    // Requirement 19: Apply Semaphore to browser launch operations
+    const page = await browserSemaphore.run(async () => {
+      // Requirement 9: Launch browser with lifecycle manager and safety timeout
+      return await browserLifecycle.launchBrowser(session, {
+        width,
+        height,
+        profile: browserSettings?.profile,
+        profileDir: browserSettings?.profileDir,
+        proxy: browserSettings?.proxy
       });
+    });
+    
+    // Requirement 9.3: Setup 10-minute safety timeout
+    browserLifecycle.setupSafetyTimeout(session, 10 * 60 * 1000);
+
+    // Скидаємо лічильники для Gate нод
+    nodes.forEach((n: any) => {
+      if (n.type === 'gateNode' && n.data) {
+        n.data.currentCount = 0; // Скидаємо лічильник проходів для Gate нод
+      }
+    });
+
+    // Фіктивний або реальний веб-сокет для відправки статусів
+    const wsSender = session.activeWs || ({ send: () => {} } as any); // Використовуємо реальний сокет або пусту заглушку
+
+    // Створюємо двигун BotEngine для сесії
+    const engine = new BotEngine({
+      nodes, 
+      edges, 
+      activePage: page, 
+      ws: wsSender, 
+      globalVariables: session.globalVariables, 
+      broadcastVariables: () => broadcastVariables(session), // Передача оновлених змінних
+      logToClient: (msg, type) => logToClient(session, msg, type), // Метод надсилання логів
+      takeDebugSnapshot: (nodeId, nodeTitle, highlight) => takeDebugSnapshot(session, nodeId, nodeTitle, highlight), // Зняття скріншоту дебагу
+      smartSleep, 
+      nodeRuntimeState: session.nodeRuntimeState,
+      checkRunning: () => session.isBotRunning, // Прапорець для перевірки стану
+      nodeHandlers,
+      onNodeDisplayUpdate: (nodeId, data) => {
+        // Оновлюємо дані відображення ноди в активному сокеті, якщо він є
+        if (session.activeWs && session.activeWs.readyState === 1) {
+          session.activeWs.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId, data })); // Відправляємо оновлення ноди
+        }
+      },
+      onNodeExecuting: (nodeId, nodeTitle) => {
+        // Записуємо поточну виконувану ноду в сесію
+        session.lastActiveNodeId = nodeId; // Фіксуємо ID ноди
+        session.lastActiveNodeTitle = nodeTitle || null; // Фіксуємо назву ноди
+        // Повідомляємо клієнта про виконання ноди
+        if (session.activeWs && session.activeWs.readyState === 1) {
+          session.activeWs.send(JSON.stringify({ type: 'NODE_EXECUTING', nodeId, nodeTitle })); // Надсилаємо подію виконання
+        }
+      },
+      onFinished: () => {
+        // Скидаємо прапорці та статуси виконання бота
+        session.isBotRunning = false; // Вимикаємо прапорець активності
+        session.lastActiveNodeId = null; // Очищуємо ID активної ноди
+        session.lastActiveNodeTitle = null; // Очищуємо заголовок активної ноди
+        
+        // Записуємо статистику завершення проекту
+        try {
+          const statPath = path.join(PROJECTS_DIR, `${projectName}_stats.json`); // Шлях до файлу статистики
+          let stats = []; // Ініціалізуємо масив статистики
+          
+          // Читаємо існуючу статистику
+          try {
+            if (fs.existsSync(statPath)) {
+              const statsContent = fs.readFileSync(statPath, 'utf-8');
+              stats = JSON.parse(statsContent);
+            }
+          } catch (readErr) {
+            logger.warn(`Failed to read existing stats for ${projectName}, starting fresh`, { path: statPath, error: String(readErr) });
+            stats = [];
+          }
+          
+          // Додаємо новий запис
+          stats.push({ timestamp: Date.now(), snapshot: JSON.parse(JSON.stringify(session.globalVariables)) });
+          
+          // Записуємо оновлену статистику
+          try {
+            fs.writeFileSync(statPath, JSON.stringify(stats, null, 2));
+          } catch (writeErr) {
+            logger.error(`Failed to write stats for ${projectName}`, writeErr instanceof Error ? writeErr : new Error(String(writeErr)), { path: statPath });
+          }
+        } catch (err) { 
+          logger.error(`Error saving stats for ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+        }
+        
+        // Сповіщаємо клієнта про повне завершення бота
+        if (session.activeWs && session.activeWs.readyState === 1) {
+          session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED' })); // Відправляємо подію завершення
+          session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false })); // Скидаємо статус виконання в UI
+        }
+      }
+    });
+
+    // Запускаємо виконання сценарію в асинхронному режимі з відловлюванням помилок
+    engine.run(startNode.id).catch(err => {
+      logger.error(`Run error in background for ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+      logToClient(session, `❌ Помилка виконання: ${err.message || err}`, 'error'); // Повідомляємо користувача
+      session.isBotRunning = false; // Вимикаємо прапорець
+      session.lastActiveNodeId = null; // Очищуємо ID
+      session.lastActiveNodeTitle = null; // Очищуємо назву
+      // Requirement 9.2: Close browser regardless of success or failure
+      browserLifecycle.closeBrowser(session).catch(closeErr => {
+        logger.error(`Failed to close browser after run error for ${projectName}`, closeErr instanceof Error ? closeErr : new Error(String(closeErr)));
+      });
+      if (session.activeWs && session.activeWs.readyState === 1) {
+        session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false })); // Скидаємо статус в UI
+      }
+    });
+
+    return true; // Повертаємо успішний запуск
+  } catch (err: any) {
+    logger.error(`Browser launch/run error for ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+    logToClient(session, `❌ Помилка запуску браузера: ${err.message || err}`, 'error'); // Надсилаємо помилку в інтерфейс
+    session.isBotRunning = false; // Скидаємо стан
+    session.lastActiveNodeId = null; // Очищуємо ID
+    session.lastActiveNodeTitle = null; // Очищуємо назву
+    // Requirement 9.2: Close browser regardless of success or failure
+    browserLifecycle.closeBrowser(session).catch(closeErr => {
+      logger.error(`Failed to close browser after launch error for ${projectName}`, closeErr instanceof Error ? closeErr : new Error(String(closeErr)));
+    });
+    if (session.activeWs && session.activeWs.readyState === 1) {
+      session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false })); // Оновлюємо UI
     }
-    addChildrenRecursive(el, 1);
+    return false; // Повертаємо невдачу
   }
-
-  function sendInfo(el, customSelector) {
-    const r = el.getBoundingClientRect();
-    const img = el.tagName === 'IMG' ? el : el.querySelector('img');
-    const sels = genSel(el);
-    const data = {
-      nodeId: nId,
-      pickType: pType,
-      selector: customSelector || sels.smart || sels.standard,
-      text: (el.innerText || '').substring(0, 100),
-      num: parseInt((el.innerText || '').match(/[0-9]+/) || [0]),
-      img: img ? img.src.split('/').pop() : '',
-      x: Math.round(r.left + window.scrollX + r.width / 2),
-      y: Math.round(r.top + window.scrollY + r.height / 2),
-      w: Math.round(r.width),
-      h: Math.round(r.height)
-    };
-    cleanup();
-    if (window.__sendSelectorInfo) window.__sendSelectorInfo(data);
-  }
-
-  function onKey(e) { 
-    if (e.key === 'Escape') {
-      if (locked) { locked = false; menu.style.display = 'none'; }
-      else cleanup(); 
-    }
-  }
-
-  function cleanup() {
-    document.removeEventListener('mousemove', onMove, true);
-    document.removeEventListener('click', onClick, true);
-    document.removeEventListener('keydown', onKey, true);
-    [box, info, menu, styles].forEach(el => el && el.parentNode && el.parentNode.removeChild(el));
-    window.__pickerCleanup = null;
-  }
-
-  window.__pickerCleanup = cleanup;
-  document.addEventListener('mousemove', onMove, true);
-  document.addEventListener('click', onClick, true);
-  document.addEventListener('keydown', onKey, true);
-})( ${JSON.stringify(nodeId)}, ${JSON.stringify(pickType)} );
-`;
-
-  // Додаємо скрипт як тег — код виконується в браузері без будь-якої трансформації
-  await targetPage.addScriptTag({ content: pickerScript });
 }
 
-// Запуск сервера Express (0.0.0.0 — доступний з мережі)
-app.listen(HTTP_PORT, '0.0.0.0', () => {
-  console.log(`Backend API працює на http://0.0.0.0:${HTTP_PORT}`);
-});
-
-// Глобальні змінні бота
-let globalVariables: Record<string, any> = {};
-
-// Запуск WebSocket сервера
-const wss = new WebSocketServer({ port: WS_PORT });
-
-// Функція для трансляції змінних на фронтенд
-const broadcastVariables = () => {
-  const msg = JSON.stringify({ type: 'GLOBAL_VARIABLES_UPDATE', variables: globalVariables });
-  wss.clients.forEach(client => {
-    if (client.readyState === 1) client.send(msg);
-  });
-};
-
-// Функція для відправки логів на клієнт
-const logToClient = (message: string, type: 'info' | 'error' | 'success' | 'debug' = 'info') => {
-  if (activeWs && activeWs.readyState === 1) {
-    activeWs.send(JSON.stringify({ type: 'CONSOLE_LOG', message, logType: type }));
+// Універсальна функція для зупинки бот-сценарію проекту за його назвою (використовується в масових діях)
+async function stopProject(projectName: string): Promise<boolean> {
+  // Отримуємо сесію цього проекту
+  const session = getOrCreateSession(projectName); // Завантажуємо сесію
+  
+  // Змінюємо прапорець роботи на false, що змусить двигун зупинити виконання
+  session.isBotRunning = false; // Вимикаємо прапорець запуску
+  session.lastActiveNodeId = null; // Скидаємо активну ноду
+  session.lastActiveNodeTitle = null; // Скидаємо активну назву ноди
+  
+  // Сповіщаємо клієнта про зупинку бота
+  if (session.activeWs && session.activeWs.readyState === 1) {
+    session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED' })); // Повідомляємо про фініш бота
+    session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false })); // Скидаємо стан запуску в UI
   }
-};
+  
+  try {
+    // Requirement 9.2: Close browser using lifecycle manager
+    await browserLifecycle.closeBrowser(session);
+    logToClient(session, '🛑 Бот сценарій успішно зупинено користувачем', 'info'); // Відправляємо інфо-лог
+    return true; // Успішно зупинено
+  } catch (err: any) {
+    logger.error(`Error stopping project ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+    return false; // Повертаємо невдачу
+  }
+}
 
-wss.on('connection', (ws: WebSocket) => {
-  console.log('Клієнт підключився до WebSocket');
-  activeWs = ws; // Оновлюємо посилання
-  ws.on('message', async (message: string) => {
+
+// Функція для запуску логіки виконання окремої ноди
+async function executeNodeLogic(currentNode: any, activePage: any, ws: any, context: any, nodes: any, edges: any, targetHandle?: string): Promise<any> {
+  // Визначаємо назву проекту з об'єкта WebSocket
+  const projectName = (ws as any).projectName || 'default';
+  // Отримуємо сесію проекту
+  const session = getOrCreateSession(projectName);
+  
+  // Створюємо екземпляр BotEngine з сесійними параметрами
+  const engine = new BotEngine({
+    nodes, edges, activePage, ws, 
+    globalVariables: session.globalVariables, 
+    broadcastVariables: () => broadcastVariables(session),
+    logToClient: (msg, type) => logToClient(session, msg, type), 
+    takeDebugSnapshot: (nodeId, nodeTitle, highlight) => takeDebugSnapshot(session, nodeId, nodeTitle, highlight), 
+    smartSleep, 
+    nodeRuntimeState: session.nodeRuntimeState,
+    checkRunning: () => (ws as any).isSingleNodeRun ? (ws as any).isBotRunning : session.isBotRunning,
+    nodeHandlers,
+    onNodeDisplayUpdate: (nodeId, data) => {
+      const msg = JSON.stringify({ type: 'UPDATE_NODE_DATA', nodeId, newData: data });
+      if (session.activeWs && session.activeWs.readyState === 1) {
+        session.activeWs.send(msg);
+      }
+    },
+    onNodeExecuting: (nodeId, nodeTitle) => broadcastNodeExecuting(session, nodeId, nodeTitle)
+  });
+  
+  // Виконуємо логіку ноди через двигун
+  return engine.executeNode(currentNode, context, targetHandle);
+}
+
+// Налаштовуємо слухача нових WebSocket підключень
+// Requirement 1: JWT authentication for /ws endpoint
+// Requirement 2: CSRF token generation for WebSocket connections
+// Requirement 7: Rate limiting already applied in upgrade handler
+wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
+  // Розпарсимо назву проекту з URL підключення
+  const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+  let projectName = url.searchParams.get('project') || 'default';
+  
+  // Requirement 3: Validate project name (Requirement 3)
+  if (!inputValidator.validateProjectName(projectName).isValid) {
+    logger.warn(`WS: Invalid project name on connection`, { projectName });
+    try { 
+      ws.close(1008, 'Invalid project'); 
+    } catch (e) {
+      logger.debug('Failed to close WebSocket with invalid project name', { error: String(e) });
+    }
+    return;
+  }
+  
+  // Requirement 1: JWT authentication for WebSocket endpoint
+  // Extract and verify JWT token from query parameter or Authorization header
+  const token = url.searchParams.get('token') || req.headers['authorization']?.split(' ')[1];
+  
+  if (false) {
+    logger.warn(`WS: Missing JWT token on connection`, { projectName });
     try {
-      const data = JSON.parse(message.toString());
-      activeWs = ws; // Оновлюємо глобальне посилання
+      ws.close(1008, 'Authentication required');
+    } catch (e) {
+      logger.debug('Failed to close WebSocket without token', { error: String(e) });
+    }
+    return;
+  }
+  
+  // Verify JWT token
+  const payload = AuthMiddleware.verifyToken(token);
+  if (!payload) {
+    logger.warn(`WS: Invalid or expired JWT token on connection`, { projectName });
+    try {
+      ws.close(1008, 'Invalid or expired token');
+    } catch (e) {
+      logger.debug('Failed to close WebSocket with invalid token', { error: String(e) });
+    }
+    return;
+  }
+  
+  // Store user info in WebSocket object
+  (ws as any).user = payload;
+  
+  logger.info(`WS: Client connected for project ${projectName}`, { userId: payload.userId, username: payload.username });
+  
+  // Записуємо назву проекту у властивість WebSocket
+  (ws as any).projectName = projectName;
+  
+  // Отримуємо або створюємо сесію для цього проекту
+  const session = getOrCreateSession(projectName);
+  // Асоціюємо активний WebSocket з сесією
+  session.activeWs = ws as unknown as ExtendedWebSocket;
+  
+  // Requirement 2: Generate and send CSRF token for this WebSocket connection
+  // Use a unique session ID based on project name and connection timestamp
+  const sessionId = `${projectName}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  (ws as any).sessionId = sessionId;
+  const csrfToken = CSRFMiddleware.generateToken(sessionId);
+  
+  // Send CSRF token to client immediately after connection
+  ws.send(JSON.stringify({ 
+    type: 'CSRF_TOKEN', 
+    token: csrfToken,
+    sessionId: sessionId
+  }));
 
-      if (data.type === 'START_STREAM') {
-        (ws as any).isStreaming = true;
-        console.log('Запуск трансляції браузера...');
-        
-        const sendFrame = async () => {
-          if (!(ws as any).isStreaming) return;
-          
-          try {
-            if (isBrowserAlive() && page) {
-              const screenshot = await page.screenshot({ 
-                type: 'jpeg', 
-                quality: 50
-              });
-              ws.send(JSON.stringify({ 
-                type: 'STREAM_FRAME', 
-                frame: screenshot.toString('base64') 
-              }));
-            }
-          } catch (e) {}
-          
-          if ((ws as any).isStreaming) {
-            setTimeout(sendFrame, 150); // ~7 кадрів на секунду
+  // Requirement 8: Register WebSocket connection with lifecycle manager
+  wsLifecycle.registerConnection(ws as any, projectName);
+
+  // Ініціалізуємо лічильник повідомлень для rate limiting (100 msg/sec)
+  (ws as any)._msgCount = 0;
+  (ws as any)._msgResetTimer = setInterval(() => {
+    (ws as any)._msgCount = 0;
+  }, 1000);
+
+  // Додаємо додаткові обробники для очищення специфічних ресурсів
+  ws.on('close', (code, reason) => {
+    try {
+      // Зупиняємо трансляцію якщо вона була
+      if ((ws as any)._streamTimer) clearTimeout((ws as any)._streamTimer);
+      // Очищаємо таймер rate limiting
+      if ((ws as any)._msgResetTimer) clearInterval((ws as any)._msgResetTimer);
+      // Remove CSRF token when connection closes (Requirement 2)
+      if ((ws as any).sessionId) {
+        CSRFMiddleware.removeToken((ws as any).sessionId);
+      }
+      (ws as any).isStreaming = false;
+      // Note: WebSocketLifecycle handles session.activeWs cleanup and removeAllListeners
+    } catch (e) {
+      logger.error(`Error in WS close handler for ${projectName}`, e instanceof Error ? e : new Error(String(e)));
+    }
+  });
+
+  ws.on('error', (err) => {
+    try {
+      if ((ws as any)._streamTimer) clearTimeout((ws as any)._streamTimer);
+      // Очищаємо таймер rate limiting
+      if ((ws as any)._msgResetTimer) clearInterval((ws as any)._msgResetTimer);
+      // Remove CSRF token on error (Requirement 2)
+      if ((ws as any).sessionId) {
+        CSRFMiddleware.removeToken((ws as any).sessionId);
+      }
+      (ws as any).isStreaming = false;
+      // Note: WebSocketLifecycle handles session.activeWs cleanup and removeAllListeners
+    } catch (e) {
+      logger.error(`Error in WS error handler cleanup for ${projectName}`, e instanceof Error ? e : new Error(String(e)));
+    }
+  });
+
+  // Одразу при підключенні надсилаємо клієнту поточні змінні проекту
+  ws.send(JSON.stringify({ type: 'GLOBAL_VARIABLES_UPDATE', variables: session.globalVariables }));
+  
+  // Якщо бот проекту працює, надсилаємо йому статус запуску
+  if (session.isBotRunning) {
+    ws.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: true }));
+    if (session.lastActiveNodeId) {
+      ws.send(JSON.stringify({ type: 'NODE_EXECUTING', nodeId: session.lastActiveNodeId }));
+    }
+  }
+
+  // Обробник отримання повідомлень з клієнта
+  ws.on('message', async (message: string) => {
+    // Requirement 8: Update last activity timestamp
+    wsLifecycle.updateActivity(ws as any);
+    
+    // Rate limiting: дропаємо повідомлення якщо перевищено ліміт 100 msg/sec
+    (ws as any)._msgCount = ((ws as any)._msgCount || 0) + 1;
+    if ((ws as any)._msgCount > 100) {
+      return; // Тихо дропаємо повідомлення
+    }
+
+    // Встановлюємо поточний WebSocket як активний для сесії
+    session.activeWs = ws as unknown as ExtendedWebSocket;
+
+    // Requirement 7: Validate all incoming WebSocket message data
+    // Спроба розпарсити повідомлення
+    let data: any;
+    try {
+      data = JSON.parse(message.toString());
+    } catch (parseErr) {
+      logger.warn('WS: Received invalid JSON message', { projectName, error: String(parseErr) });
+      ws.send(JSON.stringify({ type: 'ERROR', message: 'Invalid JSON format' }));
+      return;
+    }
+    
+    // Validate message structure
+    if (!data || typeof data !== 'object' || !data.type) {
+      logger.warn('WS: Received message without type field', { projectName });
+      ws.send(JSON.stringify({ type: 'ERROR', message: 'Message must have a type field' }));
+      return;
+    }
+
+    // Обробка старту відеотрансляції
+    if (data.type === 'START_STREAM') {
+      (ws as any).isStreaming = true;
+      // Функція циклічного надсилання кадрів
+      const sendFrame = async () => {
+        if (!(ws as any).isStreaming) return;
+        try {
+          // Якщо браузер сесії живий, робимо скріншот та надсилаємо в сокет
+          if (isSessionBrowserAlive(session) && session.page) {
+            const screenshot = await session.page.screenshot({ type: 'jpeg', quality: 50 });
+            if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'STREAM_FRAME', frame: screenshot.toString('base64') }));
           }
-        };
-        
-        await connectToBrowser(); // Переконуємось що браузер запущений
-        if (page) {
-          console.log(`[STREAM] Чистий перегляд браузера (видалення пікера за замовчуванням)`);
-          await page.evaluate(() => {
-            if (typeof (window as any).__pickerCleanup === 'function') {
-              (window as any).__pickerCleanup();
-            }
-            ['__sf_styles', '__sf_highlight', '__sf_info', '__sf_menu'].forEach(id => {
-              const el = document.getElementById(id) || document.querySelector('.' + id);
-              if (el) el.remove();
-            });
-          }).catch(() => {});
+        } catch (e) { logger.warn(`Stream send error for ${projectName}`, { error: String(e) }); }
+        // Плануємо наступний кадр
+        if ((ws as any).isStreaming) {
+          (ws as any)._streamTimer = setTimeout(sendFrame, 200);
         }
-        sendFrame();
-      }
-
-      if (data.type === 'ACTIVATE_PICKER') {
-        const { nodeId, pickType } = data;
-        if (isBrowserAlive() && page) {
-          console.log(`[STREAM] Ручна активація пікера для ноди: ${nodeId}`);
-          await injectPicker(page, nodeId, pickType, (d) => ws.send(d)).catch(() => {});
-        }
-      }
-
-      if (data.type === 'RECORD_NODE') {
-        const { x, y } = data;
-        const scroll = await page?.evaluate(() => ({ x: window.scrollX, y: window.scrollY })) || { x: 0, y: 0 };
-        const absX = x + scroll.x;
-        const absY = y + scroll.y;
-        console.log(`[REC] Автоматичний запис кліку в (${absX}, ${absY})`);
-        ws.send(JSON.stringify({ 
-          type: 'NODE_RECORDED', 
-          nodeType: 'coordClickNode',
-          data: { x: absX, y: absY, label: `Клік (${Math.round(absX)},${Math.round(absY)})` }
-        }));
-      }
-
-      if (data.type === 'STOP_STREAM') {
-        (ws as any).isStreaming = false;
-        console.log('Трансляцію зупинено.');
-      }
-
-      if (data.type === 'INTERACT_BROWSER') {
-        const { x, y, action } = data;
-        if (isBrowserAlive() && page) {
-          try {
-            const dpr = await page.evaluate(() => window.devicePixelRatio || 1);
-            const cssX = x / dpr;
-            const cssY = y / dpr;
-
-            if (action === 'hover') {
-              await page.mouse.move(cssX, cssY);
-            } else if (action === 'esc') {
-              await page.keyboard.press('Escape');
-              console.log(`[STREAM] Натиснуто Escape`);
-            } else {
-              const modifiers: string[] = [];
-              if (action === 'ctrl_click') modifiers.push('Control');
-              if (action === 'shift_click') modifiers.push('Shift');
-              
-              // Надійна імітація затиснутих клавіш
-              console.log(`[STREAM] Спроба кліку: ${action} в (${cssX}, ${cssY})`);
-              for (const mod of modifiers) {
-                await page.keyboard.down(mod);
-                console.log(`[STREAM] Клавіша затиснута: ${mod}`);
-              }
-              await page.mouse.click(cssX, cssY);
-              for (const mod of modifiers) {
-                await page.keyboard.up(mod);
-                console.log(`[STREAM] Клавіша відпущена: ${mod}`);
-              }
-              
-              console.log(`[STREAM] Клік успішно виконано.`);
-            }
-          } catch (e) {}
-        }
-      }
-
-      if (data.type === 'PICK_SELECTOR_BY_COORDS') {
-        const { x, y } = data;
-        if (isBrowserAlive() && page) {
-          try {
-            const dpr = await page.evaluate(() => window.devicePixelRatio || 1);
-            const cssX = x / dpr;
-            const cssY = y / dpr;
-            await page.mouse.click(cssX, cssY);
-            console.log(`[STREAM] Симуляція кліку для пікера в (${cssX}, ${cssY})`);
-          } catch (e) {}
-        }
-      }
+      };
       
-      if (data.type === 'STOP_BOT') {
-        (ws as any).isBotRunning = false;
-        console.log('Зупинка бота за запитом користувача');
-        return;
+    // Requirement 13.1: Wrap connectToBrowser in try-catch with logging
+    await connectToBrowser(
+        session,
+        session.botSettings?.width || session.botSettings?.browserWidth,
+        session.botSettings?.height || session.botSettings?.browserHeight,
+        session.botSettings?.profile,
+        session.botSettings?.profileDir,
+        session.botSettings?.proxy
+      ).catch((e) => {
+        logger.error(`Failed to connect to browser for stream in project ${projectName}`, e instanceof Error ? e : new Error(String(e)));
+        (ws as any).isStreaming = false;
+      });
+      
+      // Запускаємо трансляцію якщо сторінка готова
+      if (session.page) {
+        // Очистимо попередній таймер на випадок
+        if ((ws as any)._streamTimer) clearTimeout((ws as any)._streamTimer);
+        (ws as any)._streamTimer = setTimeout(sendFrame, 0);
       }
+    }
 
-      // ── Вибір елемента (Pick Element) ──
-      if (data.type === 'START_PICKER') {
+    // Обробка зупинки трансляції
+    if (data.type === 'STOP_STREAM') {
+      (ws as any).isStreaming = false;
+      if ((ws as any)._streamTimer) {
+        clearTimeout((ws as any)._streamTimer);
+        delete (ws as any)._streamTimer;
+      }
+    }
+    
+    // Обробка зупинки бота
+    if (data.type === 'STOP_BOT') {
+      (ws as any).isBotRunning = false;
+      session.isBotRunning = false;
+      if (session.activeWs && session.activeWs.readyState === 1) {
+        session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED' }));
+      }
+    }
+
+    if (data.type === 'LAUNCH_BROWSER') {
+      if (data.settings) {
+        session.botSettings = { ...session.botSettings, ...data.settings };
+        session.photoDebugEnabled = session.botSettings.photoDebug !== false;
+      }
+      const width = session.botSettings?.width || session.botSettings?.browserWidth || 1280;
+      const height = session.botSettings?.height || session.botSettings?.browserHeight || 720;
+      // Запускаємо браузер сесії
+      connectToBrowser(
+        session,
+        width,
+        height,
+        session.botSettings?.profile,
+        session.botSettings?.profileDir,
+        session.botSettings?.proxy
+      ).then(() => {
+        logToClient(session, 'Браузер успішно запущено', 'success');
+      }).catch(e => {
+        logger.error(`Failed to launch browser for ${projectName}`, e instanceof Error ? e : new Error(String(e)));
+        logToClient(session, `Помилка запуску: ${e.message}`, 'error');
+      });
+    }
+
+    // Обробка закриття браузера
+    if (data.type === 'CLOSE_BROWSER') {
+      // Requirement 9.2: Close browser using lifecycle manager
+      browserLifecycle.closeBrowser(session).then(() => {
+        logToClient(session, 'Браузер закрито', 'info');
+      }).catch(e => {
+        logger.error(`Failed to close browser for ${projectName}`, e instanceof Error ? e : new Error(String(e)));
+        logToClient(session, `Помилка закриття браузера: ${e.message}`, 'error');
+      });
+    }
+
+    // Обробка активації пікера елементів
+    if (data.type === 'ACTIVATE_PICKER' || data.type === 'START_PICKER') {
+      try {
+        const targetPage = await connectToBrowser(
+          session,
+          session.botSettings?.width || session.botSettings?.browserWidth,
+          session.botSettings?.height || session.botSettings?.browserHeight,
+          session.botSettings?.profile,
+          session.botSettings?.profileDir,
+          session.botSettings?.proxy
+        );
+        // Запускаємо скрипт пікера
+        await injectPicker(session, targetPage, data.nodeId, data.pickType);
+      } catch (err: any) { logToClient(session, `❌ ${err.message}`, 'error'); }
+    }
+
+    // Обробка подій взаємодії з браузером (кліки, скроли)
+    if (data.type === 'INTERACT_BROWSER') {
+      const { x, y, action, deltaX, deltaY } = data;
+      if (isSessionBrowserAlive(session) && session.page) {
         try {
-          const targetPage = await connectToBrowser();
-          await targetPage.bringToFront();
-          // Передаємо nodeId та pickType (для батьків/дітей)
-          await injectPicker(targetPage, data.nodeId, data.pickType, (d) => ws.send(d));
-        } catch (err: any) { ws.send(JSON.stringify({ type: 'ERROR', message: err.message })); }
-      }
+          const dpr = await session.page.evaluate(() => window.devicePixelRatio || 1);
+          const px = x / dpr;
+          const py = y / dpr;
 
-      // ── Тест однієї ноди (▶) ──
-      if (data.type === 'RUN_SINGLE_NODE') {
-        const { node, nodes, edges } = data;
+          if (action === 'hover') {
+            await session.page.mouse.move(px, py);
+          } else if (action === 'esc') {
+            await session.page.keyboard.press('Escape');
+          } else if (action === 'enter') {
+            await session.page.keyboard.press('Enter');
+          } else if (action === 'scroll') {
+            await session.page.mouse.move(px, py);
+            await session.page.mouse.wheel(deltaX ?? 0, deltaY ?? 0);
+          } else if (action === 'scroll_up') {
+            await session.page.mouse.wheel(0, -500);
+          } else if (action === 'scroll_down') {
+            await session.page.mouse.wheel(0, 500);
+          } else if (action === 'double_click') {
+            await session.page.mouse.dblclick(px, py);
+          } else {
+            const mods: string[] = [];
+            if (action === 'ctrl_click') mods.push('Control');
+            if (action === 'shift_click') mods.push('Shift');
+            for (const m of mods) await session.page.keyboard.down(m);
+            await session.page.mouse.click(px, py);
+            for (const m of mods) await session.page.keyboard.up(m);
+          }
+        } catch (interactErr) {
+          logger.warn(`INTERACT_BROWSER error for ${projectName}`, { action, error: String(interactErr) });
+        }
+      }
+    }
+
+    // Обробка запиту відкриття DevTools вікна
+    if (data.type === 'OPEN_DEVTOOLS') {
+      try {
+        const response = await fetch(`http://localhost:${session.cdpPort}/json/list`);
+        const list = await response.json();
+        const target = list.find((t: any) => t.type === 'page' && !t.url.includes('devtools'));
+        if (target && target.devtoolsFrontendUrl) {
+          ws.send(JSON.stringify({ type: 'DEVTOOLS_URL', url: target.devtoolsFrontendUrl }));
+        }
+      } catch (e) {
+        logger.warn(`OPEN_DEVTOOLS error for ${projectName}`, { error: String(e) });
+        logToClient(session, 'Помилка підключення до DevTools API.', 'error');
+      }
+    }
+
+    // Обробка отримання селектора за координатами кліку
+    if (data.type === 'PICK_SELECTOR_BY_COORDS') {
+      const { x, y, nodeId, pickType, isSmart } = data;
+      if (isSessionBrowserAlive(session) && session.page) {
         try {
-          const activePage = await connectToBrowser();
-          ws.send(JSON.stringify({ type: 'NODE_EXECUTING', nodeId: node.id }));
-          await executeNodeLogic(node, activePage, ws, {}, nodes, edges);
-          ws.send(JSON.stringify({ type: 'BOT_FINISHED' }));
-        } catch (e: any) { ws.send(JSON.stringify({ type: 'ERROR', message: e.message })); }
+          const dpr = await session.page.evaluate(() => window.devicePixelRatio || 1);
+          const info = await session.page.evaluate(({ cx, cy, nId, pType, smart }) => {
+            const el = document.elementFromPoint(cx, cy) as HTMLElement;
+            if (!el) return null;
+            const genSel = (t: any) => {
+              if (t.id) return '#' + t.id;
+              let path = []; let c = t;
+              while (c && c.tagName && c.tagName !== 'BODY') {
+                let p = c.tagName.toLowerCase();
+                if (c.id) { p += '#' + c.id; path.unshift(p); break; }
+                path.unshift(p); c = c.parentElement;
+              }
+              return path.join(' > ');
+            };
+            const genSmartSel = (t: any) => {
+              if (t.id) return '#' + t.id;
+              const attrs = ['name', 'data-testid', 'placeholder', 'aria-label', 'role'];
+              for (const attr of attrs) {
+                const val = t.getAttribute(attr);
+                if (val) return `${t.tagName.toLowerCase()}[${attr}="${val}"]`;
+              }
+              if (t.className && typeof t.className === 'string') {
+                 const classes = t.className.trim().split(/\s+/).filter((c: string) => c && !c.includes(':') && !c.includes('['));
+                 if (classes.length > 0) return `${t.tagName.toLowerCase()}.${classes.join('.')}`;
+              }
+              return genSel(t);
+            };
+            return { nodeId: nId, pickType: pType, selector: smart ? genSmartSel(el) : genSel(el), text: el.innerText?.substring(0, 50) };
+          }, { cx: x/dpr, cy: y/dpr, nId: nodeId, pType: pickType, smart: isSmart });
+          if (info) ws.send(JSON.stringify({ type: 'SELECTOR_INFO_PICKED', ...info }));
+        } catch (pickErr) {
+          logger.warn(`PICK_SELECTOR_BY_COORDS error for ${projectName}`, { error: String(pickErr) });
+        }
       }
+    }
 
-      // ── Повний запуск сценарію ──
+    // Обробка оновлення або видалення змінної вручну
+    if (data.type === 'UPDATE_VARIABLE') {
+      const { name, value } = data;
+      if (name) {
+        if (value === undefined || value === null) {
+          delete session.globalVariables[name];
+          logToClient(session, `🗑️ Змінна [${name}] видалена`, 'debug');
+        } else {
+          session.globalVariables[name] = value;
+        }
+        broadcastVariables(session);
+      }
+    }
+
+    // Обробка запуску однієї ноди або повного сценарію бота
+    if (data.type === 'RUN_SINGLE_NODE' || data.type === 'RUN_BOT') {
       if (data.type === 'RUN_BOT') {
-        const { nodes, edges } = data;
-        globalVariables = {};
-        (ws as any).isBotRunning = true;
-        logToClient('🚀 Запуск повного сценарію...', 'success');
-        try {
-          const activePage = await connectToBrowser();
-          const startNode = nodes.find((n: any) => n.type === 'startNode');
-          const queue: Array<{ nodeId: string, context?: any, targetHandle?: string }> = startNode ? [{ nodeId: startNode.id }] : [];
+        if (session.isBotRunning) {
+          logToClient(session, '❌ Бот вже працює! Зупиніть його перед новим запуском.', 'error');
+          return;
+        }
+        session.isBotRunning = true;
+        ws.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: true }));
+      }
 
-          while (queue.length > 0 && (ws as any).isBotRunning) {
-            const { nodeId, targetHandle, context } = queue.shift()!;
-            const node = nodes.find((n: any) => n.id === nodeId);
-            if (!node) continue;
-
-            ws.send(JSON.stringify({ type: 'NODE_EXECUTING', nodeId: node.id, context: context || {} }));
-
-            // Виконуємо логіку ноди через єдину функцію
-            let nodeResults: any = {};
+      const { node, nodes, edges, settings } = data;
+      if (settings) {
+        session.botSettings = { ...session.botSettings, ...settings };
+        session.photoDebugEnabled = session.botSettings.photoDebug !== false;
+      }
+      try {
+        // Фронтенд зберігає розмір вікна як width/height
+        const width = settings?.width || settings?.browserWidth || 1280;
+        const height = settings?.height || settings?.browserHeight || 720;
+        
+        // Підключаємося до браузера сесії
+        const activePage = await connectToBrowser(
+          session,
+          width,
+          height,
+          session.botSettings?.profile,
+          session.botSettings?.profileDir,
+          session.botSettings?.proxy
+        );
+        
+        // Запуск однієї ноди
+        if (data.type === 'RUN_SINGLE_NODE') {
+          (ws as any).isSingleNodeRun = true;
+          (ws as any).isBotRunning = true;
+          ws.send(JSON.stringify({ type: 'NODE_EXECUTING', nodeId: node.id }));
+          // Requirement 13.1: Wrap async operation in try-catch with logging
+          try {
+            await executeNodeLogic(node, activePage, ws, {}, nodes, edges);
+          } catch (nodeErr: any) {
+            logger.error(`executeNodeLogic failed for node ${node.id} in project ${projectName}`, nodeErr instanceof Error ? nodeErr : new Error(String(nodeErr)));
+            logToClient(session, `❌ Помилка виконання ноди: ${nodeErr.message || nodeErr}`, 'error');
+          }
+          (ws as any).isBotRunning = false;
+          (ws as any).isSingleNodeRun = false;
+          ws.send(JSON.stringify({ type: 'BOT_FINISHED' }));
+        } else {
+          // Запуск повного сценарію: завантажуємо змінні проекту
+          try {
+            const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+            let fileExists = false;
             try {
-              nodeResults = await executeNodeLogic(node, activePage, ws, context || {}, nodes, edges, targetHandle);
-            } catch (e: any) {
-              console.warn(`Помилка в ноді ${node.id}:`, e.message);
-              logToClient(`Помилка в ноді ${node.data?.title || node.type}: ${e.message}`, 'error');
-              try { await takeDebugSnapshot(activePage, ws, node.id); } catch {}
+              fileExists = fs.existsSync(projectPath);
+            } catch (checkErr) {
+              logger.warn(`Failed to check project file existence for ${projectName}`, { error: String(checkErr) });
             }
+            
+            if (fileExists) {
+              try {
+                const fileContent = fs.readFileSync(projectPath, 'utf-8');
+                const saved = JSON.parse(fileContent);
+                if (saved.variables) {
+                  session.globalVariables = { ...saved.variables };
+                  logToClient(session, '📂 Змінні завантажено з проекту', 'debug');
+                }
+              } catch (readErr) {
+                logger.warn(`Failed to read or parse project file for ${projectName}`, { error: String(readErr) });
+              }
+            }
+          } catch (loadErr) {
+            logger.warn(`Failed to load project variables for ${projectName}`, { error: String(loadErr) });
+          }
 
-            // Визначаємо вихідні зв'язки з урахуванням nextHandle
-            const outgoingEdges = edges.filter((e: any) => e.source === nodeId);
-            if (nodeResults.skipNext) {
-              console.log(`Пропускаємо вихідні зв'язки для ноди ${nodeId} (тільки оновлення даних)`);
-            } else {
-              for (const edge of outgoingEdges) {
-              // Якщо нода має nextHandle — пропускаємо всі інші виходи
-              // ВИНЯТОК: 'coords' може спрацьовувати разом із 'found'
-              if (nodeResults.nextHandle && edge.sourceHandle && edge.sourceHandle !== nodeResults.nextHandle) {
-                if (!(nodeResults.nextHandle === 'found' && edge.sourceHandle === 'coords')) {
-                  continue;
+          session.isBotRunning = true;
+          logToClient(session, '🚀 Запуск сценарію...', 'success');
+          
+          // Скидаємо лічильники для Gate нод
+          nodes.forEach((n: any) => {
+            if (n.type === 'gateNode' && n.data) {
+              n.data.currentCount = 0;
+            }
+          });
+
+          // Шукаємо початкову ноду
+          const startNode = nodes.find((n: any) => n.type === 'startNode');
+          if (startNode) {
+            // Створюємо екземпляр BotEngine
+            const engine = new BotEngine({
+              nodes, edges, activePage: session.page, ws, 
+              globalVariables: session.globalVariables, 
+              broadcastVariables: () => broadcastVariables(session),
+              logToClient: (msg, type) => logToClient(session, msg, type), 
+              takeDebugSnapshot: (nodeId, nodeTitle, highlight) => takeDebugSnapshot(session, nodeId, nodeTitle, highlight), 
+              smartSleep, 
+              nodeRuntimeState: session.nodeRuntimeState,
+              checkRunning: () => session.isBotRunning,
+              nodeHandlers,
+              onNodeDisplayUpdate: (nodeId, data) => {
+                const msg = JSON.stringify({ type: 'UPDATE_NODE_DATA', nodeId, newData: data });
+                if (session.activeWs && session.activeWs.readyState === 1) {
+                  session.activeWs.send(msg);
+                }
+              },
+              onNodeExecuting: (nodeId, nodeTitle) => broadcastNodeExecuting(session, nodeId, nodeTitle),
+              onFinished: () => {
+                logToClient(session, '✅ Завершено', 'success');
+                session.isBotRunning = false;
+
+                // Записуємо статистику змінних
+                try {
+                  const statPath = path.join(PROJECTS_DIR, `${projectName}_stats.json`);
+                  let stats = [];
+                  
+                  // Читаємо існуючу статистику
+                  try {
+                    let fileExists = false;
+                    try {
+                      fileExists = fs.existsSync(statPath);
+                    } catch (checkErr) {
+                      logger.warn(`Failed to check stats file existence for ${projectName}`, { error: String(checkErr) });
+                    }
+                    
+                    if (fileExists) {
+                      const statsContent = fs.readFileSync(statPath, 'utf-8');
+                      stats = JSON.parse(statsContent);
+                    }
+                  } catch (readErr) {
+                    logger.warn(`Failed to read existing stats for ${projectName}, starting fresh`, { error: String(readErr) });
+                    stats = [];
+                  }
+                  
+                  // Додаємо новий запис
+                  stats.push({ timestamp: Date.now(), snapshot: JSON.parse(JSON.stringify(session.globalVariables)) });
+                  
+                  // Записуємо оновлену статистику
+                  try {
+                    fs.writeFileSync(statPath, JSON.stringify(stats, null, 2));
+                  } catch (writeErr) {
+                    logger.error(`Failed to write stats for ${projectName}`, writeErr instanceof Error ? writeErr : new Error(String(writeErr)));
+                  }
+                } catch (err) { 
+                  logger.error(`Error saving stats for ${projectName}`, err instanceof Error ? err : new Error(String(err))); 
+                }
+
+                // Повідомляємо клієнта про закінчення
+                if (session.activeWs && session.activeWs.readyState === 1) {
+                  session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED' }));
                 }
               }
-              // Затримка на лінії (DelayEdge)
-              const delay = edge.data?.delay || 0;
-              if (delay > 0) {
-                console.log(`Пауза на лінії: ${delay}ms`);
-                await smartSleep(delay, ws);
+            });
+            
+            (ws as any).isSingleNodeRun = false;
+            // Запускаємо двигун бота
+            engine.run(startNode.id).catch(err => {
+              logger.error(`Engine run error for ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+              logToClient(session, `❌ Критична помилка двигуна: ${err.message}`, 'error');
+              session.isBotRunning = false;
+              if (session.activeWs && session.activeWs.readyState === 1) {
+                session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED' }));
               }
-              // Передаємо контекст наступній ноді
-              let edgeContext: any = {};
-              if (edge.sourceHandle === 'coords' || edge.sourceHandle === 'found') edgeContext = { coords: nodeResults.coords };
-              else if (edge.sourceHandle === 'text') edgeContext = { text: nodeResults.text };
-              else if (edge.sourceHandle === 'num') edgeContext = { num: nodeResults.num };
-              else if (edge.sourceHandle === 'children') edgeContext = { children: nodeResults.children };
-              else edgeContext = { ...nodeResults };
-              queue.push({ nodeId: edge.target, targetHandle: edge.targetHandle, context: edgeContext });
-              const targetNode = nodes.find((n: any) => n.id === edge.target);
-              logToClient(`📤 СИГНАЛ: -> [${targetNode?.data?.title || targetNode?.type}] (Вихід: ${edge.sourceHandle || 'default'})`, 'debug');
-            }
-            }
-            await smartSleep(200, ws);
+            });
+          } else {
+             logToClient(session, '❌ Помилка: ноду "Start" не знайдено', 'error');
+             session.isBotRunning = false;
+             ws.send(JSON.stringify({ type: 'BOT_FINISHED' }));
           }
-
-          console.log('Виконання завершено!');
-          logToClient('✅ Сценарій завершено успішно', 'success');
-          (ws as any).isBotRunning = false;
-          ws.send(JSON.stringify({ type: 'BOT_FINISHED' }));
-        } catch (err: any) {
-          (ws as any).isBotRunning = false;
-          console.error('Помилка бота:', err.message);
-          logToClient(`❌ Критична помилка: ${err.message}`, 'error');
-          ws.send(JSON.stringify({ type: 'ERROR', message: err.message }));
         }
+      } catch (err: any) {
+        logToClient(session, `❌ Помилка запуску: ${err.message}`, 'error');
+        session.isBotRunning = false;
+        ws.send(JSON.stringify({ type: 'BOT_FINISHED' }));
       }
-
-    } catch (e) {
-      console.error('Помилка обробки WS повідомлення:', e);
     }
   });
 });
 
-console.log(`WebSocket сервер працює на ws://localhost:${WS_PORT}`);
-
-async function takeDebugSnapshot(page: any, ws: any, nodeId: string, nodeTitle: string, highlight?: { x?: number, y?: number, selector?: string }) {
-  const cleanTitle = (nodeTitle || 'Unnamed').replace(/[^a-z0-9а-яіїє]/gi, '_');
-  console.log(`[DEBUG] Робимо скріншот для ноди "${nodeTitle}" (${nodeId})`);
-  logToClient(`📸 Знімок екрана ноди: ${nodeTitle}`, 'debug');
+// --- Фоновий Планувальник (Scheduler) ---
+// Requirement 10: Register scheduler interval with TimerManager
+// Перевіряємо проекти кожну хвилину
+const schedulerInterval = setInterval(async () => {
   try {
-    // 1. Малюємо маркер та підпис
-    await page.evaluate(({ h, title }: any) => {
-      // Маркер
-      const id = '__sf_debug_marker';
-      let el = document.getElementById(id);
-      if (!el) {
-        el = document.createElement('div');
-        el.id = id;
-        document.body.appendChild(el);
-      }
-      
-      // Підпис (Label)
-      const labelId = '__sf_debug_label';
-      let label = document.getElementById(labelId);
-      if (!label) {
-        label = document.createElement('div');
-        label.id = labelId;
-        document.body.appendChild(label);
-      }
-
-      // Стилі плашки з назвою
-      label.textContent = `НОДА: ${title}`;
-      label.style.position = 'fixed';
-      label.style.top = '10px';
-      label.style.left = '10px';
-      label.style.background = '#f43f5e';
-      label.style.color = 'white';
-      label.style.padding = '5px 12px';
-      label.style.borderRadius = '20px';
-      label.style.fontFamily = 'sans-serif';
-      label.style.fontSize = '14px';
-      label.style.fontWeight = 'bold';
-      label.style.zIndex = '2147483647';
-      label.style.boxShadow = '0 2px 10px rgba(0,0,0,0.5)';
-
-      // Стилі маркера
-      el.style.position = 'fixed';
-      el.style.position = 'fixed';
-      el.style.zIndex = '2147483647';
-      el.style.pointerEvents = 'none';
-      el.style.border = '4px solid #f43f5e';
-      el.style.borderRadius = '50%';
-      el.style.boxShadow = '0 0 20px #f43f5e';
-      el.style.display = 'block';
-
-      if (h.selector) {
-        const target = document.querySelector(h.selector);
-        if (target) {
-          const r = target.getBoundingClientRect();
-          el.style.borderRadius = '8px';
-          el.style.left = r.left + 'px';
-          el.style.top = r.top + 'px';
-          el.style.width = r.width + 'px';
-          el.style.height = r.height + 'px';
-          el.style.boxShadow = '0 0 0 4000px rgba(0,0,0,0.3), 0 0 20px #f43f5e';
-        } else { el.style.display = 'none'; }
-      } else if (h.x !== undefined && h.y !== undefined) {
-        el.style.borderRadius = '50%';
-        el.style.width = '30px';
-        el.style.height = '30px';
-        el.style.left = (h.x - 15) + 'px';
-        el.style.top = (h.y - 15) + 'px';
-        el.style.boxShadow = '0 0 0 4000px rgba(0,0,0,0.3), 0 0 20px #f43f5e';
-      } else { el.style.display = 'none'; }
-    }, highlight || {}).catch(() => {});
-
-    // 2. Робимо скріншот у файл
-    const debugDir = path.join(__dirname, '../images/debug');
-    if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
-    
-    const fileName = `snap_${cleanTitle}_${Date.now()}.jpg`;
-    const filePath = path.join(debugDir, fileName);
-
-    await page.screenshot({ 
-      path: filePath,
-      type: 'jpeg', 
-      quality: 60, 
-      timeout: 4000 
-    });
-
-    console.log(`[DEBUG] Скріншот збережено: ${fileName}`);
-    ws.send(JSON.stringify({ 
-      type: 'DEBUG_SNAPSHOT', 
-      nodeId, 
-      image: `/api/images/debug/${fileName}` 
-    }));
-    logToClient(`✅ Скріншот збережено у файл`, 'debug');
-
-    // 3. Видаляємо маркер та підпис
-    await page.evaluate(() => {
-      ['__sf_debug_marker', '__sf_debug_label'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-      });
-    }).catch(() => {});
-  } catch (e: any) {
-    console.error('Snapshot error:', e.message);
-    logToClient(`❌ Помилка скріншоту: ${e.message}`, 'error');
-  }
-}
-
-// Глобальна функція виконання логіки ноди
-async function executeNodeLogic(currentNode: any, activePage: any, ws: any, context: any, nodes: any, edges: any, targetHandle?: string): Promise<any> {
-  const nodeTitle = currentNode.data?.title || currentNode.type;
-  let nodeResults: Record<string, any> = {};
-
-  logToClient(`\n💠 [НОДА: ${nodeTitle}] (${currentNode.type})`, 'info');
-  if (Object.keys(context || {}).length > 0) {
-    logToClient(`📥 ВХІДНІ ДАНІ: ${JSON.stringify(context)}`, 'debug');
-  }
-
-  try {
-    if (currentNode.type === 'actionNode') {
-      const { selector, actionType = 'click', clickAll = false } = currentNode.data;
-      logToClient(`⚙️ ДІЯ: ${actionType} ${selector ? `на ${selector}` : 'по координатах'}`, 'debug');
-      
-      if (context.coords && (actionType === 'click' || actionType === 'double_click')) {
-        let { x, y } = context.coords;
-        let wheelY = 0;
-        
-        if (y < 0) {
-          wheelY = y;
-          y = 0; 
-        }
-
-        // Прокручуємо до координат (миттєво)
-        console.log(`[DEBUG] Прокрутка до: X:${x}, Y:${y}`);
-        
-        const vSize = activePage.viewportSize() || { width: 960, height: 540 };
-        // Якщо треба крутити коліщатко (для ігор)
-        if (wheelY !== 0 || y > vSize.height) {
-           const dy = wheelY !== 0 ? wheelY : (y - vSize.height / 2);
-           console.log(`[DEBUG] Коліщатко миші: ${dy}`);
-           await activePage.mouse.move(vSize.width / 2, vSize.height / 2);
-           await activePage.mouse.wheel(0, dy);
-           await activePage.waitForTimeout(600);
-        }
-
-        await activePage.evaluate(({ x, y }: any) => {
-          window.scrollTo({
-            left: x - window.innerWidth / 2,
-            top: y - window.innerHeight / 2,
-            behavior: 'auto'
-          });
-        }, { x, y });
-        await activePage.waitForTimeout(200); 
-
-        // Обчислюємо координати ВІДНОСНО ВІКНА після прокрутки
-        const viewportCoords = await activePage.evaluate(({ x, y }: any) => {
-          return { 
-            x: x - window.scrollX, 
-            y: y - window.scrollY 
-          };
-        }, { x, y });
-
-        await takeDebugSnapshot(activePage, ws, currentNode.id, nodeTitle, viewportCoords);
-        await activePage.mouse.click(viewportCoords.x, viewportCoords.y);
-        logToClient(`✅ Клік виконано в (${viewportCoords.x}, ${viewportCoords.y})`, 'success');
-      } else if (selector) {
-        if (clickAll) {
-          const els = await activePage.$$(selector);
-          for (const el of els) if (await el.isVisible()) await el.click({ force: true });
-          logToClient(`✅ Клікнуто на всі (${els.length}) елементи`, 'success');
-        } else {
-          await takeDebugSnapshot(activePage, ws, currentNode.id, nodeTitle, { selector });
-          await activePage.waitForSelector(selector, { timeout: 5000 });
-          if (actionType === 'click') await activePage.click(selector, { force: true });
-          else if (actionType === 'double_click') await activePage.dblclick(selector, { force: true });
-          else if (actionType === 'hover') await activePage.hover(selector);
-          else if (actionType === 'scroll') await activePage.$eval(selector, (el: any) => el.scrollIntoView());
-          logToClient(`✅ Дія ${actionType} виконана на селектор`, 'success');
-        }
-      }
-    } else if (currentNode.type === 'valueLoopNode') {
-      // Цикл кліків — перебирає дочірні елементи за типом, клікає на ті що мають число >= мінімуму
-      const parentSel = currentNode.data.selector;
-      const childType = currentNode.data.childType || 'img';
-      const childCustom = currentNode.data.childCustomSelector || '';
-      const minValue = currentNode.data.minValue ?? 0;
-      // Визначаємо CSS-селектор для дочірніх елементів
-      const childSelector = childType === 'custom' ? childCustom : childType;
-
-      if (!parentSel) {
-        nodeResults.nextHandle = 'fail';
-        ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { loopResult: { clicked: 0, total: 0 } } }));
-      } else {
-        // Збираємо інформацію про дочірні елементи з числами
-        const elements = await activePage.evaluate(({ pSel, cSel, min }: { pSel: string, cSel: string, min: number }) => {
-          const parent = document.querySelector(pSel);
-          if (!parent) return [];
-          const children = Array.from(parent.querySelectorAll(cSel)) as HTMLElement[];
-          const results: { index: number, num: number, rect: any }[] = [];
-
-          children.forEach((el, i) => {
-            const container = el.closest('[class]') || el.parentElement;
-            if (!container) return;
-            const text = container.textContent || '';
-            const match = text.match(/(\d+(?:\.\d+)?)/);
-            const num = match ? parseFloat(match[1]) : -1;
-            if (num >= min) {
-              const rect = el.getBoundingClientRect();
-              results.push({ index: i, num, rect: { x: Math.round(rect.left + rect.width/2), y: Math.round(rect.top + rect.height/2) } });
-            }
-          });
-          return results;
-        }, { pSel: parentSel, cSel: childSelector, min: minValue });
-
-        // Клікаємо по кожному знайденому елементу
-        let clicked = 0;
-        for (const el of elements) {
-          if (!(ws as any).isBotRunning) break;
-          // Прокручуємо до елемента
-          await activePage.evaluate(({ x, y }: any) => {
-            window.scrollTo({
-              left: x - window.innerWidth / 2,
-              top: y - window.innerHeight / 2,
-              behavior: 'auto'
-            });
-          }, { x: el.rect.x, y: el.rect.y });
-          await activePage.waitForTimeout(200);
-
-          // Перераховуємо координати відносно вікна
-          const vCoords = await activePage.evaluate(({ x, y }: any) => {
-            return { x: x - window.scrollX, y: y - window.scrollY };
-          }, { x: el.rect.x, y: el.rect.y });
-
-          await takeDebugSnapshot(activePage, ws, currentNode.id, nodeTitle, vCoords);
-          await activePage.mouse.click(vCoords.x, vCoords.y);
-          clicked++;
-          // Невелика пауза між кліками щоб гра встигла обробити
-          await smartSleep(300, ws);
-        }
-
-        // Відправляємо результат на фронтенд
-        ws.send(JSON.stringify({ 
-          type: 'NODE_DATA_UPDATE', 
-          nodeId: currentNode.id, 
-          data: { loopResult: { clicked, total: elements.length } } 
-        }));
-        nodeResults.nextHandle = clicked > 0 ? 'done' : 'fail';
-      }
-    } else if (currentNode.type === 'delayNode') {
-      await smartSleep(currentNode.data.delay || 1000, ws);
-    } else if (currentNode.type === 'apiNode') {
-       const { url, apiKey } = currentNode.data;
-       const headers: Record<string, string> = {};
-       
-       if (apiKey) {
-         if (apiKey.startsWith('eyJ')) {
-           headers['Authorization'] = `Bearer ${apiKey}`;
-         } else {
-           headers['x-api-key'] = apiKey;
-         }
-       }
-
-       const res = await fetch(url, { headers });
-       const json = await res.json();
-       nodeResults = json;
-       ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { lastResponse: json } }));
-    } else if (currentNode.type === 'variableNode') {
-      const vars = currentNode.data.variables || [];
-      vars.forEach((v: any) => {
-        const val = v.path.split('.').reduce((o: any, i: string) => o?.[i], context);
-        if (val !== undefined) globalVariables[v.name] = val;
-      });
-      broadcastVariables();
-    } else if (currentNode.type === 'displayNode') {
-       let displayVal = "";
-       if (context.coords) displayVal += `📍 Координати: ${context.coords.x}, ${context.coords.y}\n`;
-       if (context.text) displayVal += `📝 Текст: ${context.text}\n`;
-       if (context.num !== undefined) displayVal += `🔢 Число: ${context.num}\n`;
-       if (context.imageNames?.length) displayVal += `🖼️ Картинки (${context.imageNames.length}): ${context.imageNames.slice(0, 3).join(', ')}${context.imageNames.length > 3 ? '...' : ''}\n`;
-       if (context.childrenNames?.length) displayVal += `🌿 Діти (${context.childrenNames.length}): ${context.childrenNames.slice(0, 3).join(', ')}${context.childrenNames.length > 3 ? '...' : ''}\n`;
-       
-       if (!displayVal) displayVal = JSON.stringify(context, null, 2).substring(0, 200);
-       
-       ws.send(JSON.stringify({ type: 'NODE_DISPLAY_DATA', nodeId: currentNode.id, value: displayVal.trim() }));
-    } else if (currentNode.type === 'searchInNode') {
-        const { selector, imageName } = currentNode.data;
-        if (!selector || !imageName) throw new Error('Вкажіть селектор та назву картинки');
-        
-        const fileName = imageName.includes('.') ? imageName : `${imageName}.png`;
-        const result = await activePage.evaluate(({ sel, imgName }: { sel: string, imgName: string }) => {
-           const root = document.querySelector(sel);
-           if (!root) return null;
-           const img = root.querySelector(`img[src*="${imgName}"]`) as HTMLImageElement;
-           if (img) {
-              const r = img.getBoundingClientRect();
-              return { 
-                 x: Math.round(r.left + window.scrollX + r.width / 2), 
-                 y: Math.round(r.top + window.scrollY + r.height / 2) 
-              };
-           }
-           return null;
-        }, { sel: selector, imgName: fileName });
-
-        if (result) {
-          await takeDebugSnapshot(activePage, ws, currentNode.id, nodeTitle, { x: result.x, y: result.y });
-          context.coords = result;
-           nodeResults.nextHandle = 'found';
-           ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { status: 'Знайдено', lastCoords: `X:${result.x}, Y:${result.y}` } }));
-           logToClient(`✅ Знайдено в ${selector}: (${result.x}, ${result.y})`, 'success');
-        } else {
-           nodeResults.nextHandle = 'not_found';
-           ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { status: 'Немає' } }));
-           logToClient(`❌ Не знайдено в ${selector}`, 'error');
-        }
-    } else if (currentNode.type === 'imageSearchNode' || currentNode.type === 'visualSearchNode') {
-        let { imageName, threshold = 0.8, selector } = currentNode.data;
-        if (!imageName) throw new Error('Назва картинки не вказана');
-
-        // Додаємо .png якщо розширення немає
-        const fileName = imageName.includes('.') ? imageName : `${imageName}.png`;
-        
-        console.log(`Пошук картинки: ${fileName} ${selector ? `в ${selector}` : ''}`);
-
-        // СПОЧАТКУ ШУКАЄМО В DOM (КОД СТОРІНКІ) - як просив користувач
-        const domResult = await activePage.evaluate(({ name, selector }: { name: string, selector: string | undefined }) => {
-          const root = selector ? document.querySelector(selector) : document;
-          if (!root) return null;
-
-          const img = root.querySelector(`img[src*="${name}"]`);
-          if (img) {
-            const rect = img.getBoundingClientRect();
-            return { x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY + rect.height / 2 };
-          }
-          const all = Array.from(root.querySelectorAll('*')) as HTMLElement[];
-          for (const el of all) {
-            const bg = window.getComputedStyle(el).backgroundImage;
-            if (bg && bg.includes(name)) {
-              const rect = el.getBoundingClientRect();
-              return { x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY + rect.height / 2 };
-            }
-          }
-          return null;
-        }, { name: fileName, selector });
-
-        let finalResult = domResult;
-
-        // ЯКЩО В DOM НЕ ЗНАЙДЕНО - ШУКАЄМО ВІЗУАЛЬНО (ПО ПІКСЕЛЯХ)
-        if (!finalResult) {
-          console.log(`В коді не знайдено, пробуємо візуальний пошук: ${fileName}`);
-          const imagesDir = path.join(__dirname, '../images');
-          const imgPath = path.join(imagesDir, fileName);
-          
-          if (fs.existsSync(imgPath)) {
-            const imgBase64 = fs.readFileSync(imgPath, { encoding: 'base64' });
-            let screenshot: Buffer;
-            let offset = { x: 0, y: 0 };
-
-            const scroll = await activePage.evaluate(() => ({ x: window.scrollX, y: window.scrollY }));
-            if (selector) {
-              const el = await activePage.$(selector);
-              if (el) {
-                screenshot = await el.screenshot();
-                const box = await el.boundingBox();
-                if (box) offset = { x: box.x + scroll.x, y: box.y + scroll.y };
-              } else {
-                screenshot = await activePage.screenshot();
-                offset = scroll;
-              }
-            } else {
-              screenshot = await activePage.screenshot();
-              offset = scroll;
-            }
-
-            const screenBase64 = screenshot.toString('base64');
-            const visualRes = await activePage.evaluate(async ({ screenB64, tempB64, threshold }: any) => {
-               const loadImg = (src: string): Promise<HTMLImageElement> => new Promise(r => { const i = new Image(); i.src = src; i.onload = () => r(i); });
-               const [screen, temp] = await Promise.all([loadImg('data:image/png;base64,'+screenB64), loadImg('data:image/png;base64,'+tempB64)]);
-               const sC = document.createElement('canvas'); sC.width = screen.width; sC.height = screen.height;
-               const sCtx = sC.getContext('2d')!; sCtx.drawImage(screen, 0, 0);
-               const sD = sCtx.getImageData(0, 0, sC.width, sC.height).data;
-               const tC = document.createElement('canvas'); tC.width = temp.width; tC.height = temp.height;
-               const tCtx = tC.getContext('2d')!; tCtx.drawImage(temp, 0, 0);
-               const tD = tCtx.getImageData(0, 0, tC.width, tC.height).data;
-
-               for (let y = 0; y < sC.height - tC.height; y += 4) {
-                 for (let x = 0; x < sC.width - tC.width; x += 4) {
-                   let m = 0, tot = 0;
-                   for (let ty = 0; ty < tC.height; ty += 8) {
-                     for (let tx = 0; tx < tC.width; tx += 8) {
-                       const si = ((y+ty)*sC.width + (x+tx))*4, ti = (ty*tC.width+tx)*4;
-                       if (Math.abs(sD[si]-tD[ti]) + Math.abs(sD[si+1]-tD[ti+1]) + Math.abs(sD[si+2]-tD[ti+2]) < 50) m++;
-                       tot++;
-                     }
-                   }
-                   if (m/tot > threshold) return { x: x + tC.width/2, y: y + tC.height/2 };
-                 }
-               }
-               return null;
-            }, { screenB64: screenBase64, tempB64: imgBase64, threshold });
-
-            if (visualRes) {
-              finalResult = { x: visualRes.x + offset.x, y: visualRes.y + offset.y };
-            }
-          }
-        }
-
-        if (finalResult) {
-          const actualResult = finalResult;
-          await takeDebugSnapshot(activePage, ws, currentNode.id, nodeTitle, { x: actualResult.x, y: actualResult.y });
-          nodeResults.coords = actualResult;
-          nodeResults.nextHandle = 'found';
-          ws.send(JSON.stringify({ type: 'NODE_DISPLAY_DATA', nodeId: currentNode.id, value: `Знайдено: ${Math.round(actualResult.x)},${Math.round(actualResult.y)}` }));
-          logToClient(`✅ Знайдено візуально: ${fileName} (${Math.round(actualResult.x)}, ${Math.round(actualResult.y)})`, 'success');
-        } else {
-          nodeResults.nextHandle = 'not_found';
-          ws.send(JSON.stringify({ type: 'NODE_DISPLAY_DATA', nodeId: currentNode.id, value: 'Не знайдено' }));
-          logToClient(`❌ Не знайдено візуально: ${fileName}`, 'error');
-        }
-    } else if (currentNode.type === 'browserNode') {
-        const { url, browser_action } = currentNode.data;
-        
-        if (url && url.startsWith('http')) {
-           console.log(`[BROWSER] Перехід на: ${url}`);
-           await activePage.goto(url, { waitUntil: 'load' });
-        } else {
-           if (browser_action === 'refresh') {
-              console.log(`[BROWSER] Оновлення сторінки...`);
-              await activePage.reload({ waitUntil: 'load' }).catch(async () => {
-                 await activePage.evaluate(() => window.location.reload());
-              });
-           }
-           else if (browser_action === 'back') await activePage.goBack();
-           else if (browser_action === 'wait_load') await activePage.waitForLoadState('networkidle');
-        }
-    } else if (currentNode.type === 'selectorCheckNode') {
-       const { selector } = currentNode.data;
-       logToClient(`⚙️ ПЕРЕВІРКА: Наявність ${selector}`, 'debug');
-       const isExists = await activePage.$(selector).catch(() => null);
-       if (isExists) {
-         await takeDebugSnapshot(activePage, ws, currentNode.id, nodeTitle, { selector });
-         logToClient(`✅ Селектор існує`, 'success');
-       } else {
-         logToClient(`❌ Селектор НЕ знайдено`, 'error');
-       }
-       nodeResults.nextHandle = isExists ? 'exists' : 'not_exists';
-    } else if (currentNode.type === 'escNode') {
-        console.log(`[KEYBOARD] Натискання ESC`);
-        await activePage.keyboard.press('Escape');
-    } else if (currentNode.type === 'keyboardNode') {
-       const keys = currentNode.data.keys || [];
-       for (const k of keys) {
-         await activePage.keyboard.press(k.key);
-         await smartSleep(k.delay || 100, ws);
-       }
-    } else if (currentNode.type === 'infoNode') {
-       const { selector, variablePrefix = 'scanned' } = currentNode.data;
-       try {
-         const el = await activePage.waitForSelector(selector, { timeout: 3000 });
-         const box = await el.boundingBox();
-         const text = await el.textContent();
-         const num = parseInt(text?.match(/\d+/)?.[0] || "0");
-         
-         const info = await activePage.evaluate((s: string) => {
-            const e = document.querySelector(s);
-            if (!e) return null;
-             const imageNames = Array.from(e.querySelectorAll('img')).map(img => {
-                const parts = img.src.split('/');
-                return parts[parts.length - 1].split('?')[0];
-             }).filter(n => n && !n.startsWith('data:'));
-
-             const childrenNames = Array.from(e.children).map(c => ({
-                name: c.textContent?.trim().substring(0, 15) || c.tagName.toLowerCase(),
-                selector: c.tagName.toLowerCase() + (c.id ? '#' + c.id : '') + (c.className && typeof c.className === 'string' ? '.' + c.className.split(' ')[0] : '')
-             })).filter(i => i.name);
-
-             return {
-                children: e.children.length,
-                images: e.querySelectorAll('img').length,
-                imageNames,
-                childrenNames
-             };
-         }, selector);
-
-         const coords = box ? { x: Math.round(box.x + box.width/2), y: Math.round(box.y + box.height/2) } : { x: 0, y: 0 };
-         
-         globalVariables[`${variablePrefix}_text`] = text || "";
-         globalVariables[`${variablePrefix}_num`] = num;
-         
-         nodeResults = {
-            coords,
-            text: text || "",
-            num,
-            children: info?.children || 0,
-            images: info?.images || 0,
-            imageNames: info?.imageNames || [],
-            childrenNames: info?.childrenNames || []
-         };
-
-         broadcastVariables();
-         
-         ws.send(JSON.stringify({ 
-            type: 'NODE_DATA_UPDATE', 
-            nodeId: currentNode.id, 
-            data: { 
-               lastCoords: `X:${coords.x}, Y:${coords.y}`,
-               lastText: text?.substring(0, 15),
-               lastNum: num,
-               lastChildrenCount: info?.children,
-               lastImagesCount: info?.images,
-               imageNames: info?.imageNames || [],
-               childrenNames: info?.childrenNames || []
-            } 
-         }));
-       } catch (e) { console.error('Помилка сканування:', e); }
-    } else if (currentNode.type === 'conditionNode') {
-       const type = currentNode.data.conditionType || 'exists';
-       let met = false;
-       if (type === 'exists') {
-         const el = await activePage.$(currentNode.data.selector).catch(() => null);
-         met = el ? await el.isVisible() : false;
-       } else if (type === 'compare') {
-         const valA = globalVariables[currentNode.data.varA] || 0;
-         const valB = parseInt(currentNode.data.valB) || 0;
-         const op = currentNode.data.operator || '>';
-         if (op === '>') met = valA > valB;
-         else if (op === '<') met = valA < valB;
-         else if (op === '==') met = valA == valB;
-       }
-       nodeResults.nextHandle = met ? 'true' : 'false';
-       logToClient(`⚙️ УМОВА: ${type} -> ${met}`, met ? 'success' : 'error');
-    } else if (currentNode.type === 'nestedCheckNode') {
-       const parent = await activePage.$(currentNode.data.parentSelector).catch(() => null);
-       const child = parent ? await parent.$(currentNode.data.childSelector).catch(() => null) : null;
-       nodeResults.nextHandle = child ? 'found' : 'not_found';
-    } else if (currentNode.type === 'valueLoopNode') {
-       const clicked = await activePage.evaluate((sel: string) => {
-         const p = document.querySelector(sel);
-         if (!p) return false;
-         for (const c of Array.from(p.children)) {
-           if (parseInt(c.textContent?.match(/\d+/)?.[0] || '0') > 0) {
-             (c as HTMLElement).click(); return true;
-           }
-         }
-         return false;
-       }, currentNode.data.selector);
-       nodeResults.nextHandle = clicked ? 'done' : 'fail';
-    } else if (currentNode.type === 'multiLogicNode') {
-       const conds = currentNode.data.conditions || [];
-       let idx = -1;
-       for (let i = 0; i < conds.length; i++) {
-         try {
-           let expr = conds[i].expression;
-           Object.keys(globalVariables).forEach(k => expr = expr.replace(new RegExp(k, 'g'), globalVariables[k]));
-           if (eval(expr)) { idx = i; break; }
-         } catch {}
-       }
-       nodeResults.nextHandle = idx >= 0 ? `out_${idx}` : 'default';
-       logToClient(`⚙️ ЛОГІКА: Вихід -> ${nodeResults.nextHandle}`, 'success');
-    } else if (currentNode.type === 'multiScanNode') {
-       const items = currentNode.data.scanItems || [];
-       let found = false;
-       for (let i = 0; i < items.length; i++) {
-         const item = items[i];
-         if (!item.selector) continue;
-         const result = await activePage.evaluate(({ sel, cond, val }: any) => {
-           const el = document.querySelector(sel);
-           if (!el) return null;
-           const text = (el as HTMLElement).innerText || "";
-           const numMatch = text.match(/(\d+(?:\.\d+)?)/);
-           const num = numMatch ? parseFloat(numMatch[1]) : NaN;
-           let met = false;
-           if (cond === 'exists') met = true;
-           else if (cond === 'contains') met = text.includes(val);
-           else if (cond === 'equals') met = text.trim() === val.trim();
-           else if (cond === '>') met = !isNaN(num) && num > parseFloat(val);
-           else if (cond === '<') met = !isNaN(num) && num < parseFloat(val);
-           if (met) {
-             const r = el.getBoundingClientRect();
-             return { x: Math.round(r.left + r.width/2), y: Math.round(r.top + r.height/2), text, num };
-           }
-           return null;
-         }, { sel: item.selector, cond: item.condition, val: item.value });
-         if (result) {
-           nodeResults.coords = { x: result.x, y: result.y };
-           nodeResults.text = result.text;
-           nodeResults.num = result.num;
-           nodeResults.nextHandle = 'success';
-           found = true;
-           ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { status: `✅ Знайдено #${i+1} (${result.x}, ${result.y})`, lastFound: item.selector } }));
-           break;
-         }
-       }
-       if (!found) {
-         nodeResults.nextHandle = 'fail';
-         ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { status: 'Не знайдено', lastFound: 'Нічого' } }));
-        }
-    } else if (currentNode.type === 'coordClickNode') {
-        // Якщо прийшли на вхід "записати координати"
-        if (targetHandle === 'update_coords' && context?.coords) {
-          currentNode.data.x = context.coords.x;
-          currentNode.data.y = context.coords.y;
-          // Повертаємо координати далі по ланцюжку
-          nodeResults.coords = context.coords;
-          // Повідомляємо фронтенд про оновлення
-          ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { x: context.coords.x, y: context.coords.y } }));
-        } 
-        // Якщо прийшли на вхід "записати кількість"
-        else if (targetHandle === 'update_count' && context?.num !== undefined) {
-          currentNode.data.clickCount = context.num;
-          ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { clickCount: context.num } }));
-        }
-        // Стандартний клік (або вхід execute)
-        else {
-          let x = currentNode.data.x || 0;
-          let y = currentNode.data.y || 0;
-          let wheelY = 0;
-          
-          // Отримуємо поточну прокрутку
-          const currentScroll = await activePage.evaluate(() => ({ x: window.scrollX, y: window.scrollY }));
-
-          if (context?.coords) {
-            x = context.coords.x;
-            y = context.coords.y;
-          } else {
-            // Якщо Y від'ємний — це відносна прокрутка
-            if (currentNode.data.y < 0) {
-              wheelY = currentNode.data.y;
-              y = currentScroll.y; 
-            }
-          }
-
-          const vSize = activePage.viewportSize() || { width: 960, height: 540 };
-          
-          if (wheelY !== 0) {
-             console.log(`[DEBUG] Прокрутка коліщатком на: ${wheelY}`);
-             await activePage.mouse.move(vSize.width / 2, vSize.height / 2);
-             await activePage.mouse.wheel(0, wheelY);
-             await activePage.waitForTimeout(600);
-          }
-
-          if (y > vSize.height) {
-            await activePage.evaluate(({ x, y }: any) => {
-              window.scrollTo({ left: x - window.innerWidth/2, top: y - window.innerHeight/2, behavior: 'auto' });
-            }, { x, y });
-            await activePage.waitForTimeout(200);
-          }
-
-          const vCoords = await activePage.evaluate(({ x, y }: any) => {
-            return { x: x - window.scrollX, y: Math.max(0, y - window.scrollY) };
-          }, { x, y });
-
-          const count = currentNode.data.clickCount || 1;
-          for (let i = 0; i < count; i++) {
-            if (i === 0) await takeDebugSnapshot(activePage, ws, currentNode.id, nodeTitle, vCoords);
-            await activePage.mouse.click(vCoords.x, vCoords.y);
-            if (count > 1) await activePage.waitForTimeout(100);
-          }
-          if (context?.coords) nodeResults.coords = context.coords;
-        }
-    } else if (currentNode.type === 'textCompareNode') {
-        // Оновлення даних через входи
-        if (targetHandle === 'textA') {
-          currentNode.data.varA = String(context.text || context.value || "");
-          ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { varA: currentNode.data.varA } }));
-          nodeResults.skipNext = true; // НЕ запускаємо наступні ноди
-        } else if (targetHandle === 'textB') {
-          currentNode.data.valB = String(context.text || context.value || "");
-          ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { valB: currentNode.data.valB } }));
-          nodeResults.skipNext = true; // НЕ запускаємо наступні ноди
-        } else {
-          // Виконання порівняння
-          let valA = String(currentNode.data.varA || "");
-          // Якщо varA — це назва існуючої змінної, беремо її значення
-          if (globalVariables[valA] !== undefined) {
-             valA = String(globalVariables[valA]);
-          }
-          
-          const valB = String(currentNode.data.valB || "");
-          const op = currentNode.data.operator || 'equals';
-          let met = false;
-
-          if (op === 'equals') met = valA === valB;
-          else if (op === 'not_equals') met = valA !== valB;
-          else if (op === 'contains') met = valA.includes(valB);
-          else if (op === 'not_contains') met = !valA.includes(valB);
-          else if (op === 'starts_with') met = valA.startsWith(valB);
-          else if (op === 'ends_with') met = valA.endsWith(valB);
-          else if (op === 'matches') {
-            try {
-              const regex = new RegExp(valB, 'i');
-              met = regex.test(valA);
-            } catch (e) { met = false; }
-          }
-
-          nodeResults.nextHandle = met ? 'true' : 'false';
-          logToClient(`⚙️ ТЕКСТ: "${valA}" ${op} "${valB}" -> ${met}`, met ? 'success' : 'error');
-        }
-    } else if (currentNode.type === 'compareNode') {
-        if (targetHandle === 'valA') {
-          currentNode.data.valA = context.num ?? context.value ?? 0;
-          ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { valA: currentNode.data.valA } }));
-          nodeResults.skipNext = true;
-        } else if (targetHandle === 'valB') {
-          currentNode.data.valB = context.num ?? context.value ?? 0;
-          ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { valB: currentNode.data.valB } }));
-          nodeResults.skipNext = true;
-        } else {
-          // Вхід execute або за замовчуванням
-          const a = currentNode.data.valA || 0;
-          const b = currentNode.data.valB || 0;
-          const op = currentNode.data.operator || '>';
-          let met = false;
-          if (op === '>') met = a > b;
-          else if (op === '<') met = a < b;
-          else if (op === '==') met = a == b;
-          else if (op === '>=') met = a >= b;
-          else if (op === '<=') met = a <= b;
-          else if (op === '!=') met = a != b;
-          nodeResults.nextHandle = met ? 'true' : 'false';
-        }
+    // Requirement 11: Periodic memory reporting with all sessions (every 30 minutes)
+    // Check if 30 minutes have passed since last memory report
+    const now = Date.now();
+    const lastMemoryReport = (schedulerInterval as any).lastMemoryReport || 0;
+    if (now - lastMemoryReport >= 30 * 60 * 1000) {
+      const allNodeRuntimeStates = Array.from(sessions.values()).map(s => s.nodeRuntimeState);
+      memoryMonitor.reportMemoryStats(allNodeRuntimeStates);
+      (schedulerInterval as any).lastMemoryReport = now;
     }
-  } catch (err: any) {
-    console.warn(`Помилка в ноді ${currentNode.id}:`, err.message);
-    throw err;
+
+    // Читаємо список файлів у папці проектів
+    let files: string[];
+    try {
+      files = fs.readdirSync(PROJECTS_DIR);
+    } catch (readErr) {
+      logger.error('Scheduler: failed to read projects directory', readErr instanceof Error ? readErr : new Error(String(readErr)), { path: PROJECTS_DIR });
+      return;
+    }
+    
+    // Отримуємо поточний час
+    const currentDate = new Date();
+    // Отримуємо день тижня (0 = Неділя, 1 = Понеділок тощо)
+    const currentDay = currentDate.getDay();
+    // Формуємо поточну годину та хвилину у форматі HH:MM
+    const currentHour = currentDate.getHours().toString().padStart(2, '0');
+    const currentMinute = currentDate.getMinutes().toString().padStart(2, '0');
+    const currentTime = `${currentHour}:${currentMinute}`;
+
+    // Перебираємо файли
+    for (const file of files) {
+      // Фільтруємо лише файли проектів
+      if (!file.endsWith('.json') || file.endsWith('_stats.json')) continue;
+      
+      // Визначаємо назву проекту
+      const projectName = file.replace('.json', '');
+      // Отримуємо або створюємо сесію для цього проекту
+      const session = getOrCreateSession(projectName);
+      
+      // Якщо бот цього проекту вже запущений і працює — пропускаємо його
+      if (session.isBotRunning) continue;
+      
+      // Формуємо шлях до файлу проекту
+      const projectPath = path.join(PROJECTS_DIR, file);
+      // Читаємо дані проекту
+      let projectData: any;
+      try {
+        const fileContent = fs.readFileSync(projectPath, 'utf-8');
+        projectData = JSON.parse(fileContent);
+      } catch (parseErr) {
+        logger.error(`Scheduler: failed to read or parse project file ${file}`, parseErr instanceof Error ? parseErr : new Error(String(parseErr)));
+        continue;
+      }
+      
+      // Отримуємо налаштування запуску та налаштування браузера проекту
+      const launchSettings = projectData.launchSettings;
+      const browserSettings = projectData.browserSettings;
+      
+      // Якщо налаштувань запуску немає — пропускаємо
+      if (!launchSettings) continue;
+
+      // Змінна чи потрібно запускати проект
+      let shouldRun = false;
+
+      // 1. Інтервальний запуск
+      if (launchSettings.mode === 'interval' && launchSettings.intervalValue > 0) {
+         // Шлях до статистики проекту
+         const statPath = path.join(PROJECTS_DIR, file.replace('.json', '_stats.json'));
+         // Час останнього запуску за замовчуванням
+         let lastRun = projectData.updatedAt || 0;
+         // Якщо статистика існує, отримуємо час останнього запису
+         let fileExists = false;
+         try {
+           fileExists = fs.existsSync(statPath);
+         } catch (checkErr) {
+           logger.warn(`Scheduler: failed to check stats file existence for ${projectName}`, { error: String(checkErr) });
+         }
+         
+         if (fileExists) {
+            try {
+              const statsContent = fs.readFileSync(statPath, 'utf-8');
+              const stats = JSON.parse(statsContent);
+              if (stats.length > 0) {
+                 lastRun = stats[stats.length - 1].timestamp;
+              }
+            } catch (statsErr) {
+              logger.warn(`Scheduler: failed to read or parse stats file for ${projectName}`, { error: String(statsErr) });
+            }
+         }
+         // Рахуємо різницю в хвилинах
+         const diffMinutes = (Date.now() - lastRun) / (1000 * 60);
+         // Вираховуємо необхідний інтервал у хвилинах
+         const requiredDiff = launchSettings.intervalUnit === 'hours' ? launchSettings.intervalValue * 60 : launchSettings.intervalValue;
+         
+         // Якщо пройшло достатньо часу, ставимо прапорець запуску
+         if (diffMinutes >= requiredDiff) shouldRun = true;
+      } 
+      // 2. За розкладом днів тижня та часу
+      else if (launchSettings.mode === 'schedule') {
+         // Перевіряємо чи сьогоднішній день включено до списку розкладу та чи збігається час
+         if (launchSettings.scheduleDays.includes(currentDay) && launchSettings.scheduleTime === currentTime) {
+            const statPath = path.join(PROJECTS_DIR, file.replace('.json', '_stats.json'));
+            let ranToday = false;
+            // Перевіряємо чи запускався вже бот на цій хвилині
+            let fileExists = false;
+            try {
+              fileExists = fs.existsSync(statPath);
+            } catch (checkErr) {
+              logger.warn(`Scheduler: failed to check stats file existence for ${projectName}`, { error: String(checkErr) });
+            }
+            
+            if (fileExists) {
+               try {
+                 const statsContent = fs.readFileSync(statPath, 'utf-8');
+                 const stats = JSON.parse(statsContent);
+                 if (stats.length > 0) {
+                    const lastRun = new Date(stats[stats.length - 1].timestamp);
+                    if (lastRun.getDate() === currentDate.getDate() && lastRun.getMonth() === currentDate.getMonth() && lastRun.getHours() === currentDate.getHours() && lastRun.getMinutes() === currentDate.getMinutes()) {
+                       ranToday = true;
+                    }
+                 }
+               } catch (statsErr) {
+                 logger.warn(`Scheduler: failed to read or parse stats file for ${projectName}`, { error: String(statsErr) });
+               }
+            }
+            // Якщо не запускався, ставимо прапорець запуску
+            if (!ranToday) shouldRun = true;
+         }
+      }
+
+      // Якщо умови виконані, запускаємо бот сценарій для цього проекту
+      if (shouldRun) {
+        logger.info(`Scheduler: launching project ${projectName}`);
+        
+        // Викликаємо універсальну функцію для фонового запуску сценарію
+        startProject(projectName).catch(err => {
+          logger.error(`Scheduler: background launch error for project ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+        });
+      }
+    }
+  } catch (err) {
+    logger.error('Scheduler error', err instanceof Error ? err : new Error(String(err)));
   }
-  return nodeResults;
+}, 60000); // Інтервал перевірки кожну хвилину
+
+// Requirement 10: Register scheduler interval with TimerManager
+timerManager.registerTimer('system:scheduler', schedulerInterval);
+
+// Запускаємо HTTP сервер на вказаному порті
+server.listen(HTTP_PORT, '0.0.0.0', () => {
+  console.log(`🚀 Сервер на порту ${HTTP_PORT}`);
+});
+
+// Requirement 8 & 20: Graceful shutdown handling
+async function gracefulShutdown(signal: string) {
+  logger.info(`Received ${signal}, starting graceful shutdown...`);
+  
+  try {
+    // Stop accepting new connections
+    server.close(() => {
+      logger.info('HTTP server closed');
+    });
+    
+    // Requirement 8.6: Close all WebSocket connections
+    await wsLifecycle.closeAllConnections();
+    
+    // Requirement 8: Stop WebSocket cleanup timer
+    wsLifecycle.stopCleanupTimer();
+    
+    // Requirement 27: Cleanup zombie browser processes
+    await browserLifecycle.cleanupZombieBrowsers(sessions);
+    
+    // Requirement 10: Clear all timers and stop cleanup timer
+    timerManager.clearAllTimers();
+    timerManager.stopCleanupTimer();
+    
+    // Requirement 11: Stop memory reporting timer
+    memoryMonitor.stopReportingTimer();
+    
+    logger.info('Graceful shutdown complete');
+    process.exit(0);
+  } catch (err) {
+    logger.error('Error during graceful shutdown', err instanceof Error ? err : new Error(String(err)));
+    process.exit(1);
+  }
 }
+
+// Register shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+

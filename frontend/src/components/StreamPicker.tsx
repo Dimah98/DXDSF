@@ -1,5 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, MousePointer, Loader2, Camera } from 'lucide-react';
+// Панель трансляції з живого браузера — комфортне керування мишею, клавіатурою і тач-зумом
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  X, MousePointer, Loader2, ZoomIn, ZoomOut,
+  Mouse, Hand, Keyboard,
+  Power, Play, ChevronUp, ChevronDown, Code
+} from 'lucide-react';
 
 interface StreamPickerProps {
   onClose: () => void;
@@ -8,293 +13,494 @@ interface StreamPickerProps {
   pickType: string;
 }
 
+// Режими взаємодії з браузером
+type Mode = 'click' | 'hover' | 'pick' | 'ctrl_click' | 'shift_click' | 'scroll';
+
+const MODES: { key: Mode; label: string; icon: React.ReactNode; color: string; hotkey: string }[] = [
+  { key: 'click',       label: 'Клік',        icon: <Mouse size={13} />,      color: 'bg-emerald-600',  hotkey: 'C' },
+  { key: 'hover',       label: 'Навести',      icon: <Hand size={13} />,       color: 'bg-amber-500',    hotkey: 'H' },
+
+  { key: 'ctrl_click',  label: 'Ctrl+Клік',   icon: <Keyboard size={13} />,   color: 'bg-purple-600',   hotkey: 'D' },
+  { key: 'shift_click', label: 'Shift+Клік',  icon: <Keyboard size={13} />,   color: 'bg-fuchsia-600',  hotkey: 'F' },
+  { key: 'pick',        label: 'Вибрати',      icon: <MousePointer size={13} />, color: 'bg-indigo-600', hotkey: 'P' },
+];
+
 const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws, nodeId, pickType }) => {
   const [frame, setFrame] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<'pick' | 'click' | 'hover' | 'ctrl_click' | 'shift_click'>('click'); 
+  const [mode, setMode] = useState<Mode>('click');
   const [isRecording, setIsRecording] = useState(false);
-  const [zoom, setZoom] = useState(1); // 1 = 100%
+  const [zoom, setZoom] = useState(1);
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const [ripples, setRipples] = useState<{id: number, x: number, y: number, color: string}[]>([]);
+  const [isBrowserOpen, setIsBrowserOpen] = useState(false);
+  const [devToolsUrl, setDevToolsUrl] = useState<string | null>(null);
+
+  // Touch pinch-to-zoom
   const [touchStartDist, setTouchStartDist] = useState<number | null>(null);
-  const [touchStartCenter, setTouchStartCenter] = useState<{x: number, y: number} | null>(null);
-  const [startScroll, setStartScroll] = useState<{left: number, top: number} | null>(null);
+  const [touchStartCenter, setTouchStartCenter] = useState<{ x: number; y: number } | null>(null);
+  const [startScroll, setStartScroll] = useState<{ left: number; top: number } | null>(null);
   const [startZoom, setStartZoom] = useState(1);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const modeRef = useRef<Mode>(mode); // Актуальний режим без stale closure
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      const dist = Math.hypot(
-        e.touches[0].pageX - e.touches[1].pageX,
-        e.touches[0].pageY - e.touches[1].pageY
-      );
-      const centerX = (e.touches[0].pageX + e.touches[1].pageX) / 2;
-      const centerY = (e.touches[0].pageY + e.touches[1].pageY) / 2;
+  // Синхронізуємо ref з state
+  useEffect(() => { modeRef.current = mode; }, [mode]);
 
-      setTouchStartDist(dist);
-      setTouchStartCenter({ x: centerX, y: centerY });
-      setStartZoom(zoom);
-      
-      if (scrollRef.current) {
-        setStartScroll({ 
-          left: scrollRef.current.scrollLeft, 
-          top: scrollRef.current.scrollTop 
-        });
-      }
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 2 && touchStartDist !== null && touchStartCenter && startScroll) {
-      e.preventDefault();
-      
-      // 1. Zoom logic
-      const dist = Math.hypot(
-        e.touches[0].pageX - e.touches[1].pageX,
-        e.touches[0].pageY - e.touches[1].pageY
-      );
-      const ratio = dist / touchStartDist;
-      setZoom(Math.max(1, Math.min(4, startZoom * ratio)));
-
-      // 2. Pan logic (Two fingers movement)
-      const centerX = (e.touches[0].pageX + e.touches[1].pageX) / 2;
-      const centerY = (e.touches[0].pageY + e.touches[1].pageY) / 2;
-      
-      const dx = centerX - touchStartCenter.x;
-      const dy = centerY - touchStartCenter.y;
-      
-      if (scrollRef.current) {
-        scrollRef.current.scrollLeft = startScroll.left - dx;
-        scrollRef.current.scrollTop = startScroll.top - dy;
-      }
-    }
-  };
-
+  // ─── Отримуємо кадри трансляції ─────────────────────────────────────────────
   useEffect(() => {
     if (!ws) return;
-
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'STREAM_FRAME') {
           setFrame(`data:image/jpeg;base64,${data.frame}`);
           setLoading(false);
+          setIsBrowserOpen(true);
+        } else if (data.type === 'DEVTOOLS_URL') {
+          const isSecure = window.location.protocol === 'https:';
+          const wsProtocol = isSecure ? 'wss=' : 'ws=';
+          const newUrl = data.url
+            .replace('ws=', wsProtocol)
+            .replace('localhost:9222', window.location.host);
+          setDevToolsUrl(newUrl);
         }
-        if (data.type === 'SELECTOR_INFO_PICKED' && data.nodeId === nodeId) {
-          // onClose(); // Не закриваємо автоматично, щоб було як у браузері
-        }
-      } catch (e) {}
+      } catch {}
     };
-
     ws.addEventListener('message', handleMessage);
     ws.send(JSON.stringify({ type: 'START_STREAM', nodeId }));
-
     return () => {
       ws.removeEventListener('message', handleMessage);
       ws.send(JSON.stringify({ type: 'STOP_STREAM' }));
     };
-  }, [ws, nodeId, onClose]);
+  }, [ws, nodeId]);
 
-  const handleClick = (e: React.MouseEvent) => {
-    if (!containerRef.current || !ws) return;
-    
-    const img = containerRef.current.querySelector('img');
-    if (!img) return;
+  // ─── Клавіатурні скорочення ──────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      // Закрити
+      if (e.key === 'Escape') { onClose(); return; }
 
+      // Зум колесом (Ctrl + колесо мишки — стандарт браузера)
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      // Перемикання режиму клавішами
+      const keyUpper = e.key.toUpperCase();
+      const found = MODES.find(m => m.hotkey === keyUpper);
+      if (found) { e.preventDefault(); setMode(found.key); }
+
+      // Zoom +/-
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom(z => Math.min(4, z + 0.25)); }
+      if (e.key === '-') { e.preventDefault(); setZoom(z => Math.max(1, z - 0.25)); }
+      if (e.key === '0') { e.preventDefault(); setZoom(1); }
+
+      // ESC у браузер
+      if (e.key === 'F1') {
+        e.preventDefault();
+        ws?.send(JSON.stringify({ type: 'INTERACT_BROWSER', action: 'esc', x: 0, y: 0 }));
+      }
+
+      // Enter у браузер
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        ws?.send(JSON.stringify({ type: 'INTERACT_BROWSER', action: 'enter', x: 0, y: 0 }));
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [ws, onClose]);
+
+  // ─── Обчислення координат відносно зображення ───────────────────────────────
+  const getImgCoords = useCallback((e: React.MouseEvent | React.Touch) => {
+    const img = containerRef.current?.querySelector('img');
+    if (!img) return null;
     const rect = img.getBoundingClientRect();
-    const relativeX = (e.clientX - rect.left) / rect.width;
-    const relativeY = (e.clientY - rect.top) / rect.height;
-    
-    const x = Math.round(relativeX * img.naturalWidth);
-    const y = Math.round(relativeY * img.naturalHeight);
-    
-    // Колір фідбеку залежно від режиму
-    let rippleColor = 'border-primary';
-    if (mode === 'click') rippleColor = 'border-green-500';
-    if (mode === 'hover') rippleColor = 'border-orange-400';
-    if (mode.includes('click') && mode !== 'click') rippleColor = 'border-purple-500';
+    const clientX = 'clientX' in e ? e.clientX : (e as React.Touch).clientX;
+    const clientY = 'clientY' in e ? e.clientY : (e as React.Touch).clientY;
+    const relX = (clientX - rect.left) / rect.width;
+    const relY = (clientY - rect.top) / rect.height;
+    return {
+      x: Math.round(relX * img.naturalWidth),
+      y: Math.round(relY * img.naturalHeight),
+    };
+  }, []);
 
-    const clickRipple = document.createElement('div');
-    clickRipple.className = `absolute w-6 h-6 border-2 ${rippleColor} rounded-full animate-ping pointer-events-none z-[300]`;
-    clickRipple.style.left = `${e.clientX - rect.left - 12}px`;
-    clickRipple.style.top = `${e.clientY - rect.top - 12}px`;
-    img.parentElement?.appendChild(clickRipple);
-    setTimeout(() => clickRipple.remove(), 800);
+  // ─── Клік на кадр ────────────────────────────────────────────────────────────
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (!ws) return;
+    const coords = getImgCoords(e);
+    if (!coords) return;
+
+    const currentMode = modeRef.current;
+
+    // Анімація пульсу на місці кліку (через React State)
+    const colors: Record<Mode, string> = {
+      click: 'border-emerald-400', hover: 'border-amber-400',
+      pick: 'border-indigo-400', ctrl_click: 'border-purple-400',
+      shift_click: 'border-fuchsia-400', scroll: 'border-sky-400',
+    };
+    
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const rippleId = Date.now() + Math.random();
+      const x = e.clientX - rect.left - 14;
+      const y = e.clientY - rect.top - 14;
+      
+      setRipples(prev => [...prev, { id: rippleId, x, y, color: colors[currentMode] }]);
+      setTimeout(() => {
+        setRipples(prev => prev.filter(r => r.id !== rippleId));
+      }, 700);
+    }
+
+    let isSmart = false;
+    if (currentMode === 'pick' && e.shiftKey) {
+      isSmart = window.confirm('Використати СМАРТ селектор? (OK = Смарт, Скасувати = Стандарт)');
+    }
 
     // Надсилаємо команду
     ws.send(JSON.stringify({
-      type: mode === 'pick' ? 'PICK_SELECTOR_BY_COORDS' : 'INTERACT_BROWSER',
-      action: mode,
-      x,
-      y,
-      nodeId,
-      pickType
+      type: currentMode === 'pick' ? 'PICK_SELECTOR_BY_COORDS' : 'INTERACT_BROWSER',
+      action: currentMode,
+      ...coords, nodeId, pickType, isSmart,
     }));
 
-    // Якщо увімкнено запис — просимо бекенд створити ноду
-    if (isRecording && mode !== 'pick') {
-      ws.send(JSON.stringify({ type: 'RECORD_NODE', x, y }));
+    // Запис нод
+    if (isRecording && currentMode !== 'pick') {
+      ws.send(JSON.stringify({ type: 'RECORD_NODE', ...coords }));
     }
 
-    // Після Ctrl/Shift кліку автоматично перемикаємо на звичайний клік, 
-    // щоб можна було зручно вибрати пункт у меню, що з'явилося.
-    if (mode === 'ctrl_click' || mode === 'shift_click') {
-      setTimeout(() => setMode('click'), 100);
+    // Ctrl/Shift клік → повертаємось до звичайного кліку
+    if (currentMode === 'ctrl_click' || currentMode === 'shift_click') {
+      setTimeout(() => setMode('click'), 150);
+    }
+  }, [ws, nodeId, pickType, isRecording, getImgCoords]);
+
+  // ─── Hover з throttle ────────────────────────────────────────────────────────
+  const hoverThrottle = useRef<number>(0);
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const coords = getImgCoords(e);
+    if (coords) setCursorPos(coords);
+    if (!ws || modeRef.current !== 'hover') return;
+    const now = Date.now();
+    if (now - hoverThrottle.current < 80) return; // ~12fps для hover
+    hoverThrottle.current = now;
+    if (coords) ws.send(JSON.stringify({ type: 'INTERACT_BROWSER', action: 'hover', ...coords }));
+  }, [ws, getImgCoords]);
+
+  // ─── Scroll на кадрі → прокрутка у браузері ─────────────────────────────────
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!ws) return;
+    if (e.ctrlKey) {
+      // Ctrl + колесо = зум зображення
+      e.preventDefault();
+      setZoom(z => Math.max(1, Math.min(4, z - e.deltaY * 0.002)));
+    } else if (modeRef.current === 'scroll') {
+      // Режим прокрутки → надсилаємо у браузер
+      const coords = getImgCoords(e as any);
+      if (coords) {
+        ws.send(JSON.stringify({
+          type: 'INTERACT_BROWSER',
+          action: 'scroll',
+          x: coords.x,
+          y: coords.y,
+          deltaX: Math.round(e.deltaX),
+          deltaY: Math.round(e.deltaY),
+        }));
+      }
+    }
+  }, [ws, getImgCoords]);
+
+  // ─── Touch pinch-to-zoom ─────────────────────────────────────────────────────
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 2) return;
+    const dist = Math.hypot(
+      e.touches[0].pageX - e.touches[1].pageX,
+      e.touches[0].pageY - e.touches[1].pageY,
+    );
+    setTouchStartDist(dist);
+    setTouchStartCenter({ x: (e.touches[0].pageX + e.touches[1].pageX) / 2, y: (e.touches[0].pageY + e.touches[1].pageY) / 2 });
+    setStartZoom(zoom);
+    if (scrollRef.current) setStartScroll({ left: scrollRef.current.scrollLeft, top: scrollRef.current.scrollTop });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 2 || touchStartDist === null || !touchStartCenter || !startScroll) return;
+    e.preventDefault();
+    const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+    setZoom(Math.max(1, Math.min(4, startZoom * (dist / touchStartDist))));
+    const cx = (e.touches[0].pageX + e.touches[1].pageX) / 2;
+    const cy = (e.touches[0].pageY + e.touches[1].pageY) / 2;
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = startScroll.left - (cx - touchStartCenter.x);
+      scrollRef.current.scrollTop = startScroll.top - (cy - touchStartCenter.y);
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!containerRef.current || !ws || mode !== 'pick') return;
-    const img = containerRef.current.querySelector('img');
-    if (!img) return;
-    const rect = img.getBoundingClientRect();
-    const relativeX = (e.clientX - rect.left) / rect.width;
-    const relativeY = (e.clientY - rect.top) / rect.height;
-    const x = Math.round(relativeX * img.naturalWidth);
-    const y = Math.round(relativeY * img.naturalHeight);
-    ws.send(JSON.stringify({
-      type: 'INTERACT_BROWSER',
-      action: 'hover',
-      x,
-      y
-    }));
-  };
-
+  // ─── Рендер ──────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-      <div className="relative w-full max-w-4xl bg-card border border-border rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-        
-        {/* Header */}
-        <div className="flex flex-col border-b border-border bg-muted/30">
-          <div className="flex items-center justify-between p-4 pb-2">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/20 rounded-xl text-primary">
-                <Camera size={20} />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm italic uppercase tracking-tighter">Live Control Center</h3>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-                               <button 
-                  onClick={() => setIsRecording(!isRecording)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${isRecording ? 'bg-red-600 text-white animate-pulse shadow-red-500/50 shadow-lg' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 backdrop-blur-sm p-2 md:p-4 animate-in fade-in duration-200" onClick={onClose}>
+      <div 
+        className={`relative w-full ${devToolsUrl ? 'max-w-[100vw] h-[100vh] flex-col lg:h-full lg:flex-row' : 'max-w-5xl flex-col'} bg-[var(--interface-bg)] border border-[var(--interface-border)] backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl flex transition-all duration-300 max-h-[95vh]`}
+        onClick={e => e.stopPropagation()}
+      >
+
+        {/* ── Ліва частина: Трансляція ───────────────────────────────────── */}
+        <div className="flex flex-col flex-1 h-full min-w-0">
+          <div className="flex flex-col border-b border-white/10 bg-white/5 shrink-0 backdrop-blur-md">
+
+            {/* Рядок 1: заголовок + зум + закрити */}
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={() => {
+                    if (isBrowserOpen) {
+                      ws?.send(JSON.stringify({ type: 'CLOSE_BROWSER' }));
+                      setIsBrowserOpen(false);
+                      setDevToolsUrl(null);
+                    } else {
+                      const savedGlobal = localStorage.getItem('sfl_global_settings_v4');
+                      const globalSettings = savedGlobal ? JSON.parse(savedGlobal) : {};
+                      const projName = localStorage.getItem('sfl_current_project') || 'default';
+                      const savedBrowser = localStorage.getItem(`sfl_browser_${projName}`);
+                      const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {};
+                      const settings = { ...globalSettings, ...browserSettings };
+                      ws?.send(JSON.stringify({ type: 'LAUNCH_BROWSER', settings }));
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm ${
+                    isBrowserOpen 
+                      ? 'bg-rose-600/90 text-white hover:bg-rose-600' 
+                      : 'bg-emerald-600/90 text-white hover:bg-emerald-600'
+                  }`}
+                  title={isBrowserOpen ? "Зупинити браузер" : "Запустити браузер"}
                 >
-                  <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-white' : 'bg-red-600'}`} />
-                  {isRecording ? 'Запис...' : 'Запис'}
+                  {isBrowserOpen ? <Power size={14} /> : <Play size={14} fill="currentColor" />}
+                  <span>{isBrowserOpen ? "Стоп" : "Старт"}</span>
                 </button>
-                <div className="w-px h-6 bg-border mx-1" />
-                {/* Zoom Controls */}
+              </div>
 
-               <div className="flex items-center bg-background border border-border rounded-lg p-1 mr-2">
-                  <button onClick={() => setZoom(Math.max(1, zoom - 0.25))} className="p-1 hover:bg-muted rounded text-xs px-2">-</button>
-                  <span className="text-[10px] font-bold min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
-                  <button onClick={() => setZoom(Math.min(3, zoom + 0.25))} className="p-1 hover:bg-muted rounded text-xs px-2">+</button>
-               </div>
-               <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors"><X size={20} /></button>
+              <div className="flex items-center gap-2">
+                {/* Кнопка запису */}
+                <button
+                  onClick={() => setIsRecording(!isRecording)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                    isRecording
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-500/30 animate-pulse'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-white' : 'bg-red-500'}`} />
+                  <span>{isRecording ? 'REC...' : 'Запис'}</span>
+                </button>
+
+                {/* Zoom контрол */}
+                <div className="flex items-center bg-white/5 border border-white/10 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setZoom(z => Math.max(1, z - 0.25))}
+                    className="px-2 py-1.5 hover:bg-white/10 transition-colors text-white/60 hover:text-white"
+                    title="Зменшити (–)"
+                  ><ZoomOut size={13} /></button>
+                  <button
+                    onClick={() => setZoom(1)}
+                    className="px-2 py-1.5 text-[10px] font-bold min-w-[42px] text-center hover:bg-white/10 transition-colors border-x border-white/10 text-white/80"
+                    title="Скинути зум (0)"
+                  >
+                    <span>{Math.round(zoom * 100)}%</span>
+                  </button>
+                  <button
+                    onClick={() => setZoom(z => Math.min(4, z + 0.25))}
+                    className="px-2 py-1.5 hover:bg-white/10 transition-colors text-white/60 hover:text-white"
+                    title="Збільшити (+)"
+                  ><ZoomIn size={13} /></button>
+                </div>
+
+                {/* Close */}
+                <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/60 hover:text-white" title="Закрити (ESC)">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Рядок 2: кнопки дій */}
+            <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2.5">
+
+              {/* ESC у браузер */}
+              <button
+                onClick={() => ws?.send(JSON.stringify({ type: 'INTERACT_BROWSER', action: 'esc', x: 0, y: 0 }))}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-red-600/90 text-white hover:bg-red-600 transition-all shadow-sm"
+                title="Надіслати ESC у браузер (F1)"
+              >
+                <span>ESC</span>
+              </button>
+
+              <div className="w-px h-5 bg-border mx-0.5" />
+
+              {/* Скрол */}
+              <button
+                onClick={() => ws?.send(JSON.stringify({ type: 'INTERACT_BROWSER', action: 'scroll_up', x: 0, y: 0 }))}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-slate-600/90 text-white hover:bg-slate-600 transition-all shadow-sm"
+                title="Скрол вгору"
+              >
+                <ChevronUp size={12} />
+              </button>
+              <button
+                onClick={() => ws?.send(JSON.stringify({ type: 'INTERACT_BROWSER', action: 'scroll_down', x: 0, y: 0 }))}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-slate-600/90 text-white hover:bg-slate-600 transition-all shadow-sm"
+                title="Скрол вниз"
+              >
+                <ChevronDown size={12} />
+              </button>
+
+              <div className="w-px h-5 bg-border mx-0.5" />
+
+              {/* Режими взаємодії */}
+              {MODES.map(m => (
+                <button
+                  key={m.key}
+                  onClick={() => {
+                    setMode(m.key);
+                    if (m.key === 'pick') ws?.send(JSON.stringify({ type: 'ACTIVATE_PICKER', nodeId, pickType }));
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                    mode === m.key
+                      ? `${m.color} text-white shadow-md scale-[1.03] ring-2 ring-offset-1 ring-offset-background ${m.color.replace('bg-', 'ring-')}`
+                      : 'bg-muted text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                  }`}
+                  title={`${m.label} (${m.hotkey})`}
+                >
+                  {m.icon}
+                  <span className="hidden sm:inline">{m.label}</span>
+                  <kbd className="ml-1 text-[8px] opacity-50 font-mono hidden md:inline">{m.hotkey}</kbd>
+                </button>
+              ))}
+
+              <div className="flex-1" />
+
+              {/* Код елемента */}
+              <button
+                onClick={() => {
+                  if (devToolsUrl) {
+                    setDevToolsUrl(null);
+                  } else {
+                    ws?.send(JSON.stringify({ type: 'OPEN_DEVTOOLS' }));
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm ${
+                  devToolsUrl 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 ring-2 ring-blue-500 ring-offset-1 ring-offset-background' 
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+                title="Відкрити Chrome DevTools"
+              >
+                <Code size={12} />
+                <span>Код елемента</span>
+              </button>
             </div>
           </div>
-          
-          <div className="flex flex-wrap gap-1.5 p-4 pt-0">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  ws?.send(JSON.stringify({ type: 'INTERACT_BROWSER', action: 'esc', x: 0, y: 0 }));
-                }}
-                className="px-4 py-2 rounded text-[10px] font-black uppercase bg-red-600 text-white shadow-lg hover:bg-red-700 transition-all flex items-center gap-1"
-              >
-                ⌨️ Esc
-              </button>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMode('pick');
-                  ws?.send(JSON.stringify({ type: 'ACTIVATE_PICKER', nodeId, pickType }));
-                }}
-                className="px-4 py-2 rounded text-[10px] font-bold uppercase bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-1 active:scale-95"
-              >
-                🎯 Ціль
-              </button>
-              <div className="w-[1px] h-6 bg-border mx-1 self-center" />
-             <button 
-               onClick={() => setMode('hover')}
-               className={`px-4 py-2 rounded text-[10px] font-bold uppercase transition-all ${mode === 'hover' ? 'bg-orange-500 text-white shadow-lg scale-105' : 'bg-muted text-muted-foreground'}`}
-             >
-               🖐️ Навестися
-             </button>
-             <button 
-               onClick={() => setMode('click')}
-               className={`px-4 py-2 rounded text-[10px] font-bold uppercase transition-all ${mode === 'click' ? 'bg-green-600 text-white shadow-lg scale-105' : 'bg-muted text-muted-foreground'}`}
-             >
-               🖱️ Клік
-             </button>
-             <button 
-               onClick={() => setMode('ctrl_click')}
-               className={`px-4 py-2 rounded text-[10px] font-bold uppercase transition-all ${mode === 'ctrl_click' ? 'bg-purple-600 text-white shadow-lg scale-105' : 'bg-muted text-muted-foreground'}`}
-             >
-               ⌨️ Ctrl+Клік
-             </button>
-             <button 
-               onClick={() => setMode('shift_click')}
-               className={`px-4 py-2 rounded text-[10px] font-bold uppercase transition-all ${mode === 'shift_click' ? 'bg-cyan-600 text-white shadow-lg scale-105' : 'bg-muted text-muted-foreground'}`}
-             >
-               ⌨️ Shift+Клік
-             </button>
-          </div>
-        </div>
 
-        {/* Content */}
-        <div 
+          {/* ── Кадр трансляції ───────────────────────────────────────────────── */}
+          <div
           ref={scrollRef}
-          className="relative flex-1 bg-black overflow-auto scrollbar-thin scrollbar-thumb-primary/20 touch-none"
+          className="relative flex-1 bg-black/40 overflow-auto touch-none backdrop-blur-sm"
+          onWheel={handleWheel}
         >
-          <div 
-            className="min-h-full min-w-full flex items-center justify-center p-4"
-            style={{ 
-              width: zoom > 1 ? `${zoom * 100}%` : '100%',
-              height: zoom > 1 ? 'auto' : '100%'
-            }}
+          <div
+            className="min-h-full flex items-start justify-center"
+            style={{ width: zoom > 1 ? `${zoom * 100}%` : '100%' }}
           >
+            {/* Завантаження */}
             {loading && (
-              <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                <Loader2 size={40} className="animate-spin text-primary" />
-                <span className="text-xs font-bold uppercase tracking-widest">Підключення до трансляції...</span>
+              <div className="flex flex-col items-center gap-3 text-muted-foreground py-20">
+                <Loader2 size={36} className="animate-spin text-primary" />
+                <span className="text-[11px] font-bold uppercase tracking-widest">Підключення до трансляції...</span>
               </div>
             )}
-            
+
+            {/* Кадр */}
             {frame && (
-              <div 
+              <div
                 ref={containerRef}
-                className="relative cursor-crosshair group touch-auto"
-                style={{ width: '100%' }}
+                className="relative w-full group touch-auto"
+                style={{ cursor: mode === 'hover' ? 'crosshair' : mode === 'scroll' ? 'ns-resize' : 'pointer' }}
                 onClick={handleClick}
                 onMouseMove={handleMouseMove}
+                onMouseLeave={() => setCursorPos(null)}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={() => setTouchStartDist(null)}
               >
-                <img 
-                  src={frame} 
-                  alt="Stream" 
-                  className="w-full h-auto block select-none shadow-2xl rounded-sm"
+                <img
+                  src={frame}
+                  alt="Browser stream"
+                  className="w-full h-auto block select-none"
                   draggable={false}
                   style={{ imageRendering: zoom > 1.5 ? 'pixelated' : 'auto' }}
                 />
-                <div className="absolute inset-0 border border-white/10 group-hover:border-primary/30 transition-colors pointer-events-none" />
-                
-                {/* Overlay info */}
-                <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center pointer-events-none">
-                   <div className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-[10px] text-white font-bold border border-white/10 flex items-center gap-2">
-                      <MousePointer size={12} className="text-primary" />
-                      <span>{zoom > 1 ? `Zoom: ${Math.round(zoom * 100)}%` : 'Клікніть для вибору'}</span>
-                   </div>
-                   <div className="px-3 py-1 bg-primary/80 backdrop-blur-md rounded-full text-[10px] text-white font-bold border border-white/20 animate-pulse">
-                      LIVE
-                   </div>
+
+                {/* Сітка при zoom */}
+                {zoom > 1 && (
+                  <div className="absolute inset-0 pointer-events-none border border-white/5" />
+                )}
+
+                {/* Анімації кліку (Ripples) */}
+                {ripples.map(r => (
+                  <div 
+                    key={r.id} 
+                    className={`absolute w-7 h-7 border-2 ${r.color} rounded-full animate-ping pointer-events-none z-[300]`} 
+                    style={{ left: r.x, top: r.y }} 
+                  />
+                ))}
+
+                {/* Оверлей внизу: координати + статус */}
+                <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end pointer-events-none gap-2">
+                  {/* Координати миші */}
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-black/70 backdrop-blur-md rounded-full text-[10px] text-white/80 font-mono border border-white/10">
+                    <MousePointer size={10} className="text-primary shrink-0" />
+                    {cursorPos
+                      ? <span>X: <strong>{cursorPos.x}</strong> Y: <strong>{cursorPos.y}</strong></span>
+                      : <span className="opacity-50">наведіть курсор</span>
+                    }
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {/* Активний режим */}
+                    {(() => {
+                      const m = MODES.find(m => m.key === mode);
+                      return m ? (
+                        <div className={`flex items-center gap-1 px-2.5 py-1 ${m.color}/80 backdrop-blur-md rounded-full text-[10px] text-white font-bold border border-white/20`}>
+                          {m.icon}
+                          <span className="hidden sm:inline">{m.label}</span>
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {/* LIVE індикатор */}
+                    <div className="px-2.5 py-1 bg-red-600/80 backdrop-blur-md rounded-full text-[10px] text-white font-black border border-white/20">
+                      ● LIVE
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
           </div>
         </div>
+        </div>
+
+        {/* ── Права/Нижня частина: DevTools ────────────────────────────────────── */}
+        {devToolsUrl && (
+          <div className="flex-[0.8] lg:flex-[1.2] border-t lg:border-t-0 lg:border-l border-border min-h-[40vh] lg:min-h-0 bg-white relative">
+            <div className="absolute inset-0">
+              <iframe 
+                src={devToolsUrl} 
+                className="w-full h-full border-none"
+                title="DevTools"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
