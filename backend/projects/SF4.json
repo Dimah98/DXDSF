@@ -26,7 +26,7 @@
         "farmId": "932030116769397",
         "lastResponse": {
           "visitedFarmState": {
-            "coins": 307.90999999999997,
+            "coins": 3815.5099999999998,
             "balance": "0",
             "previousBalance": "0",
             "inventory": {
@@ -39,250 +39,256 @@
               "Rug": "1",
               "Wardrobe": "1",
               "Shovel": "1",
-              "Gem": "70",
+              "Gem": "120",
               "Crop Plot": "25",
               "Iron Rock": "2",
-              "Sunflower Seed": "749",
               "Fire Pit": "1",
               "Gold Rock": "1",
-              "Sunflower": "205.3",
+              "Sunflower": "775.3",
               "Time Warp Totem": "1",
               "Basic Scarecrow": "1",
-              "Carrot Seed": "215",
+              "Carrot Seed": "193",
               "Water Well": "1",
               "Pumpkin": "8.8",
               "Pumpkin Seed": "2",
-              "Carrot": "10",
-              "Rhubarb Seed": "438",
-              "Wood": "10",
-              "Rhubarb": "12",
-              "Cheer": "9",
-              "Reindeer Carrot": "2",
-              "Stone": "1",
-              "Rhubarb Tart": "5",
+              "Carrot": "40",
+              "Rhubarb Seed": "266",
+              "Wood": "42.8",
+              "Rhubarb": "78.5",
+              "Cheer": "21",
+              "Reindeer Carrot": "3",
+              "Stone": "1.2",
               "Cabbers n Mash": "1",
-              "Pumpkin Soup": "1",
-              "Wild Mushroom": "2",
+              "Wild Mushroom": "8",
               "Cabbage Seed": "50",
-              "Soybean Seed": "30"
+              "Soybean Seed": "30",
+              "Earthworm": "5",
+              "Rod": "3",
+              "Magic Mushroom": "2",
+              "Iron": "1",
+              "Basic Bear": "1",
+              "Salt Awakening Raffle Ticket": "10",
+              "Rhubarb Tart": "3",
+              "Fishing Lure": "5",
+              "Axe": "6"
             },
             "previousInventory": {},
             "shipments": {
-              "restockedAt": 1779576688305
+              "restockedAt": 1779814641042
             },
             "gems": {},
             "flower": {},
             "choreBoard": {
               "chores": {
-                "grimbly": {
-                  "name": "Cook Pancakes 20 times",
+                "miranda": {
+                  "name": "Grow Purple Cosmos 6 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "betty": {
-                  "name": "Harvest Soybeans 125 times",
+                "garth": {
+                  "name": "Chop Trees 30 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "initialProgress": 22,
+                  "startedAt": 1779743129711
                 },
                 "grimtooth": {
-                  "name": "Prepare Sour Shake 20 times",
+                  "name": "Prepare Sour Shake 25 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "miranda": {
-                  "name": "Grow Yellow Clover 4 times",
+                "betty": {
+                  "name": "Harvest Cauliflowers 150 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "peggy": {
-                  "name": "Harvest Broccoli 100 times",
+                "grimbly": {
+                  "name": "Prepare Apple Juice 20 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
                 "pumpkin' pete": {
-                  "name": "Harvest Carrots 100 times",
+                  "name": "Harvest Potatoes 150 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "corale": {
-                  "name": "Fish 80 times",
+                "peggy": {
+                  "name": "Harvest Beetroot 150 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "bert": {
-                  "name": "Mine Stones 175 times",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "raven": {
-                  "name": "Cook Pizza Margherita 10 times",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "old salty": {
-                  "name": "Drink 55 Orange Juice",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "gordo": {
-                  "name": "Cook Apple Pie 15 times",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "birdie": {
-                  "name": "Collect Eggs 125 times",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "victoria": {
-                  "name": "Grow Blue Balloon Flower 5 times",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
                 "finn": {
-                  "name": "Craft 90 Crab Pots",
+                  "name": "Craft 30 Mariner Pots",
                   "reward": {
                     "items": {
                       "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "eldric": {
-                  "name": "Cook Honey Cheddar 15 times",
+                "timmy": {
+                  "name": "Pick Lemons 350 times",
                   "reward": {
                     "items": {
-                      "Salt Rock": 3
+                      "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "blacksmith": {
-                  "name": "Chop Trees 500 times",
+                "old salty": {
+                  "name": "Drink 45 Orange Juice",
                   "reward": {
                     "items": {
-                      "Salt Rock": 3
+                      "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "tango": {
-                  "name": "Cook Rice Bun 35 times",
+                "victoria": {
+                  "name": "Grow Purple Daffodil 5 times",
                   "reward": {
                     "items": {
-                      "Salt Rock": 3
+                      "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "pharaoh": {
-                  "name": "Dig 225 times",
+                "birdie": {
+                  "name": "Collect Eggs 150 times",
                   "reward": {
                     "items": {
-                      "Salt Rock": 3
+                      "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "tywin": {
-                  "name": "Mine Gold 60 times",
+                "raven": {
+                  "name": "Cook Cauliflower Burger 20 times",
                   "reward": {
                     "items": {
-                      "Salt Rock": 3
+                      "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
+                },
+                "bert": {
+                  "name": "Mine Stones 100 times",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 2
+                    }
+                  },
+                  "initialProgress": 1,
+                  "startedAt": 1779743129711
                 },
                 "petro": {
-                  "name": "Pick Grapes 60 times",
+                  "name": "Harvest Olives 20 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 3
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
+                },
+                "cornwell": {
+                  "name": "Harvest Wheat 350 times",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 3
+                    }
+                  },
+                  "initialProgress": 0,
+                  "startedAt": 1779743129711
+                },
+                "eldric": {
+                  "name": "Cook Honey Cheddar 20 times",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 3
+                    }
+                  },
+                  "initialProgress": 0,
+                  "startedAt": 1779743129711
+                },
+                "pharaoh": {
+                  "name": "Craft 35 Sand Drill",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 3
+                    }
+                  },
+                  "initialProgress": 0,
+                  "startedAt": 1779743129711
+                },
+                "tywin": {
+                  "name": "Mine Iron 250 times",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 3
+                    }
+                  },
+                  "initialProgress": 0,
+                  "startedAt": 1779743129711
+                },
+                "tango": {
+                  "name": "Cook Antipasto 35 times",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 3
+                    }
+                  },
+                  "initialProgress": 0,
+                  "startedAt": 1779743129711
                 },
                 "guria": {
-                  "name": "Grow Red Balloon Flower 6 times",
+                  "name": "Grow White Pansy 6 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 3
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 }
               }
             },
@@ -302,14 +308,19 @@
                 "shoes": "Black Farmer Boots",
                 "tool": "Farmer Pitchfork"
               },
-              "experience": 291,
+              "experience": 1175,
               "skills": {
                 "Young Farmer": 1,
                 "Betty's Friend": 1,
                 "Chonky Scarecrow": 1,
-                "Lumberjack's Extra": 1
+                "Lumberjack's Extra": 1,
+                "Forge-Ward Profits": 1,
+                "Rock'N'Roll": 1
               },
-              "achievements": {},
+              "achievements": {
+                "Busy Bumpkin": 1,
+                "Sun Seeker": 1
+              },
               "updatedAt": 1779391064529
             },
             "wardrobe": {
@@ -366,21 +377,6 @@
             "calendar": {
               "dates": [
                 {
-                  "date": "2026-06-02",
-                  "weather": true,
-                  "name": "unknown"
-                },
-                {
-                  "date": "2026-06-04",
-                  "weather": true,
-                  "name": "unknown"
-                },
-                {
-                  "date": "2026-06-07",
-                  "weather": true,
-                  "name": "unknown"
-                },
-                {
                   "date": "2026-06-09",
                   "weather": true,
                   "name": "unknown"
@@ -426,12 +422,31 @@
                   "name": "unknown"
                 },
                 {
-                  "date": "2026-05-26",
+                  "name": "doubleDelivery",
+                  "date": "2026-06-25",
+                  "weather": false
+                },
+                {
+                  "date": "2026-06-26",
                   "weather": true,
                   "name": "unknown"
                 },
                 {
-                  "date": "2026-05-29",
+                  "date": "2026-06-27",
+                  "weather": true,
+                  "name": "unknown"
+                },
+                {
+                  "name": "fullMoon",
+                  "date": "2026-06-29"
+                },
+                {
+                  "date": "2026-06-02",
+                  "weather": true,
+                  "name": "unknown"
+                },
+                {
+                  "date": "2026-06-05",
                   "weather": true,
                   "name": "unknown"
                 }
@@ -439,8 +454,8 @@
             },
             "createdAt": 1779391064494,
             "stock": {
-              "Axe": "200",
-              "Pickaxe": "60",
+              "Axe": "173",
+              "Pickaxe": "58",
               "Rusty Shovel": "50",
               "Stone Pickaxe": "20",
               "Iron Pickaxe": "5",
@@ -453,9 +468,9 @@
               "Potato Seed": "400",
               "Zucchini Seed": "400",
               "Pumpkin Seed": "300",
-              "Cabbage Seed": "150",
+              "Cabbage Seed": "170",
               "Yam Seed": "180",
-              "Soybean Seed": "170",
+              "Soybean Seed": "180",
               "Broccoli Seed": "180",
               "Beetroot Seed": "160",
               "Pepper Seed": "160",
@@ -487,7 +502,10 @@
               "Lavender Seed": "4",
               "Clover Seed": "4",
               "Sand Shovel": "50",
-              "Sand Drill": "10"
+              "Sand Drill": "10",
+              "Carrot Seed": "20",
+              "Rhubarb Seed": "50",
+              "Sunflower Seed": "100"
             },
             "crops": {
               "035d37fb": {
@@ -495,26 +513,32 @@
                 "x": 7,
                 "y": 0,
                 "crop": {
-                  "id": "98aab68a",
-                  "plantedAt": 1779578466692,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "247ba8bc",
+                  "plantedAt": 1779908991024,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "468eb2f6": {
                 "createdAt": 1779391094479,
                 "x": 7,
-                "y": -2
+                "y": -2,
+                "crop": {
+                  "id": "197fab8f",
+                  "plantedAt": 1779908996956,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "64ae18d3": {
                 "createdAt": 1779391094479,
                 "x": 5,
                 "y": 0,
                 "crop": {
-                  "id": "ed720427",
-                  "plantedAt": 1779578470551,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "b760a9f5",
+                  "plantedAt": 1779908992081,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "97e90962": {
@@ -522,52 +546,76 @@
                 "x": 6,
                 "y": 0,
                 "crop": {
-                  "id": "782aee9d",
-                  "plantedAt": 1779578474454,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "439cf998",
+                  "plantedAt": 1779908991559,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "aec066ea": {
                 "createdAt": 1779391094479,
                 "x": 5,
-                "y": -2
+                "y": -2,
+                "crop": {
+                  "id": "2eb1c240",
+                  "plantedAt": 1779908998117,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "bcb92ca2": {
                 "createdAt": 1779391094479,
                 "x": 6,
                 "y": -1,
                 "crop": {
-                  "id": "36eb325b",
-                  "plantedAt": 1779578484057,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "8fe50d77",
+                  "plantedAt": 1779908995265,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "cfcc9801": {
                 "createdAt": 1779391094479,
                 "x": 5,
-                "y": -1
+                "y": -1,
+                "crop": {
+                  "id": "17f64efe",
+                  "plantedAt": 1779908995831,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "cfff1959": {
                 "createdAt": 1779391094479,
                 "x": 6,
-                "y": -2
+                "y": -2,
+                "crop": {
+                  "id": "ed9391d8",
+                  "plantedAt": 1779908997351,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "f80c97f6": {
                 "createdAt": 1779391094479,
                 "x": 7,
-                "y": -1
+                "y": -1,
+                "crop": {
+                  "id": "21f52118",
+                  "plantedAt": 1779908996477,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "392d88a4": {
                 "createdAt": 1779391128747,
                 "x": 3,
                 "y": 2,
                 "crop": {
-                  "id": "e3da524e",
-                  "plantedAt": 1779578430390,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "edecebe0",
+                  "plantedAt": 1779908987615,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "39cbfaac": {
@@ -575,10 +623,10 @@
                 "x": 5,
                 "y": 2,
                 "crop": {
-                  "id": "4dc999a9",
-                  "plantedAt": 1779578433902,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "03463a56",
+                  "plantedAt": 1779908986064,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "6722c656": {
@@ -586,26 +634,32 @@
                 "x": 3,
                 "y": 0,
                 "crop": {
-                  "id": "2c8e39a5",
-                  "plantedAt": 1779578477577,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "e70f1d75",
+                  "plantedAt": 1779908993452,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "734b471d": {
                 "createdAt": 1779391128747,
                 "x": 3,
-                "y": -2
+                "y": -2,
+                "crop": {
+                  "id": "3e479a24",
+                  "plantedAt": 1779909000031,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "7908da8a": {
                 "createdAt": 1779391128747,
                 "x": 6,
                 "y": 2,
                 "crop": {
-                  "id": "b731761f",
-                  "plantedAt": 1779578437609,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "67fde496",
+                  "plantedAt": 1779908984838,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "9cbcc3ee": {
@@ -613,10 +667,10 @@
                 "x": 7,
                 "y": 2,
                 "crop": {
-                  "id": "67a8b17a",
-                  "plantedAt": 1779578440854,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "2715fc2e",
+                  "plantedAt": 1779908983988,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "fdfbd6db": {
@@ -624,42 +678,54 @@
                 "x": 4,
                 "y": 2,
                 "crop": {
-                  "id": "8a913df2",
-                  "plantedAt": 1779578444613,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "530eaefe",
+                  "plantedAt": 1779908986455,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "ff5298ba": {
                 "createdAt": 1779391128747,
                 "x": 3,
-                "y": -1
+                "y": -1,
+                "crop": {
+                  "id": "c01bb96e",
+                  "plantedAt": 1779908993930,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "0032dbed": {
                 "createdAt": 1779391402187,
                 "x": 4,
                 "y": 0,
                 "crop": {
-                  "id": "989c5cfd",
-                  "plantedAt": 1779578480991,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "b75f56b6",
+                  "plantedAt": 1779908992698,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "1ceef4c1": {
                 "createdAt": 1779391402187,
                 "x": 4,
-                "y": -1
+                "y": -1,
+                "crop": {
+                  "id": "52319429",
+                  "plantedAt": 1779908994353,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "3c91864a": {
                 "createdAt": 1779391402187,
                 "x": 6,
                 "y": 1,
                 "crop": {
-                  "id": "38d965a0",
-                  "plantedAt": 1779578448331,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "4d458f0c",
+                  "plantedAt": 1779908989898,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "61e9c77a": {
@@ -667,10 +733,10 @@
                 "x": 7,
                 "y": 1,
                 "crop": {
-                  "id": "9204ae4d",
-                  "plantedAt": 1779578451968,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "1c44d751",
+                  "plantedAt": 1779908990499,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "8ed8bf5b": {
@@ -678,10 +744,10 @@
                 "x": 3,
                 "y": 1,
                 "crop": {
-                  "id": "2cb3f245",
-                  "plantedAt": 1779578455559,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "887465c6",
+                  "plantedAt": 1779908988119,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "c209cb95": {
@@ -689,10 +755,10 @@
                 "x": 4,
                 "y": 1,
                 "crop": {
-                  "id": "5a584e94",
-                  "plantedAt": 1779578459627,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "a2b8a05e",
+                  "plantedAt": 1779908988600,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "c6ec1f65": {
@@ -700,23 +766,29 @@
                 "x": 5,
                 "y": 1,
                 "crop": {
-                  "id": "dcee53fa",
-                  "plantedAt": 1779578462857,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "604f40d6",
+                  "plantedAt": 1779908989089,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "fa8d9830": {
                 "createdAt": 1779391402187,
                 "x": 4,
-                "y": -2
+                "y": -2,
+                "crop": {
+                  "id": "2d2cff99",
+                  "plantedAt": 1779908998914,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               }
             },
             "trees": {
               "1": {
                 "createdAt": 1779390990449,
                 "wood": {
-                  "choppedAt": 1779401369005
+                  "choppedAt": 1779908016470
                 },
                 "x": -4,
                 "y": -1
@@ -724,7 +796,7 @@
               "2": {
                 "createdAt": 1779390990449,
                 "wood": {
-                  "choppedAt": 1779401368072
+                  "choppedAt": 1779908017592
                 },
                 "x": -8,
                 "y": -1
@@ -732,7 +804,7 @@
               "3": {
                 "createdAt": 1779390990449,
                 "wood": {
-                  "choppedAt": 1779391616585
+                  "choppedAt": 1779908006954
                 },
                 "x": 0,
                 "y": -1
@@ -742,7 +814,7 @@
                 "x": 0,
                 "y": 3,
                 "wood": {
-                  "choppedAt": 1779401372246
+                  "choppedAt": 1779908005587
                 }
               },
               "9ef5826e": {
@@ -750,7 +822,7 @@
                 "x": 0,
                 "y": 1,
                 "wood": {
-                  "choppedAt": 1779391617953
+                  "choppedAt": 1779908006215
                 }
               },
               "05f44a2d": {
@@ -758,7 +830,7 @@
                 "x": -2,
                 "y": -1,
                 "wood": {
-                  "choppedAt": 1779401371152
+                  "choppedAt": 1779908015846
                 }
               },
               "e4d7cf75": {
@@ -766,7 +838,7 @@
                 "x": -6,
                 "y": -1,
                 "wood": {
-                  "choppedAt": 1779401370007
+                  "choppedAt": 1779908018453
                 }
               }
             },
@@ -774,7 +846,8 @@
               "1": {
                 "createdAt": 1779390990449,
                 "stone": {
-                  "minedAt": 1779376964035
+                  "minedAt": 1779826010153,
+                  "boostedTime": 0
                 },
                 "x": -5,
                 "y": 0
@@ -782,7 +855,8 @@
               "2": {
                 "createdAt": 1779390990449,
                 "stone": {
-                  "minedAt": 1779376964035
+                  "minedAt": 1779898030674,
+                  "boostedTime": 0
                 },
                 "x": -8,
                 "y": 0
@@ -792,7 +866,7 @@
                 "x": -7,
                 "y": 0,
                 "stone": {
-                  "minedAt": 1779376964035,
+                  "minedAt": 1779898031494,
                   "boostedTime": 0
                 }
               },
@@ -801,7 +875,8 @@
                 "x": -4,
                 "y": 0,
                 "stone": {
-                  "minedAt": 1779376964035
+                  "minedAt": 1779826009237,
+                  "boostedTime": 0
                 }
               },
               "1e5a1aec": {
@@ -819,7 +894,8 @@
                 "x": -3,
                 "y": 0,
                 "stone": {
-                  "minedAt": 1779362564035
+                  "minedAt": 1779826011323,
+                  "boostedTime": 0
                 }
               },
               "5b0880a6": {
@@ -905,14 +981,14 @@
                   "readyAt": 1779391090554,
                   "crafting": [
                     {
-                      "name": "Rhubarb Tart",
+                      "name": "Reindeer Carrot",
                       "boost": {
                         "Oil": 0
                       },
                       "skills": {
                         "Double Nom": false
                       },
-                      "readyAt": 1779578349630
+                      "readyAt": 1779909460550
                     }
                   ],
                   "oil": 0
@@ -953,99 +1029,105 @@
               }
             },
             "dailyRewards": {
-              "streaks": 3,
+              "streaks": 7,
               "chest": {
-                "code": 3,
-                "collectedAt": 1779543190379
+                "code": 7,
+                "collectedAt": 1779896615863
               }
             },
             "floatingIsland": {
               "schedule": [
                 {
-                  "startAt": 1779589200000,
-                  "endAt": 1779591000000
+                  "startAt": 1779919200000,
+                  "endAt": 1779921000000
                 },
                 {
-                  "startAt": 1779619200000,
-                  "endAt": 1779621000000
+                  "startAt": 1779949200000,
+                  "endAt": 1779951000000
                 },
                 {
-                  "startAt": 1779649200000,
-                  "endAt": 1779651000000
+                  "startAt": 1779979200000,
+                  "endAt": 1779981000000
                 }
               ],
               "shop": {
-                "Flower Coin": {
-                  "type": "collectible",
+                "Grumpy Cat": {
+                  "type": "wearable",
                   "cost": {
                     "items": {
-                      "Love Charm": 1950
+                      "Love Charm": 1000
                     }
                   },
-                  "name": "Flower Coin"
+                  "name": "Grumpy Cat"
                 },
-                "Harvest Hourglass": {
+                "Gold Tool Box": {
                   "type": "collectible",
                   "cost": {
                     "items": {
-                      "Love Charm": 350
+                      "Love Charm": 1560
                     }
                   },
-                  "name": "Harvest Hourglass"
+                  "name": "Gold Tool Box"
                 },
-                "Bronze Tool Box": {
+                "Gold Love Box": {
                   "type": "collectible",
                   "cost": {
                     "items": {
-                      "Love Charm": 50
+                      "Love Charm": 1300
                     }
                   },
-                  "name": "Bronze Tool Box"
+                  "name": "Gold Love Box"
                 }
               },
-              "boughtAt": {}
+              "boughtAt": {},
+              "petalPuzzleSolvedAt": 1779799454290
             },
             "seed": "",
             "farmActivity": {
-              "Basic Tree Chopped": 22,
-              "Coins Spent": 701.75,
+              "Basic Tree Chopped": 50,
+              "Coins Spent": 1361.75,
               "Expanded": 3,
-              "Tree Chopped": 22,
+              "Tree Chopped": 50,
               "welcome Bonus Claimed": 1,
-              "Coins Earned": 259.66,
-              "Sunflower Harvested": 226,
+              "Coins Earned": 1987.26,
+              "Sunflower Harvested": 1076,
               "Sunflower Sold": 19,
-              "Sunflower Planted": 233,
+              "Sunflower Planted": 1067,
               "Sunflower Seed Bought": 900,
-              "Rhubarb Harvested": 58,
+              "Rhubarb Harvested": 233,
               "Rhubarb Sold": 5,
-              "Rhubarb Tart Cooked": 6,
+              "Rhubarb Tart Cooked": 14,
               "Rhubarb Tart Fed": 1,
               "Username Assigned": 1,
-              "Coins Order Delivered": 3,
-              "Salt Awakening Points Earned": 30,
-              "Pickaxe Crafted": 1,
-              "Stone Mined": 1,
-              "Stone Rock Mined": 1,
+              "Coins Order Delivered": 17,
+              "Salt Awakening Points Earned": 175,
+              "Pickaxe Crafted": 3,
+              "Stone Mined": 5,
+              "Stone Rock Mined": 5,
               "Airdrop Reward Claimed": 1,
-              "Axe Crafted": 12,
+              "Axe Crafted": 43,
               "Basic Scarecrow Crafted": 1,
-              "Carrot Planted": 25,
+              "Carrot Planted": 50,
               "Carrot Seed Bought": 220,
-              "Salt Awakening free Milestone Claimed": 2,
+              "Salt Awakening free Milestone Claimed": 4,
               "Building Constructed": 1,
               "Pumpkin Harvested": 8,
-              "Carrot Harvested": 25,
+              "Carrot Harvested": 50,
               "Rhubarb Seed Bought": 450,
-              "Rhubarb Planted": 50,
-              "Reindeer Carrot Cooked": 3,
+              "Rhubarb Planted": 250,
+              "Reindeer Carrot Cooked": 7,
               "Reindeer Carrot Fed": 1,
-              "Daily Reward Collected": 3,
-              "Salt Rock Collected": 3,
+              "Daily Reward Collected": 7,
+              "Salt Rock Collected": 8,
               "Cabbers n Mash Fed": 1,
               "Cabbage Seed Bought": 50,
-              "Shipment Restocked": 1,
-              "Soybean Seed Bought": 30
+              "Shipment Restocked": 2,
+              "Soybean Seed Bought": 30,
+              "Iron Mined": 1,
+              "Iron Rock Mined": 1,
+              "Cabbage Cake Fed": 1,
+              "Pumpkin Soup Fed": 1,
+              "Ticket Order Delivered": 1
             },
             "milestones": {},
             "fishing": {
@@ -1075,81 +1157,105 @@
               "read": []
             },
             "mushrooms": {
-              "spawnedAt": 1779552000000,
-              "magicSpawnedAt": 1779494400000,
+              "spawnedAt": 1779897600000,
+              "magicSpawnedAt": 1779840000000,
               "mushrooms": {}
             },
             "delivery": {
               "orders": [
                 {
-                  "createdAt": 1779391329737,
-                  "id": "c3af77",
-                  "from": "blacksmith",
-                  "items": {
-                    "Stone": 5
-                  },
-                  "readyAt": 1779391329737,
-                  "reward": {
-                    "coins": 388,
-                    "items": {}
-                  }
-                },
-                {
-                  "createdAt": 1779404056602,
-                  "id": "6a2836",
+                  "createdAt": 1779827231276,
+                  "id": "e53c40",
                   "from": "peggy",
                   "items": {
-                    "Rhubarb Tart": 1
+                    "Sunflower Crunch": 1
                   },
-                  "readyAt": 1779404056602,
+                  "readyAt": 1779827231276,
                   "reward": {
-                    "coins": 65,
+                    "coins": 102,
                     "items": {}
                   }
                 },
                 {
-                  "createdAt": 1779543290478,
-                  "id": "a6f579",
+                  "createdAt": 1779896661713,
+                  "id": "152613",
                   "from": "betty",
                   "items": {
                     "Rhubarb": 15,
-                    "Sunflower": 30
+                    "Sunflower": 20
                   },
-                  "readyAt": 1779543290478,
+                  "readyAt": 1779896661713,
                   "reward": {
-                    "coins": 69,
+                    "coins": 100,
+                    "items": {}
+                  },
+                  "completedAt": 1779898090716
+                },
+                {
+                  "createdAt": 1779896661713,
+                  "id": "120176",
+                  "from": "pumpkin' pete",
+                  "items": {
+                    "Reindeer Carrot": 3
+                  },
+                  "readyAt": 1779896661713,
+                  "reward": {}
+                },
+                {
+                  "createdAt": 1779898150897,
+                  "readyAt": 1779898150897,
+                  "from": "blacksmith",
+                  "id": "7c569b",
+                  "items": {
+                    "Wood": 20
+                  },
+                  "reward": {
+                    "coins": 429,
                     "items": {}
                   }
                 }
               ],
-              "fulfilledCount": 3,
+              "fulfilledCount": 18,
               "milestone": {
                 "goal": 10,
                 "total": 10
               },
               "dailySFL": {
-                "day": 143,
-                "amount": 4.387297434190279
+                "day": 147,
+                "amount": 4.303829810138272
               }
             },
             "npcs": {
               "blacksmith": {
-                "deliveryCount": 1,
-                "friendship": {
-                  "updatedAt": 1779391284099,
-                  "points": 3,
-                  "giftClaimedAtPoints": 0
-                },
-                "deliveryCompletedAt": 1779391284099
-              },
-              "betty": {
                 "deliveryCount": 2,
                 "friendship": {
-                  "updatedAt": 1779543252164,
+                  "updatedAt": 1779898077785,
                   "points": 6,
                   "giftClaimedAtPoints": 0
                 },
-                "deliveryCompletedAt": 1779543252164
+                "deliveryCompletedAt": 1779898077785
+              },
+              "betty": {
+                "deliveryCount": 9,
+                "friendship": {
+                  "updatedAt": 1779898090716,
+                  "points": 27,
+                  "giftClaimedAtPoints": 20
+                },
+                "deliveryCompletedAt": 1779898090716
+              },
+              "peggy": {
+                "deliveryCount": 6,
+                "deliveryCompletedAt": 1779827166451
+              },
+              "pumpkin' pete": {
+                "deliveryCount": 1,
+                "friendship": {
+                  "updatedAt": 1779827347152,
+                  "points": 3,
+                  "giftClaimedAtPoints": 0
+                },
+                "deliveryCompletedAt": 1779827347152
               }
             },
             "islands": {},
@@ -1161,42 +1267,42 @@
                 "mine-whack": {
                   "coins": 0,
                   "items": {
-                    "Mark": 60
+                    "Mark": 20
                   },
                   "wearables": {},
-                  "score": 3500,
-                  "startAt": 1779580800000,
-                  "endAt": 1779667200000
+                  "score": 1500,
+                  "startAt": 1779840000000,
+                  "endAt": 1779926400000
                 },
                 "chicken-rescue": {
                   "coins": 0,
                   "items": {
-                    "Mark": 50
+                    "Mark": 45
                   },
                   "wearables": {},
-                  "score": 45,
-                  "startAt": 1779580800000,
-                  "endAt": 1779667200000
+                  "score": 40,
+                  "startAt": 1779840000000,
+                  "endAt": 1779926400000
                 },
                 "crops-and-chickens": {
                   "coins": 0,
                   "items": {
-                    "Mark": 50
+                    "Mark": 35
                   },
                   "wearables": {},
-                  "score": 2500,
-                  "startAt": 1779580800000,
-                  "endAt": 1779667200000
+                  "score": 1000,
+                  "startAt": 1779840000000,
+                  "endAt": 1779926400000
                 },
                 "fruit-dash": {
                   "coins": 0,
                   "items": {
-                    "Mark": 20
+                    "Mark": 55
                   },
                   "wearables": {},
-                  "score": 1000,
-                  "startAt": 1779580800000,
-                  "endAt": 1779667200000
+                  "score": 2750,
+                  "startAt": 1779840000000,
+                  "endAt": 1779926400000
                 },
                 "memory": {
                   "coins": 0,
@@ -1205,8 +1311,8 @@
                   },
                   "wearables": {},
                   "score": 300,
-                  "startAt": 1779580800000,
-                  "endAt": 1779667200000
+                  "startAt": 1779840000000,
+                  "endAt": 1779926400000
                 }
               }
             },
@@ -1219,8 +1325,8 @@
               }
             },
             "flowerShop": {
-              "week": 1779062400000,
-              "weeklyFlower": "White Daffodil"
+              "week": 1779667200000,
+              "weeklyFlower": "Blue Carnation"
             },
             "specialEvents": {
               "history": {},
@@ -1233,14 +1339,13 @@
               "digging": {
                 "grid": [],
                 "patterns": [
+                  "ARTEFACT_FIFTEEN",
+                  "ARTEFACT_TWENTY",
                   "ARTEFACT_TWENTY_THREE",
-                  "ARTEFACT_TWENTY_TWO",
-                  "ARTEFACT_SIXTEEN",
                   "HIEROGLYPH",
-                  "HIEROGLYPH",
-                  "SEA_CUCUMBERS",
                   "SEAWEED",
-                  "CLAM_SHELLS"
+                  "SEAWEED",
+                  "WOODEN_COMPASS"
                 ]
               }
             },
@@ -1338,36 +1443,28 @@
             "bounties": {
               "requests": [
                 {
-                  "level": 8,
-                  "id": "22f2b0",
-                  "name": "Chicken",
-                  "coins": 220
-                },
-                {
-                  "level": 4,
-                  "id": "e5fe22",
-                  "name": "Chicken",
-                  "coins": 110
-                },
-                {
                   "level": 7,
-                  "id": "4db6cf",
+                  "id": "7a55bd",
                   "name": "Chicken",
-                  "items": {
-                    "Salt Rock": 2
-                  }
+                  "coins": 180
                 },
                 {
-                  "level": 4,
-                  "id": "7be885",
+                  "level": 5,
+                  "id": "9fca83",
+                  "name": "Chicken",
+                  "coins": 120
+                },
+                {
+                  "level": 3,
+                  "id": "45dc73",
                   "name": "Chicken",
                   "items": {
                     "Salt Rock": 1
                   }
                 },
                 {
-                  "level": 8,
-                  "id": "cba966",
+                  "level": 9,
+                  "id": "a9d47a",
                   "name": "Chicken",
                   "items": {
                     "Salt Rock": 2
@@ -1375,39 +1472,7 @@
                 },
                 {
                   "level": 2,
-                  "id": "87ed88",
-                  "name": "Chicken",
-                  "items": {
-                    "Salt Rock": 1
-                  }
-                },
-                {
-                  "level": 6,
-                  "id": "165f5f",
-                  "name": "Chicken",
-                  "items": {
-                    "Salt Rock": 2
-                  }
-                },
-                {
-                  "level": 3,
-                  "id": "5d4494",
-                  "name": "Chicken",
-                  "items": {
-                    "Salt Rock": 1
-                  }
-                },
-                {
-                  "level": 10,
-                  "id": "e2b2a4",
-                  "name": "Chicken",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "level": 3,
-                  "id": "b2f1f0",
+                  "id": "370940",
                   "name": "Chicken",
                   "items": {
                     "Salt Rock": 1
@@ -1415,278 +1480,318 @@
                 },
                 {
                   "level": 15,
-                  "id": "1bf5dd",
+                  "id": "0a4ca8",
+                  "name": "Chicken",
+                  "items": {
+                    "Salt Rock": 3
+                  }
+                },
+                {
+                  "level": 5,
+                  "id": "247fa1",
+                  "name": "Chicken",
+                  "items": {
+                    "Salt Rock": 1
+                  }
+                },
+                {
+                  "level": 3,
+                  "id": "4c09fd",
+                  "name": "Chicken",
+                  "items": {
+                    "Salt Rock": 1
+                  }
+                },
+                {
+                  "level": 3,
+                  "id": "34bdd5",
+                  "name": "Chicken",
+                  "items": {
+                    "Salt Rock": 1
+                  }
+                },
+                {
+                  "level": 11,
+                  "id": "c9a0a6",
+                  "name": "Chicken",
+                  "items": {
+                    "Salt Rock": 3
+                  }
+                },
+                {
+                  "level": 4,
+                  "id": "a1e833",
                   "name": "Cow",
-                  "coins": 9900
+                  "coins": 740
+                },
+                {
+                  "level": 5,
+                  "id": "e81ad8",
+                  "name": "Cow",
+                  "items": {
+                    "Salt Rock": 3
+                  }
+                },
+                {
+                  "level": 9,
+                  "id": "b45c74",
+                  "name": "Cow",
+                  "items": {
+                    "Salt Rock": 4
+                  }
+                },
+                {
+                  "level": 11,
+                  "id": "9e39ec",
+                  "name": "Cow",
+                  "items": {
+                    "Salt Rock": 5
+                  }
+                },
+                {
+                  "level": 5,
+                  "id": "2a6637",
+                  "name": "Cow",
+                  "items": {
+                    "Salt Rock": 3
+                  }
+                },
+                {
+                  "level": 8,
+                  "id": "643ce5",
+                  "name": "Sheep",
+                  "coins": 1070
                 },
                 {
                   "level": 2,
-                  "id": "82cf75",
-                  "name": "Cow",
+                  "id": "ee1a30",
+                  "name": "Sheep",
+                  "items": {
+                    "Salt Rock": 2
+                  }
+                },
+                {
+                  "level": 13,
+                  "id": "8abdbd",
+                  "name": "Sheep",
+                  "items": {
+                    "Salt Rock": 4
+                  }
+                },
+                {
+                  "level": 9,
+                  "id": "332694",
+                  "name": "Sheep",
                   "items": {
                     "Salt Rock": 3
                   }
                 },
                 {
                   "level": 3,
-                  "id": "2fb252",
-                  "name": "Cow",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "level": 4,
-                  "id": "ec6a1c",
-                  "name": "Cow",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "level": 5,
-                  "id": "dc723b",
-                  "name": "Cow",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "level": 13,
-                  "id": "3a529b",
-                  "name": "Sheep",
-                  "coins": 3020
-                },
-                {
-                  "level": 6,
-                  "id": "cca06a",
-                  "name": "Sheep",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "level": 14,
-                  "id": "46202c",
-                  "name": "Sheep",
-                  "items": {
-                    "Salt Rock": 4
-                  }
-                },
-                {
-                  "level": 5,
-                  "id": "c60d9b",
+                  "id": "e7e0e2",
                   "name": "Sheep",
                   "items": {
                     "Salt Rock": 2
                   }
                 },
                 {
-                  "level": 4,
-                  "id": "0837a8",
-                  "name": "Sheep",
-                  "items": {
-                    "Salt Rock": 2
-                  }
-                },
-                {
-                  "id": "71b10c",
-                  "name": "Purple Pansy",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "id": "7b65f0",
+                  "id": "c51947",
                   "name": "Celestial Frostbloom",
                   "items": {
                     "Salt Rock": 5
                   }
                 },
                 {
-                  "id": "e4370e",
+                  "id": "0cf5a3",
+                  "name": "Purple Edelweiss",
+                  "items": {
+                    "Salt Rock": 3
+                  }
+                },
+                {
+                  "id": "58d3a7",
                   "name": "White Carnation",
                   "items": {
                     "Salt Rock": 6
                   }
                 },
                 {
-                  "id": "df8fd7",
-                  "name": "Yellow Carnation",
-                  "items": {
-                    "Salt Rock": 5
-                  }
-                },
-                {
-                  "id": "db3af0",
-                  "name": "Red Daffodil",
+                  "id": "83c3bf",
+                  "name": "Red Edelweiss",
                   "items": {
                     "Salt Rock": 3
                   }
                 },
                 {
-                  "id": "f6ab74",
-                  "name": "Surgeonfish",
+                  "id": "f346e2",
+                  "name": "Yellow Daffodil",
+                  "items": {
+                    "Salt Rock": 7
+                  }
+                },
+                {
+                  "id": "28b83d",
+                  "name": "Oarfish",
                   "items": {
                     "Salt Rock": 2
                   }
                 },
                 {
-                  "id": "b71338",
-                  "name": "Napoleanfish",
+                  "id": "aa39ea",
+                  "name": "Horse Mackerel",
+                  "items": {
+                    "Salt Rock": 6
+                  }
+                },
+                {
+                  "id": "0d853c",
+                  "name": "Blue Marlin",
                   "items": {
                     "Salt Rock": 2
                   }
                 },
                 {
-                  "id": "a45b9a",
-                  "name": "Butterflyfish",
-                  "items": {
-                    "Salt Rock": 1
-                  }
-                },
-                {
-                  "id": "8dd5c0",
-                  "name": "Sea Bass",
+                  "id": "bbc39d",
+                  "name": "Football fish",
                   "items": {
                     "Salt Rock": 2
                   }
                 },
                 {
-                  "id": "7f08cf",
+                  "id": "16da75",
                   "name": "Porgy",
                   "items": {
                     "Salt Rock": 2
                   }
                 },
                 {
-                  "id": "5c2b53",
-                  "name": "Sea Snail",
-                  "items": {
-                    "Salt Rock": 12
-                  }
-                },
-                {
-                  "id": "8b4385",
+                  "id": "f69d86",
                   "name": "Lobster",
                   "items": {
                     "Salt Rock": 12
                   }
                 },
                 {
-                  "id": "6778a5",
+                  "id": "cd2bbb",
+                  "name": "Blue Crab",
+                  "items": {
+                    "Salt Rock": 12
+                  }
+                },
+                {
+                  "id": "8bc396",
                   "name": "Isopod",
                   "items": {
                     "Salt Rock": 5
                   }
                 },
                 {
-                  "id": "b7c56d",
-                  "name": "Warty Goblin Pumpkin",
-                  "items": {
-                    "Salt Rock": 4
-                  }
-                },
-                {
-                  "id": "376681",
+                  "id": "3f4653",
                   "name": "White Carrot",
                   "items": {
                     "Salt Rock": 3
                   }
                 },
                 {
-                  "id": "427f73",
-                  "name": "Golden Helios",
-                  "items": {
-                    "Salt Rock": 20
-                  }
-                },
-                {
-                  "id": "34bb79",
-                  "name": "Chiogga",
-                  "items": {
-                    "Salt Rock": 12
-                  }
-                },
-                {
-                  "id": "000355",
+                  "id": "986bf7",
                   "name": "Purple Cauliflower",
                   "items": {
                     "Salt Rock": 8
                   }
                 },
                 {
-                  "id": "940136",
+                  "id": "ad86fa",
+                  "name": "Warty Goblin Pumpkin",
+                  "items": {
+                    "Salt Rock": 4
+                  }
+                },
+                {
+                  "id": "7ca0c3",
+                  "name": "Golden Helios",
+                  "items": {
+                    "Salt Rock": 20
+                  }
+                },
+                {
+                  "id": "c571b9",
+                  "name": "Adirondack Potato",
+                  "items": {
+                    "Salt Rock": 6
+                  }
+                },
+                {
+                  "id": "c4f9fc",
                   "name": "Obsidian",
                   "items": {
                     "Salt Rock": 35
                   }
                 },
                 {
-                  "id": "7a6575",
-                  "name": "Obsidian",
-                  "items": {
-                    "Salt Rock": 40
-                  }
-                },
-                {
-                  "id": "e65743",
+                  "id": "a53496",
                   "name": "Obsidian",
                   "items": {
                     "Salt Rock": 30
                   }
                 },
                 {
-                  "id": "2906f8",
-                  "name": "Gilded Doll",
+                  "id": "37d85f",
+                  "name": "Obsidian",
                   "items": {
-                    "Salt Rock": 20
+                    "Salt Rock": 35
                   }
                 },
                 {
-                  "id": "6c90c9",
-                  "name": "Cluck Doll",
+                  "id": "eb742b",
+                  "name": "Lunar Doll",
                   "items": {
-                    "Salt Rock": 15
+                    "Salt Rock": 25
                   }
                 },
                 {
-                  "id": "1c78da",
+                  "id": "395f51",
                   "name": "Wooly Doll",
                   "items": {
                     "Salt Rock": 20
                   }
                 },
                 {
-                  "id": "e18a13",
+                  "id": "ea1430",
+                  "name": "Juicy Doll",
+                  "items": {
+                    "Salt Rock": 15
+                  }
+                },
+                {
+                  "id": "8d4f06",
+                  "name": "Cluck Doll",
+                  "items": {
+                    "Salt Rock": 15
+                  }
+                },
+                {
+                  "id": "f0dde6",
                   "name": "Sizzle Doll",
                   "items": {
                     "Salt Rock": 20
                   }
                 },
                 {
-                  "id": "083c82",
-                  "name": "Buzz Doll",
-                  "items": {
-                    "Salt Rock": 25
-                  }
-                },
-                {
-                  "id": "001f56",
+                  "id": "edc8a4",
                   "name": "Giant Orange",
                   "items": {
                     "Salt Rock": 7
                   }
                 },
                 {
-                  "id": "3c3753",
+                  "id": "caaf57",
                   "name": "Giant Banana",
                   "items": {
                     "Salt Rock": 30
                   }
                 },
                 {
-                  "id": "369e9c",
+                  "id": "7177bf",
                   "name": "Giant Apple",
                   "items": {
                     "Salt Rock": 14
@@ -1714,82 +1819,85 @@
             "aoe": {
               "Basic Scarecrow": {
                 "0": {
-                  "-3": 1779578530551,
-                  "-2": 1779578522857,
-                  "-1": 1779578493902,
-                  "-4": 1779578318296,
-                  "-5": 1779578317126
+                  "-3": 1779909592081,
+                  "-2": 1779909589089,
+                  "-1": 1779909586064,
+                  "-4": 1779909595831,
+                  "-5": 1779909598117
                 },
                 "1": {
-                  "-1": 1779578497609,
-                  "-2": 1779578508331,
-                  "-3": 1779578534454,
-                  "-4": 1779578544057,
-                  "-5": 1779578316790
+                  "-1": 1779909584838,
+                  "-2": 1779909589898,
+                  "-3": 1779909591559,
+                  "-4": 1779909595265,
+                  "-5": 1779909597351
                 },
                 "2": {
-                  "-1": 1779578500854,
-                  "-2": 1779578511968,
-                  "-3": 1779578526692,
-                  "-5": 1779578316476,
-                  "-4": 1779578318590
+                  "-1": 1779909583988,
+                  "-2": 1779909590499,
+                  "-3": 1779909591024,
+                  "-5": 1779909596956,
+                  "-4": 1779909596477
                 },
                 "-1": {
-                  "-1": 1779578504613,
-                  "-2": 1779578519627,
-                  "-3": 1779578540991,
-                  "-4": 1779578322532,
-                  "-5": 1779578317439
+                  "-1": 1779909586455,
+                  "-2": 1779909588600,
+                  "-3": 1779909592698,
+                  "-4": 1779909594353,
+                  "-5": 1779909598914
                 },
                 "-2": {
-                  "-1": 1779578490390,
-                  "-2": 1779578515559,
-                  "-3": 1779578537577,
-                  "-5": 1779578317796,
-                  "-4": 1779578320420
+                  "-1": 1779909587615,
+                  "-2": 1779909588119,
+                  "-3": 1779909593452,
+                  "-5": 1779909600031,
+                  "-4": 1779909593930
                 }
               }
             },
             "boostsUsedAt": {
-              "Young Farmer": 1779578439494,
-              "Betty's Friend": 1779543252164,
-              "Basic Scarecrow": 1779578502057,
-              "Chonky Scarecrow": 1779578502057
+              "Young Farmer": 1779909179800,
+              "Betty's Friend": 1779898090716,
+              "Basic Scarecrow": 1779909180031,
+              "Chonky Scarecrow": 1779909180031,
+              "Lumberjack's Extra": 1779908018453,
+              "Rock'N'Roll": 1779898031494,
+              "Forge-Ward Profits": 1779898077785
             },
             "socialFarming": {
               "clutter": {
-                "spawnedAt": 1779587254689,
+                "spawnedAt": 1779896661713,
                 "locations": {
-                  "922b90a1": {
+                  "1ab942ac": {
+                    "type": "Dung",
+                    "x": -2,
+                    "y": 6
+                  },
+                  "3bc25ef6": {
+                    "type": "Weed",
+                    "x": -1,
+                    "y": 4
+                  },
+                  "493076dd": {
                     "type": "Dung",
                     "x": 8,
-                    "y": -1
+                    "y": 7
                   },
-                  "aa320dbd": {
-                    "type": "Dung",
+                  "7ddd17ed": {
+                    "type": "Weed",
                     "x": 1,
-                    "y": 8
+                    "y": 6
                   },
-                  "cc7ed225": {
+                  "df01c6a2": {
                     "type": "Dung",
-                    "x": 8,
-                    "y": 1
-                  },
-                  "784602eb": {
-                    "type": "Weed",
-                    "x": -8,
-                    "y": 1
-                  },
-                  "313ec1ee": {
-                    "type": "Weed",
-                    "x": -7,
-                    "y": 2
+                    "x": -9,
+                    "y": 8
                   }
                 }
               },
               "points": 0,
               "weeklyPoints": {
-                "week": "2026-05-18",
+                "week": "2026-05-25",
                 "points": 0
               },
               "villageProjects": {},
@@ -1812,13 +1920,13 @@
             },
             "pets": {
               "common": {},
-              "requestsGeneratedAt": 1779543220498
+              "requestsGeneratedAt": 1779896661713
             },
             "sculptures": {},
             "verified": false
           },
           "visitorFarmState": {
-            "coins": 307.90999999999997,
+            "coins": 3815.5099999999998,
             "balance": "0",
             "previousBalance": "0",
             "inventory": {
@@ -1831,251 +1939,257 @@
               "Rug": "1",
               "Wardrobe": "1",
               "Shovel": "1",
-              "Gem": "70",
+              "Gem": "120",
               "Crop Plot": "25",
               "Iron Rock": "2",
-              "Sunflower Seed": "749",
               "Fire Pit": "1",
               "Gold Rock": "1",
-              "Sunflower": "205.3",
+              "Sunflower": "775.3",
               "Time Warp Totem": "1",
               "Basic Scarecrow": "1",
-              "Carrot Seed": "215",
-              "Salt Rock": "13",
+              "Carrot Seed": "193",
+              "Salt Rock": "18",
               "Water Well": "1",
               "Pumpkin": "8.8",
               "Pumpkin Seed": "2",
-              "Carrot": "10",
-              "Rhubarb Seed": "438",
-              "Wood": "10",
-              "Rhubarb": "12",
-              "Cheer": "9",
-              "Reindeer Carrot": "2",
-              "Stone": "1",
-              "Rhubarb Tart": "5",
+              "Carrot": "40",
+              "Rhubarb Seed": "266",
+              "Wood": "42.8",
+              "Rhubarb": "78.5",
+              "Cheer": "21",
+              "Reindeer Carrot": "3",
+              "Stone": "1.2",
               "Cabbers n Mash": "1",
-              "Pumpkin Soup": "1",
-              "Wild Mushroom": "2",
+              "Wild Mushroom": "8",
               "Cabbage Seed": "50",
-              "Soybean Seed": "30"
+              "Soybean Seed": "30",
+              "Earthworm": "5",
+              "Rod": "3",
+              "Magic Mushroom": "2",
+              "Iron": "1",
+              "Basic Bear": "1",
+              "Salt Awakening Raffle Ticket": "10",
+              "Rhubarb Tart": "3",
+              "Fishing Lure": "5",
+              "Axe": "6"
             },
             "previousInventory": {},
             "shipments": {
-              "restockedAt": 1779576688305
+              "restockedAt": 1779814641042
             },
             "gems": {},
             "flower": {},
             "choreBoard": {
               "chores": {
-                "grimbly": {
-                  "name": "Cook Pancakes 20 times",
+                "miranda": {
+                  "name": "Grow Purple Cosmos 6 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "betty": {
-                  "name": "Harvest Soybeans 125 times",
+                "garth": {
+                  "name": "Chop Trees 30 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "initialProgress": 22,
+                  "startedAt": 1779743129711
                 },
                 "grimtooth": {
-                  "name": "Prepare Sour Shake 20 times",
+                  "name": "Prepare Sour Shake 25 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "miranda": {
-                  "name": "Grow Yellow Clover 4 times",
+                "betty": {
+                  "name": "Harvest Cauliflowers 150 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "peggy": {
-                  "name": "Harvest Broccoli 100 times",
+                "grimbly": {
+                  "name": "Prepare Apple Juice 20 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
                 "pumpkin' pete": {
-                  "name": "Harvest Carrots 100 times",
+                  "name": "Harvest Potatoes 150 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "corale": {
-                  "name": "Fish 80 times",
+                "peggy": {
+                  "name": "Harvest Beetroot 150 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 1
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "bert": {
-                  "name": "Mine Stones 175 times",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "raven": {
-                  "name": "Cook Pizza Margherita 10 times",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "old salty": {
-                  "name": "Drink 55 Orange Juice",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "gordo": {
-                  "name": "Cook Apple Pie 15 times",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "birdie": {
-                  "name": "Collect Eggs 125 times",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
-                },
-                "victoria": {
-                  "name": "Grow Blue Balloon Flower 5 times",
-                  "reward": {
-                    "items": {
-                      "Salt Rock": 2
-                    }
-                  },
-                  "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
                 "finn": {
-                  "name": "Craft 90 Crab Pots",
+                  "name": "Craft 30 Mariner Pots",
                   "reward": {
                     "items": {
                       "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "eldric": {
-                  "name": "Cook Honey Cheddar 15 times",
+                "timmy": {
+                  "name": "Pick Lemons 350 times",
                   "reward": {
                     "items": {
-                      "Salt Rock": 3
+                      "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "blacksmith": {
-                  "name": "Chop Trees 500 times",
+                "old salty": {
+                  "name": "Drink 45 Orange Juice",
                   "reward": {
                     "items": {
-                      "Salt Rock": 3
+                      "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "tango": {
-                  "name": "Cook Rice Bun 35 times",
+                "victoria": {
+                  "name": "Grow Purple Daffodil 5 times",
                   "reward": {
                     "items": {
-                      "Salt Rock": 3
+                      "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "pharaoh": {
-                  "name": "Dig 225 times",
+                "birdie": {
+                  "name": "Collect Eggs 150 times",
                   "reward": {
                     "items": {
-                      "Salt Rock": 3
+                      "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 },
-                "tywin": {
-                  "name": "Mine Gold 60 times",
+                "raven": {
+                  "name": "Cook Cauliflower Burger 20 times",
                   "reward": {
                     "items": {
-                      "Salt Rock": 3
+                      "Salt Rock": 2
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
+                },
+                "bert": {
+                  "name": "Mine Stones 100 times",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 2
+                    }
+                  },
+                  "initialProgress": 1,
+                  "startedAt": 1779743129711
                 },
                 "petro": {
-                  "name": "Pick Grapes 60 times",
+                  "name": "Harvest Olives 20 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 3
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
+                },
+                "cornwell": {
+                  "name": "Harvest Wheat 350 times",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 3
+                    }
+                  },
+                  "initialProgress": 0,
+                  "startedAt": 1779743129711
+                },
+                "eldric": {
+                  "name": "Cook Honey Cheddar 20 times",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 3
+                    }
+                  },
+                  "initialProgress": 0,
+                  "startedAt": 1779743129711
+                },
+                "pharaoh": {
+                  "name": "Craft 35 Sand Drill",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 3
+                    }
+                  },
+                  "initialProgress": 0,
+                  "startedAt": 1779743129711
+                },
+                "tywin": {
+                  "name": "Mine Iron 250 times",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 3
+                    }
+                  },
+                  "initialProgress": 0,
+                  "startedAt": 1779743129711
+                },
+                "tango": {
+                  "name": "Cook Antipasto 35 times",
+                  "reward": {
+                    "items": {
+                      "Salt Rock": 3
+                    }
+                  },
+                  "initialProgress": 0,
+                  "startedAt": 1779743129711
                 },
                 "guria": {
-                  "name": "Grow Red Balloon Flower 6 times",
+                  "name": "Grow White Pansy 6 times",
                   "reward": {
                     "items": {
                       "Salt Rock": 3
                     }
                   },
                   "initialProgress": 0,
-                  "startedAt": 1779391064513
+                  "startedAt": 1779743129711
                 }
               }
             },
@@ -2095,14 +2209,19 @@
                 "shoes": "Black Farmer Boots",
                 "tool": "Farmer Pitchfork"
               },
-              "experience": 291,
+              "experience": 1175,
               "skills": {
                 "Young Farmer": 1,
                 "Betty's Friend": 1,
                 "Chonky Scarecrow": 1,
-                "Lumberjack's Extra": 1
+                "Lumberjack's Extra": 1,
+                "Forge-Ward Profits": 1,
+                "Rock'N'Roll": 1
               },
-              "achievements": {},
+              "achievements": {
+                "Busy Bumpkin": 1,
+                "Sun Seeker": 1
+              },
               "updatedAt": 1779391064529
             },
             "wardrobe": {
@@ -2162,21 +2281,6 @@
             "calendar": {
               "dates": [
                 {
-                  "date": "2026-06-02",
-                  "weather": true,
-                  "name": "unknown"
-                },
-                {
-                  "date": "2026-06-04",
-                  "weather": true,
-                  "name": "unknown"
-                },
-                {
-                  "date": "2026-06-07",
-                  "weather": true,
-                  "name": "unknown"
-                },
-                {
                   "date": "2026-06-09",
                   "weather": true,
                   "name": "unknown"
@@ -2222,12 +2326,31 @@
                   "name": "unknown"
                 },
                 {
-                  "date": "2026-05-26",
+                  "name": "doubleDelivery",
+                  "date": "2026-06-25",
+                  "weather": false
+                },
+                {
+                  "date": "2026-06-26",
                   "weather": true,
                   "name": "unknown"
                 },
                 {
-                  "date": "2026-05-29",
+                  "date": "2026-06-27",
+                  "weather": true,
+                  "name": "unknown"
+                },
+                {
+                  "name": "fullMoon",
+                  "date": "2026-06-29"
+                },
+                {
+                  "date": "2026-06-02",
+                  "weather": true,
+                  "name": "unknown"
+                },
+                {
+                  "date": "2026-06-05",
                   "weather": true,
                   "name": "unknown"
                 }
@@ -2235,8 +2358,8 @@
             },
             "createdAt": 1779391064494,
             "stock": {
-              "Axe": "200",
-              "Pickaxe": "60",
+              "Axe": "173",
+              "Pickaxe": "58",
               "Rusty Shovel": "50",
               "Stone Pickaxe": "20",
               "Iron Pickaxe": "5",
@@ -2249,9 +2372,9 @@
               "Potato Seed": "400",
               "Zucchini Seed": "400",
               "Pumpkin Seed": "300",
-              "Cabbage Seed": "150",
+              "Cabbage Seed": "170",
               "Yam Seed": "180",
-              "Soybean Seed": "170",
+              "Soybean Seed": "180",
               "Broccoli Seed": "180",
               "Beetroot Seed": "160",
               "Pepper Seed": "160",
@@ -2283,7 +2406,10 @@
               "Lavender Seed": "4",
               "Clover Seed": "4",
               "Sand Shovel": "50",
-              "Sand Drill": "10"
+              "Sand Drill": "10",
+              "Carrot Seed": "20",
+              "Rhubarb Seed": "50",
+              "Sunflower Seed": "100"
             },
             "crops": {
               "035d37fb": {
@@ -2291,26 +2417,32 @@
                 "x": 7,
                 "y": 0,
                 "crop": {
-                  "id": "98aab68a",
-                  "plantedAt": 1779578466692,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "247ba8bc",
+                  "plantedAt": 1779908991024,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "468eb2f6": {
                 "createdAt": 1779391094479,
                 "x": 7,
-                "y": -2
+                "y": -2,
+                "crop": {
+                  "id": "197fab8f",
+                  "plantedAt": 1779908996956,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "64ae18d3": {
                 "createdAt": 1779391094479,
                 "x": 5,
                 "y": 0,
                 "crop": {
-                  "id": "ed720427",
-                  "plantedAt": 1779578470551,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "b760a9f5",
+                  "plantedAt": 1779908992081,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "97e90962": {
@@ -2318,52 +2450,76 @@
                 "x": 6,
                 "y": 0,
                 "crop": {
-                  "id": "782aee9d",
-                  "plantedAt": 1779578474454,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "439cf998",
+                  "plantedAt": 1779908991559,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "aec066ea": {
                 "createdAt": 1779391094479,
                 "x": 5,
-                "y": -2
+                "y": -2,
+                "crop": {
+                  "id": "2eb1c240",
+                  "plantedAt": 1779908998117,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "bcb92ca2": {
                 "createdAt": 1779391094479,
                 "x": 6,
                 "y": -1,
                 "crop": {
-                  "id": "36eb325b",
-                  "plantedAt": 1779578484057,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "8fe50d77",
+                  "plantedAt": 1779908995265,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "cfcc9801": {
                 "createdAt": 1779391094479,
                 "x": 5,
-                "y": -1
+                "y": -1,
+                "crop": {
+                  "id": "17f64efe",
+                  "plantedAt": 1779908995831,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "cfff1959": {
                 "createdAt": 1779391094479,
                 "x": 6,
-                "y": -2
+                "y": -2,
+                "crop": {
+                  "id": "ed9391d8",
+                  "plantedAt": 1779908997351,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "f80c97f6": {
                 "createdAt": 1779391094479,
                 "x": 7,
-                "y": -1
+                "y": -1,
+                "crop": {
+                  "id": "21f52118",
+                  "plantedAt": 1779908996477,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "392d88a4": {
                 "createdAt": 1779391128747,
                 "x": 3,
                 "y": 2,
                 "crop": {
-                  "id": "e3da524e",
-                  "plantedAt": 1779578430390,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "edecebe0",
+                  "plantedAt": 1779908987615,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "39cbfaac": {
@@ -2371,10 +2527,10 @@
                 "x": 5,
                 "y": 2,
                 "crop": {
-                  "id": "4dc999a9",
-                  "plantedAt": 1779578433902,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "03463a56",
+                  "plantedAt": 1779908986064,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "6722c656": {
@@ -2382,26 +2538,32 @@
                 "x": 3,
                 "y": 0,
                 "crop": {
-                  "id": "2c8e39a5",
-                  "plantedAt": 1779578477577,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "e70f1d75",
+                  "plantedAt": 1779908993452,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "734b471d": {
                 "createdAt": 1779391128747,
                 "x": 3,
-                "y": -2
+                "y": -2,
+                "crop": {
+                  "id": "3e479a24",
+                  "plantedAt": 1779909000031,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "7908da8a": {
                 "createdAt": 1779391128747,
                 "x": 6,
                 "y": 2,
                 "crop": {
-                  "id": "b731761f",
-                  "plantedAt": 1779578437609,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "67fde496",
+                  "plantedAt": 1779908984838,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "9cbcc3ee": {
@@ -2409,10 +2571,10 @@
                 "x": 7,
                 "y": 2,
                 "crop": {
-                  "id": "67a8b17a",
-                  "plantedAt": 1779578440854,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "2715fc2e",
+                  "plantedAt": 1779908983988,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "fdfbd6db": {
@@ -2420,42 +2582,54 @@
                 "x": 4,
                 "y": 2,
                 "crop": {
-                  "id": "8a913df2",
-                  "plantedAt": 1779578444613,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "530eaefe",
+                  "plantedAt": 1779908986455,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "ff5298ba": {
                 "createdAt": 1779391128747,
                 "x": 3,
-                "y": -1
+                "y": -1,
+                "crop": {
+                  "id": "c01bb96e",
+                  "plantedAt": 1779908993930,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "0032dbed": {
                 "createdAt": 1779391402187,
                 "x": 4,
                 "y": 0,
                 "crop": {
-                  "id": "989c5cfd",
-                  "plantedAt": 1779578480991,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "b75f56b6",
+                  "plantedAt": 1779908992698,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "1ceef4c1": {
                 "createdAt": 1779391402187,
                 "x": 4,
-                "y": -1
+                "y": -1,
+                "crop": {
+                  "id": "52319429",
+                  "plantedAt": 1779908994353,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               },
               "3c91864a": {
                 "createdAt": 1779391402187,
                 "x": 6,
                 "y": 1,
                 "crop": {
-                  "id": "38d965a0",
-                  "plantedAt": 1779578448331,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "4d458f0c",
+                  "plantedAt": 1779908989898,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "61e9c77a": {
@@ -2463,10 +2637,10 @@
                 "x": 7,
                 "y": 1,
                 "crop": {
-                  "id": "9204ae4d",
-                  "plantedAt": 1779578451968,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "1c44d751",
+                  "plantedAt": 1779908990499,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "8ed8bf5b": {
@@ -2474,10 +2648,10 @@
                 "x": 3,
                 "y": 1,
                 "crop": {
-                  "id": "2cb3f245",
-                  "plantedAt": 1779578455559,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "887465c6",
+                  "plantedAt": 1779908988119,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "c209cb95": {
@@ -2485,10 +2659,10 @@
                 "x": 4,
                 "y": 1,
                 "crop": {
-                  "id": "5a584e94",
-                  "plantedAt": 1779578459627,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "a2b8a05e",
+                  "plantedAt": 1779908988600,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "c6ec1f65": {
@@ -2496,23 +2670,29 @@
                 "x": 5,
                 "y": 1,
                 "crop": {
-                  "id": "dcee53fa",
-                  "plantedAt": 1779578462857,
-                  "boostedTime": 18000,
-                  "name": "Sunflower"
+                  "id": "604f40d6",
+                  "plantedAt": 1779908989089,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
                 }
               },
               "fa8d9830": {
                 "createdAt": 1779391402187,
                 "x": 4,
-                "y": -2
+                "y": -2,
+                "crop": {
+                  "id": "2d2cff99",
+                  "plantedAt": 1779908998914,
+                  "boostedTime": 180000,
+                  "name": "Rhubarb"
+                }
               }
             },
             "trees": {
               "1": {
                 "createdAt": 1779390990449,
                 "wood": {
-                  "choppedAt": 1779401369005
+                  "choppedAt": 1779908016470
                 },
                 "x": -4,
                 "y": -1
@@ -2520,7 +2700,7 @@
               "2": {
                 "createdAt": 1779390990449,
                 "wood": {
-                  "choppedAt": 1779401368072
+                  "choppedAt": 1779908017592
                 },
                 "x": -8,
                 "y": -1
@@ -2528,7 +2708,7 @@
               "3": {
                 "createdAt": 1779390990449,
                 "wood": {
-                  "choppedAt": 1779391616585
+                  "choppedAt": 1779908006954
                 },
                 "x": 0,
                 "y": -1
@@ -2538,7 +2718,7 @@
                 "x": 0,
                 "y": 3,
                 "wood": {
-                  "choppedAt": 1779401372246
+                  "choppedAt": 1779908005587
                 }
               },
               "9ef5826e": {
@@ -2546,7 +2726,7 @@
                 "x": 0,
                 "y": 1,
                 "wood": {
-                  "choppedAt": 1779391617953
+                  "choppedAt": 1779908006215
                 }
               },
               "05f44a2d": {
@@ -2554,7 +2734,7 @@
                 "x": -2,
                 "y": -1,
                 "wood": {
-                  "choppedAt": 1779401371152
+                  "choppedAt": 1779908015846
                 }
               },
               "e4d7cf75": {
@@ -2562,7 +2742,7 @@
                 "x": -6,
                 "y": -1,
                 "wood": {
-                  "choppedAt": 1779401370007
+                  "choppedAt": 1779908018453
                 }
               }
             },
@@ -2570,7 +2750,8 @@
               "1": {
                 "createdAt": 1779390990449,
                 "stone": {
-                  "minedAt": 1779376964035
+                  "minedAt": 1779826010153,
+                  "boostedTime": 0
                 },
                 "x": -5,
                 "y": 0
@@ -2578,7 +2759,8 @@
               "2": {
                 "createdAt": 1779390990449,
                 "stone": {
-                  "minedAt": 1779376964035
+                  "minedAt": 1779898030674,
+                  "boostedTime": 0
                 },
                 "x": -8,
                 "y": 0
@@ -2588,7 +2770,7 @@
                 "x": -7,
                 "y": 0,
                 "stone": {
-                  "minedAt": 1779376964035,
+                  "minedAt": 1779898031494,
                   "boostedTime": 0
                 }
               },
@@ -2597,7 +2779,8 @@
                 "x": -4,
                 "y": 0,
                 "stone": {
-                  "minedAt": 1779376964035
+                  "minedAt": 1779826009237,
+                  "boostedTime": 0
                 }
               },
               "1e5a1aec": {
@@ -2615,7 +2798,8 @@
                 "x": -3,
                 "y": 0,
                 "stone": {
-                  "minedAt": 1779362564035
+                  "minedAt": 1779826011323,
+                  "boostedTime": 0
                 }
               },
               "5b0880a6": {
@@ -2713,14 +2897,14 @@
                   "readyAt": 1779391090554,
                   "crafting": [
                     {
-                      "name": "Rhubarb Tart",
+                      "name": "Reindeer Carrot",
                       "boost": {
                         "Oil": 0
                       },
                       "skills": {
                         "Double Nom": false
                       },
-                      "readyAt": 1779578349630
+                      "readyAt": 1779909460550
                     }
                   ],
                   "oil": 0
@@ -2762,100 +2946,106 @@
               }
             },
             "dailyRewards": {
-              "streaks": 3,
+              "streaks": 7,
               "chest": {
-                "code": 3,
-                "collectedAt": 1779543190379
+                "code": 7,
+                "collectedAt": 1779896615863
               }
             },
             "floatingIsland": {
               "schedule": [
                 {
-                  "startAt": 1779589200000,
-                  "endAt": 1779591000000
+                  "startAt": 1779919200000,
+                  "endAt": 1779921000000
                 },
                 {
-                  "startAt": 1779619200000,
-                  "endAt": 1779621000000
+                  "startAt": 1779949200000,
+                  "endAt": 1779951000000
                 },
                 {
-                  "startAt": 1779649200000,
-                  "endAt": 1779651000000
+                  "startAt": 1779979200000,
+                  "endAt": 1779981000000
                 }
               ],
               "shop": {
-                "Flower Coin": {
-                  "type": "collectible",
+                "Grumpy Cat": {
+                  "type": "wearable",
                   "cost": {
                     "items": {
-                      "Love Charm": 1950
+                      "Love Charm": 1000
                     }
                   },
-                  "name": "Flower Coin"
+                  "name": "Grumpy Cat"
                 },
-                "Harvest Hourglass": {
+                "Gold Tool Box": {
                   "type": "collectible",
                   "cost": {
                     "items": {
-                      "Love Charm": 350
+                      "Love Charm": 1560
                     }
                   },
-                  "name": "Harvest Hourglass"
+                  "name": "Gold Tool Box"
                 },
-                "Bronze Tool Box": {
+                "Gold Love Box": {
                   "type": "collectible",
                   "cost": {
                     "items": {
-                      "Love Charm": 50
+                      "Love Charm": 1300
                     }
                   },
-                  "name": "Bronze Tool Box"
+                  "name": "Gold Love Box"
                 }
               },
-              "boughtAt": {}
+              "boughtAt": {},
+              "petalPuzzleSolvedAt": 1779799454290
             },
             "seed": "",
             "auctioneer": {},
             "farmActivity": {
-              "Basic Tree Chopped": 22,
-              "Coins Spent": 701.75,
+              "Basic Tree Chopped": 50,
+              "Coins Spent": 1361.75,
               "Expanded": 3,
-              "Tree Chopped": 22,
+              "Tree Chopped": 50,
               "welcome Bonus Claimed": 1,
-              "Coins Earned": 259.66,
-              "Sunflower Harvested": 226,
+              "Coins Earned": 1987.26,
+              "Sunflower Harvested": 1076,
               "Sunflower Sold": 19,
-              "Sunflower Planted": 233,
+              "Sunflower Planted": 1067,
               "Sunflower Seed Bought": 900,
-              "Rhubarb Harvested": 58,
+              "Rhubarb Harvested": 233,
               "Rhubarb Sold": 5,
-              "Rhubarb Tart Cooked": 6,
+              "Rhubarb Tart Cooked": 14,
               "Rhubarb Tart Fed": 1,
               "Username Assigned": 1,
-              "Coins Order Delivered": 3,
-              "Salt Awakening Points Earned": 30,
-              "Pickaxe Crafted": 1,
-              "Stone Mined": 1,
-              "Stone Rock Mined": 1,
+              "Coins Order Delivered": 17,
+              "Salt Awakening Points Earned": 175,
+              "Pickaxe Crafted": 3,
+              "Stone Mined": 5,
+              "Stone Rock Mined": 5,
               "Airdrop Reward Claimed": 1,
-              "Axe Crafted": 12,
+              "Axe Crafted": 43,
               "Basic Scarecrow Crafted": 1,
-              "Carrot Planted": 25,
+              "Carrot Planted": 50,
               "Carrot Seed Bought": 220,
-              "Salt Awakening free Milestone Claimed": 2,
+              "Salt Awakening free Milestone Claimed": 4,
               "Building Constructed": 1,
               "Pumpkin Harvested": 8,
-              "Carrot Harvested": 25,
+              "Carrot Harvested": 50,
               "Rhubarb Seed Bought": 450,
-              "Rhubarb Planted": 50,
-              "Reindeer Carrot Cooked": 3,
+              "Rhubarb Planted": 250,
+              "Reindeer Carrot Cooked": 7,
               "Reindeer Carrot Fed": 1,
-              "Daily Reward Collected": 3,
-              "Salt Rock Collected": 3,
+              "Daily Reward Collected": 7,
+              "Salt Rock Collected": 8,
               "Cabbers n Mash Fed": 1,
               "Cabbage Seed Bought": 50,
-              "Shipment Restocked": 1,
-              "Soybean Seed Bought": 30
+              "Shipment Restocked": 2,
+              "Soybean Seed Bought": 30,
+              "Iron Mined": 1,
+              "Iron Rock Mined": 1,
+              "Cabbage Cake Fed": 1,
+              "Pumpkin Soup Fed": 1,
+              "Ticket Order Delivered": 1
             },
             "milestones": {},
             "fishing": {
@@ -2885,81 +3075,105 @@
               "read": []
             },
             "mushrooms": {
-              "spawnedAt": 1779552000000,
-              "magicSpawnedAt": 1779494400000,
+              "spawnedAt": 1779897600000,
+              "magicSpawnedAt": 1779840000000,
               "mushrooms": {}
             },
             "delivery": {
               "orders": [
                 {
-                  "createdAt": 1779391329737,
-                  "id": "c3af77",
-                  "from": "blacksmith",
-                  "items": {
-                    "Stone": 5
-                  },
-                  "readyAt": 1779391329737,
-                  "reward": {
-                    "coins": 388,
-                    "items": {}
-                  }
-                },
-                {
-                  "createdAt": 1779404056602,
-                  "id": "6a2836",
+                  "createdAt": 1779827231276,
+                  "id": "e53c40",
                   "from": "peggy",
                   "items": {
-                    "Rhubarb Tart": 1
+                    "Sunflower Crunch": 1
                   },
-                  "readyAt": 1779404056602,
+                  "readyAt": 1779827231276,
                   "reward": {
-                    "coins": 65,
+                    "coins": 102,
                     "items": {}
                   }
                 },
                 {
-                  "createdAt": 1779543290478,
-                  "id": "a6f579",
+                  "createdAt": 1779896661713,
+                  "id": "152613",
                   "from": "betty",
                   "items": {
                     "Rhubarb": 15,
-                    "Sunflower": 30
+                    "Sunflower": 20
                   },
-                  "readyAt": 1779543290478,
+                  "readyAt": 1779896661713,
                   "reward": {
-                    "coins": 69,
+                    "coins": 100,
+                    "items": {}
+                  },
+                  "completedAt": 1779898090716
+                },
+                {
+                  "createdAt": 1779896661713,
+                  "id": "120176",
+                  "from": "pumpkin' pete",
+                  "items": {
+                    "Reindeer Carrot": 3
+                  },
+                  "readyAt": 1779896661713,
+                  "reward": {}
+                },
+                {
+                  "createdAt": 1779898150897,
+                  "readyAt": 1779898150897,
+                  "from": "blacksmith",
+                  "id": "7c569b",
+                  "items": {
+                    "Wood": 20
+                  },
+                  "reward": {
+                    "coins": 429,
                     "items": {}
                   }
                 }
               ],
-              "fulfilledCount": 3,
+              "fulfilledCount": 18,
               "milestone": {
                 "goal": 10,
                 "total": 10
               },
               "dailySFL": {
-                "day": 143,
-                "amount": 4.387297434190279
+                "day": 147,
+                "amount": 4.303829810138272
               }
             },
             "npcs": {
               "blacksmith": {
-                "deliveryCount": 1,
-                "friendship": {
-                  "updatedAt": 1779391284099,
-                  "points": 3,
-                  "giftClaimedAtPoints": 0
-                },
-                "deliveryCompletedAt": 1779391284099
-              },
-              "betty": {
                 "deliveryCount": 2,
                 "friendship": {
-                  "updatedAt": 1779543252164,
+                  "updatedAt": 1779898077785,
                   "points": 6,
                   "giftClaimedAtPoints": 0
                 },
-                "deliveryCompletedAt": 1779543252164
+                "deliveryCompletedAt": 1779898077785
+              },
+              "betty": {
+                "deliveryCount": 9,
+                "friendship": {
+                  "updatedAt": 1779898090716,
+                  "points": 27,
+                  "giftClaimedAtPoints": 20
+                },
+                "deliveryCompletedAt": 1779898090716
+              },
+              "peggy": {
+                "deliveryCount": 6,
+                "deliveryCompletedAt": 1779827166451
+              },
+              "pumpkin' pete": {
+                "deliveryCount": 1,
+                "friendship": {
+                  "updatedAt": 1779827347152,
+                  "points": 3,
+                  "giftClaimedAtPoints": 0
+                },
+                "deliveryCompletedAt": 1779827347152
               }
             },
             "islands": {},
@@ -2971,42 +3185,42 @@
                 "mine-whack": {
                   "coins": 0,
                   "items": {
-                    "Mark": 60
+                    "Mark": 20
                   },
                   "wearables": {},
-                  "score": 3500,
-                  "startAt": 1779580800000,
-                  "endAt": 1779667200000
+                  "score": 1500,
+                  "startAt": 1779840000000,
+                  "endAt": 1779926400000
                 },
                 "chicken-rescue": {
                   "coins": 0,
                   "items": {
-                    "Mark": 50
+                    "Mark": 45
                   },
                   "wearables": {},
-                  "score": 45,
-                  "startAt": 1779580800000,
-                  "endAt": 1779667200000
+                  "score": 40,
+                  "startAt": 1779840000000,
+                  "endAt": 1779926400000
                 },
                 "crops-and-chickens": {
                   "coins": 0,
                   "items": {
-                    "Mark": 50
+                    "Mark": 35
                   },
                   "wearables": {},
-                  "score": 2500,
-                  "startAt": 1779580800000,
-                  "endAt": 1779667200000
+                  "score": 1000,
+                  "startAt": 1779840000000,
+                  "endAt": 1779926400000
                 },
                 "fruit-dash": {
                   "coins": 0,
                   "items": {
-                    "Mark": 20
+                    "Mark": 55
                   },
                   "wearables": {},
-                  "score": 1000,
-                  "startAt": 1779580800000,
-                  "endAt": 1779667200000
+                  "score": 2750,
+                  "startAt": 1779840000000,
+                  "endAt": 1779926400000
                 },
                 "memory": {
                   "coins": 0,
@@ -3015,8 +3229,8 @@
                   },
                   "wearables": {},
                   "score": 300,
-                  "startAt": 1779580800000,
-                  "endAt": 1779667200000
+                  "startAt": 1779840000000,
+                  "endAt": 1779926400000
                 }
               }
             },
@@ -3029,8 +3243,8 @@
               }
             },
             "flowerShop": {
-              "week": 1779062400000,
-              "weeklyFlower": "White Daffodil"
+              "week": 1779667200000,
+              "weeklyFlower": "Blue Carnation"
             },
             "specialEvents": {
               "history": {},
@@ -3043,14 +3257,13 @@
               "digging": {
                 "grid": [],
                 "patterns": [
+                  "ARTEFACT_FIFTEEN",
+                  "ARTEFACT_TWENTY",
                   "ARTEFACT_TWENTY_THREE",
-                  "ARTEFACT_TWENTY_TWO",
-                  "ARTEFACT_SIXTEEN",
                   "HIEROGLYPH",
-                  "HIEROGLYPH",
-                  "SEA_CUCUMBERS",
                   "SEAWEED",
-                  "CLAM_SHELLS"
+                  "SEAWEED",
+                  "WOODEN_COMPASS"
                 ]
               }
             },
@@ -3148,36 +3361,28 @@
             "bounties": {
               "requests": [
                 {
-                  "level": 8,
-                  "id": "22f2b0",
-                  "name": "Chicken",
-                  "coins": 220
-                },
-                {
-                  "level": 4,
-                  "id": "e5fe22",
-                  "name": "Chicken",
-                  "coins": 110
-                },
-                {
                   "level": 7,
-                  "id": "4db6cf",
+                  "id": "7a55bd",
                   "name": "Chicken",
-                  "items": {
-                    "Salt Rock": 2
-                  }
+                  "coins": 180
                 },
                 {
-                  "level": 4,
-                  "id": "7be885",
+                  "level": 5,
+                  "id": "9fca83",
+                  "name": "Chicken",
+                  "coins": 120
+                },
+                {
+                  "level": 3,
+                  "id": "45dc73",
                   "name": "Chicken",
                   "items": {
                     "Salt Rock": 1
                   }
                 },
                 {
-                  "level": 8,
-                  "id": "cba966",
+                  "level": 9,
+                  "id": "a9d47a",
                   "name": "Chicken",
                   "items": {
                     "Salt Rock": 2
@@ -3185,39 +3390,7 @@
                 },
                 {
                   "level": 2,
-                  "id": "87ed88",
-                  "name": "Chicken",
-                  "items": {
-                    "Salt Rock": 1
-                  }
-                },
-                {
-                  "level": 6,
-                  "id": "165f5f",
-                  "name": "Chicken",
-                  "items": {
-                    "Salt Rock": 2
-                  }
-                },
-                {
-                  "level": 3,
-                  "id": "5d4494",
-                  "name": "Chicken",
-                  "items": {
-                    "Salt Rock": 1
-                  }
-                },
-                {
-                  "level": 10,
-                  "id": "e2b2a4",
-                  "name": "Chicken",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "level": 3,
-                  "id": "b2f1f0",
+                  "id": "370940",
                   "name": "Chicken",
                   "items": {
                     "Salt Rock": 1
@@ -3225,278 +3398,318 @@
                 },
                 {
                   "level": 15,
-                  "id": "1bf5dd",
+                  "id": "0a4ca8",
+                  "name": "Chicken",
+                  "items": {
+                    "Salt Rock": 3
+                  }
+                },
+                {
+                  "level": 5,
+                  "id": "247fa1",
+                  "name": "Chicken",
+                  "items": {
+                    "Salt Rock": 1
+                  }
+                },
+                {
+                  "level": 3,
+                  "id": "4c09fd",
+                  "name": "Chicken",
+                  "items": {
+                    "Salt Rock": 1
+                  }
+                },
+                {
+                  "level": 3,
+                  "id": "34bdd5",
+                  "name": "Chicken",
+                  "items": {
+                    "Salt Rock": 1
+                  }
+                },
+                {
+                  "level": 11,
+                  "id": "c9a0a6",
+                  "name": "Chicken",
+                  "items": {
+                    "Salt Rock": 3
+                  }
+                },
+                {
+                  "level": 4,
+                  "id": "a1e833",
                   "name": "Cow",
-                  "coins": 9900
+                  "coins": 740
+                },
+                {
+                  "level": 5,
+                  "id": "e81ad8",
+                  "name": "Cow",
+                  "items": {
+                    "Salt Rock": 3
+                  }
+                },
+                {
+                  "level": 9,
+                  "id": "b45c74",
+                  "name": "Cow",
+                  "items": {
+                    "Salt Rock": 4
+                  }
+                },
+                {
+                  "level": 11,
+                  "id": "9e39ec",
+                  "name": "Cow",
+                  "items": {
+                    "Salt Rock": 5
+                  }
+                },
+                {
+                  "level": 5,
+                  "id": "2a6637",
+                  "name": "Cow",
+                  "items": {
+                    "Salt Rock": 3
+                  }
+                },
+                {
+                  "level": 8,
+                  "id": "643ce5",
+                  "name": "Sheep",
+                  "coins": 1070
                 },
                 {
                   "level": 2,
-                  "id": "82cf75",
-                  "name": "Cow",
+                  "id": "ee1a30",
+                  "name": "Sheep",
+                  "items": {
+                    "Salt Rock": 2
+                  }
+                },
+                {
+                  "level": 13,
+                  "id": "8abdbd",
+                  "name": "Sheep",
+                  "items": {
+                    "Salt Rock": 4
+                  }
+                },
+                {
+                  "level": 9,
+                  "id": "332694",
+                  "name": "Sheep",
                   "items": {
                     "Salt Rock": 3
                   }
                 },
                 {
                   "level": 3,
-                  "id": "2fb252",
-                  "name": "Cow",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "level": 4,
-                  "id": "ec6a1c",
-                  "name": "Cow",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "level": 5,
-                  "id": "dc723b",
-                  "name": "Cow",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "level": 13,
-                  "id": "3a529b",
-                  "name": "Sheep",
-                  "coins": 3020
-                },
-                {
-                  "level": 6,
-                  "id": "cca06a",
-                  "name": "Sheep",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "level": 14,
-                  "id": "46202c",
-                  "name": "Sheep",
-                  "items": {
-                    "Salt Rock": 4
-                  }
-                },
-                {
-                  "level": 5,
-                  "id": "c60d9b",
+                  "id": "e7e0e2",
                   "name": "Sheep",
                   "items": {
                     "Salt Rock": 2
                   }
                 },
                 {
-                  "level": 4,
-                  "id": "0837a8",
-                  "name": "Sheep",
-                  "items": {
-                    "Salt Rock": 2
-                  }
-                },
-                {
-                  "id": "71b10c",
-                  "name": "Purple Pansy",
-                  "items": {
-                    "Salt Rock": 3
-                  }
-                },
-                {
-                  "id": "7b65f0",
+                  "id": "c51947",
                   "name": "Celestial Frostbloom",
                   "items": {
                     "Salt Rock": 5
                   }
                 },
                 {
-                  "id": "e4370e",
+                  "id": "0cf5a3",
+                  "name": "Purple Edelweiss",
+                  "items": {
+                    "Salt Rock": 3
+                  }
+                },
+                {
+                  "id": "58d3a7",
                   "name": "White Carnation",
                   "items": {
                     "Salt Rock": 6
                   }
                 },
                 {
-                  "id": "df8fd7",
-                  "name": "Yellow Carnation",
-                  "items": {
-                    "Salt Rock": 5
-                  }
-                },
-                {
-                  "id": "db3af0",
-                  "name": "Red Daffodil",
+                  "id": "83c3bf",
+                  "name": "Red Edelweiss",
                   "items": {
                     "Salt Rock": 3
                   }
                 },
                 {
-                  "id": "f6ab74",
-                  "name": "Surgeonfish",
+                  "id": "f346e2",
+                  "name": "Yellow Daffodil",
+                  "items": {
+                    "Salt Rock": 7
+                  }
+                },
+                {
+                  "id": "28b83d",
+                  "name": "Oarfish",
                   "items": {
                     "Salt Rock": 2
                   }
                 },
                 {
-                  "id": "b71338",
-                  "name": "Napoleanfish",
+                  "id": "aa39ea",
+                  "name": "Horse Mackerel",
+                  "items": {
+                    "Salt Rock": 6
+                  }
+                },
+                {
+                  "id": "0d853c",
+                  "name": "Blue Marlin",
                   "items": {
                     "Salt Rock": 2
                   }
                 },
                 {
-                  "id": "a45b9a",
-                  "name": "Butterflyfish",
-                  "items": {
-                    "Salt Rock": 1
-                  }
-                },
-                {
-                  "id": "8dd5c0",
-                  "name": "Sea Bass",
+                  "id": "bbc39d",
+                  "name": "Football fish",
                   "items": {
                     "Salt Rock": 2
                   }
                 },
                 {
-                  "id": "7f08cf",
+                  "id": "16da75",
                   "name": "Porgy",
                   "items": {
                     "Salt Rock": 2
                   }
                 },
                 {
-                  "id": "5c2b53",
-                  "name": "Sea Snail",
-                  "items": {
-                    "Salt Rock": 12
-                  }
-                },
-                {
-                  "id": "8b4385",
+                  "id": "f69d86",
                   "name": "Lobster",
                   "items": {
                     "Salt Rock": 12
                   }
                 },
                 {
-                  "id": "6778a5",
+                  "id": "cd2bbb",
+                  "name": "Blue Crab",
+                  "items": {
+                    "Salt Rock": 12
+                  }
+                },
+                {
+                  "id": "8bc396",
                   "name": "Isopod",
                   "items": {
                     "Salt Rock": 5
                   }
                 },
                 {
-                  "id": "b7c56d",
-                  "name": "Warty Goblin Pumpkin",
-                  "items": {
-                    "Salt Rock": 4
-                  }
-                },
-                {
-                  "id": "376681",
+                  "id": "3f4653",
                   "name": "White Carrot",
                   "items": {
                     "Salt Rock": 3
                   }
                 },
                 {
-                  "id": "427f73",
-                  "name": "Golden Helios",
-                  "items": {
-                    "Salt Rock": 20
-                  }
-                },
-                {
-                  "id": "34bb79",
-                  "name": "Chiogga",
-                  "items": {
-                    "Salt Rock": 12
-                  }
-                },
-                {
-                  "id": "000355",
+                  "id": "986bf7",
                   "name": "Purple Cauliflower",
                   "items": {
                     "Salt Rock": 8
                   }
                 },
                 {
-                  "id": "940136",
+                  "id": "ad86fa",
+                  "name": "Warty Goblin Pumpkin",
+                  "items": {
+                    "Salt Rock": 4
+                  }
+                },
+                {
+                  "id": "7ca0c3",
+                  "name": "Golden Helios",
+                  "items": {
+                    "Salt Rock": 20
+                  }
+                },
+                {
+                  "id": "c571b9",
+                  "name": "Adirondack Potato",
+                  "items": {
+                    "Salt Rock": 6
+                  }
+                },
+                {
+                  "id": "c4f9fc",
                   "name": "Obsidian",
                   "items": {
                     "Salt Rock": 35
                   }
                 },
                 {
-                  "id": "7a6575",
-                  "name": "Obsidian",
-                  "items": {
-                    "Salt Rock": 40
-                  }
-                },
-                {
-                  "id": "e65743",
+                  "id": "a53496",
                   "name": "Obsidian",
                   "items": {
                     "Salt Rock": 30
                   }
                 },
                 {
-                  "id": "2906f8",
-                  "name": "Gilded Doll",
+                  "id": "37d85f",
+                  "name": "Obsidian",
                   "items": {
-                    "Salt Rock": 20
+                    "Salt Rock": 35
                   }
                 },
                 {
-                  "id": "6c90c9",
-                  "name": "Cluck Doll",
+                  "id": "eb742b",
+                  "name": "Lunar Doll",
                   "items": {
-                    "Salt Rock": 15
+                    "Salt Rock": 25
                   }
                 },
                 {
-                  "id": "1c78da",
+                  "id": "395f51",
                   "name": "Wooly Doll",
                   "items": {
                     "Salt Rock": 20
                   }
                 },
                 {
-                  "id": "e18a13",
+                  "id": "ea1430",
+                  "name": "Juicy Doll",
+                  "items": {
+                    "Salt Rock": 15
+                  }
+                },
+                {
+                  "id": "8d4f06",
+                  "name": "Cluck Doll",
+                  "items": {
+                    "Salt Rock": 15
+                  }
+                },
+                {
+                  "id": "f0dde6",
                   "name": "Sizzle Doll",
                   "items": {
                     "Salt Rock": 20
                   }
                 },
                 {
-                  "id": "083c82",
-                  "name": "Buzz Doll",
-                  "items": {
-                    "Salt Rock": 25
-                  }
-                },
-                {
-                  "id": "001f56",
+                  "id": "edc8a4",
                   "name": "Giant Orange",
                   "items": {
                     "Salt Rock": 7
                   }
                 },
                 {
-                  "id": "3c3753",
+                  "id": "caaf57",
                   "name": "Giant Banana",
                   "items": {
                     "Salt Rock": 30
                   }
                 },
                 {
-                  "id": "369e9c",
+                  "id": "7177bf",
                   "name": "Giant Apple",
                   "items": {
                     "Salt Rock": 14
@@ -3510,7 +3723,42 @@
               "status": "idle",
               "startedAt": 0,
               "readyAt": 0,
-              "recipes": {}
+              "recipes": {
+                "Basic Bed": {
+                  "name": "Basic Bed",
+                  "ingredients": [
+                    {
+                      "collectible": "Cushion"
+                    },
+                    {
+                      "collectible": "Cushion"
+                    },
+                    {
+                      "collectible": "Cushion"
+                    },
+                    {
+                      "collectible": "Timber"
+                    },
+                    {
+                      "collectible": "Cushion"
+                    },
+                    {
+                      "collectible": "Timber"
+                    },
+                    {
+                      "collectible": "Timber"
+                    },
+                    {
+                      "collectible": "Timber"
+                    },
+                    {
+                      "collectible": "Timber"
+                    }
+                  ],
+                  "time": 28800000,
+                  "type": "collectible"
+                }
+              }
             },
             "season": {
               "season": "spring",
@@ -3529,6 +3777,28 @@
                     "Pumpkin Soup": 1
                   }
                 }
+              },
+              "Bronze Love Box": {
+                "history": {
+                  "total": 1,
+                  "coins": 1000
+                }
+              },
+              "Bronze Food Box": {
+                "history": {
+                  "total": 1,
+                  "items": {
+                    "Cabbage Cake": 1
+                  }
+                }
+              },
+              "Weekly Mega Box": {
+                "history": {
+                  "total": 1,
+                  "items": {
+                    "Fishing Lure": 5
+                  }
+                }
               }
             },
             "blessing": {
@@ -3540,82 +3810,85 @@
             "aoe": {
               "Basic Scarecrow": {
                 "0": {
-                  "-3": 1779578530551,
-                  "-2": 1779578522857,
-                  "-1": 1779578493902,
-                  "-4": 1779578318296,
-                  "-5": 1779578317126
+                  "-3": 1779909592081,
+                  "-2": 1779909589089,
+                  "-1": 1779909586064,
+                  "-4": 1779909595831,
+                  "-5": 1779909598117
                 },
                 "1": {
-                  "-1": 1779578497609,
-                  "-2": 1779578508331,
-                  "-3": 1779578534454,
-                  "-4": 1779578544057,
-                  "-5": 1779578316790
+                  "-1": 1779909584838,
+                  "-2": 1779909589898,
+                  "-3": 1779909591559,
+                  "-4": 1779909595265,
+                  "-5": 1779909597351
                 },
                 "2": {
-                  "-1": 1779578500854,
-                  "-2": 1779578511968,
-                  "-3": 1779578526692,
-                  "-5": 1779578316476,
-                  "-4": 1779578318590
+                  "-1": 1779909583988,
+                  "-2": 1779909590499,
+                  "-3": 1779909591024,
+                  "-5": 1779909596956,
+                  "-4": 1779909596477
                 },
                 "-1": {
-                  "-1": 1779578504613,
-                  "-2": 1779578519627,
-                  "-3": 1779578540991,
-                  "-4": 1779578322532,
-                  "-5": 1779578317439
+                  "-1": 1779909586455,
+                  "-2": 1779909588600,
+                  "-3": 1779909592698,
+                  "-4": 1779909594353,
+                  "-5": 1779909598914
                 },
                 "-2": {
-                  "-1": 1779578490390,
-                  "-2": 1779578515559,
-                  "-3": 1779578537577,
-                  "-5": 1779578317796,
-                  "-4": 1779578320420
+                  "-1": 1779909587615,
+                  "-2": 1779909588119,
+                  "-3": 1779909593452,
+                  "-5": 1779909600031,
+                  "-4": 1779909593930
                 }
               }
             },
             "boostsUsedAt": {
-              "Young Farmer": 1779578439494,
-              "Betty's Friend": 1779543252164,
-              "Basic Scarecrow": 1779578502057,
-              "Chonky Scarecrow": 1779578502057
+              "Young Farmer": 1779909179800,
+              "Betty's Friend": 1779898090716,
+              "Basic Scarecrow": 1779909180031,
+              "Chonky Scarecrow": 1779909180031,
+              "Lumberjack's Extra": 1779908018453,
+              "Rock'N'Roll": 1779898031494,
+              "Forge-Ward Profits": 1779898077785
             },
             "socialFarming": {
               "clutter": {
-                "spawnedAt": 1779543220498,
+                "spawnedAt": 1779896661713,
                 "locations": {
-                  "18cf247f": {
+                  "1ab942ac": {
+                    "type": "Dung",
+                    "x": -2,
+                    "y": 6
+                  },
+                  "3bc25ef6": {
+                    "type": "Weed",
+                    "x": -1,
+                    "y": 4
+                  },
+                  "493076dd": {
                     "type": "Dung",
                     "x": 8,
                     "y": 7
                   },
-                  "2205253a": {
-                    "type": "Dung",
-                    "x": 5,
-                    "y": 9
-                  },
-                  "32fed762": {
-                    "type": "Dung",
-                    "x": 8,
-                    "y": 0
-                  },
-                  "725625f3": {
+                  "7ddd17ed": {
                     "type": "Weed",
-                    "x": -1,
-                    "y": 5
-                  },
-                  "a2ac22d6": {
-                    "type": "Weed",
-                    "x": -3,
+                    "x": 1,
                     "y": 6
+                  },
+                  "df01c6a2": {
+                    "type": "Dung",
+                    "x": -9,
+                    "y": 8
                   }
                 }
               },
               "points": 0,
               "weeklyPoints": {
-                "week": "2026-05-18",
+                "week": "2026-05-25",
                 "points": 0
               },
               "villageProjects": {},
@@ -3638,7 +3911,7 @@
             },
             "pets": {
               "common": {},
-              "requestsGeneratedAt": 1779543220498
+              "requestsGeneratedAt": 1779896661713
             },
             "sculptures": {},
             "verified": false
@@ -3651,16 +3924,16 @@
         "globalVariables": {
           "scanned_text": "",
           "scanned_num": 0,
-          "Золото": 2066.41,
-          "Сокира": 0,
-          "дерево": 18.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
-          "Sunflower": 347.6,
+          "Золото": 2149.21,
+          "Сокира": 2,
+          "дерево": 19.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.6,
+          "Sunflower": 878.6,
           "Rhubard": 0,
-          "Carrot": 28,
-          "Cabbage": 0,
+          "Carrot": 30.5,
+          "Cabbage": 27.5,
           "Soybean": 0,
           "Corn": 0,
           "Wheat": 0,
@@ -3692,12 +3965,12 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Rhubarb": 10.6,
+          "Rhubarb": 252.6,
           "Pumpkin Soup": 0,
           "Mashed Potato": 0,
-          "Rhubarb Tart": 1,
-          "Reindeer Carrot": 1,
-          "Mushroom Soup": 0,
+          "Rhubarb Tart": 10,
+          "Reindeer Carrot": 0,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -3710,24 +3983,24 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "рівень": 275,
-          "удочка": 3,
+          "рівень": 4275,
+          "удочка": 2,
           "Желізна кирка": 0,
           "Золота кирка": 0,
           "Крабова пастка": 0,
           "Морська пастка": 0,
           "Граблі": 0,
-          "Желізо": 0,
+          "Желізо": 1,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 150,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813538630
+          "_cooldown_sub_1779811939183": 1779911288694
         },
         "selectedNodes": [],
         "miniCollapsed": true
@@ -3755,15 +4028,15 @@
         "label": "Монітор Змінних",
         "selector": "",
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -3796,11 +4069,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -3815,7 +4088,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -3824,15 +4097,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "miniCollapsed": false,
         "selectedNodes": []
@@ -3862,16 +4135,16 @@
         "globalVariables": {
           "scanned_text": "",
           "scanned_num": 0,
-          "Золото": 2066.41,
-          "Сокира": 0,
-          "дерево": 18.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
-          "Sunflower": 347.6,
+          "Золото": 2149.21,
+          "Сокира": 2,
+          "дерево": 19.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.6,
+          "Sunflower": 878.6,
           "Rhubard": 0,
-          "Carrot": 28,
-          "Cabbage": 0,
+          "Carrot": 30.5,
+          "Cabbage": 27.5,
           "Soybean": 0,
           "Corn": 0,
           "Wheat": 0,
@@ -3903,12 +4176,12 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Rhubarb": 10.6,
+          "Rhubarb": 252.6,
           "Pumpkin Soup": 0,
           "Mashed Potato": 0,
-          "Rhubarb Tart": 1,
-          "Reindeer Carrot": 1,
-          "Mushroom Soup": 0,
+          "Rhubarb Tart": 10,
+          "Reindeer Carrot": 0,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -3921,24 +4194,24 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "рівень": 275,
-          "удочка": 3,
+          "рівень": 4275,
+          "удочка": 2,
           "Желізна кирка": 0,
           "Золота кирка": 0,
           "Крабова пастка": 0,
           "Морська пастка": 0,
           "Граблі": 0,
-          "Желізо": 0,
+          "Желізо": 1,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 150,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813538630
+          "_cooldown_sub_1779811939183": 1779911288694
         },
         "miniCollapsed": true
       }
@@ -4147,15 +4420,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -4188,11 +4461,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -4207,7 +4480,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -4216,15 +4489,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "miniCollapsed": true
       }
@@ -4338,15 +4611,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -4379,11 +4652,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -4398,7 +4671,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -4407,15 +4680,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "miniCollapsed": true
       }
@@ -4565,15 +4838,15 @@
           "myVar": "0.1"
         },
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -4606,11 +4879,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -4625,7 +4898,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -4634,15 +4907,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "variableName": "visitedFarmState.coins",
         "value": "4",
@@ -8301,15 +8574,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -8342,11 +8615,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -8361,7 +8634,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -8370,15 +8643,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "color": "#00ff55",
         "activeNodeLabel": null,
@@ -10380,15 +10653,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -10421,11 +10694,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -10440,7 +10713,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -10449,15 +10722,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "color": "#ff9500",
         "activeNodeLabel": null,
@@ -12384,15 +12657,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -12425,11 +12698,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -12444,7 +12717,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -12453,15 +12726,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "color": "#5c5d60",
         "activeNodeLabel": null,
@@ -12670,15 +12943,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -12711,11 +12984,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -12730,7 +13003,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -12739,15 +13012,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "color": "#b7bac2",
         "activeNodeLabel": null,
@@ -12955,15 +13228,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -12996,11 +13269,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -13015,7 +13288,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -13024,15 +13297,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "color": "#d7d11d",
         "activeNodeLabel": null,
@@ -13684,15 +13957,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -13725,11 +13998,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -13744,7 +14017,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -13753,15 +14026,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "color": "#3e1304",
         "activeNodeLabel": null,
@@ -15908,15 +16181,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -15949,11 +16222,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -15968,7 +16241,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -15977,15 +16250,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "color": "#d7711d",
         "activeNodeLabel": null,
@@ -19714,15 +19987,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -19755,11 +20028,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -19774,7 +20047,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -19783,15 +20056,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "color": "#000000",
         "activeNodeLabel": null,
@@ -21019,15 +21292,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -21060,11 +21333,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -21079,7 +21352,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -21088,15 +21361,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "color": "#f24545",
         "activeNodeLabel": null,
@@ -24433,15 +24706,15 @@
           }
         ],
         "globalVariables": {
-          "Золото": 1776.9099999999999,
-          "Сокира": 0,
-          "дерево": 19.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
+          "Золото": 3343.3099999999995,
+          "Сокира": 2,
+          "дерево": 21.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.7,
           "Mashed Potato": 0,
-          "Rhubarb": 6,
-          "Carrot": 30,
+          "Rhubarb": 467.8,
+          "Carrot": 0,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -24474,11 +24747,11 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 428.6,
-          "Rhubarb Tart": 5,
-          "Pumpkin Soup": 1,
-          "Reindeer Carrot": 3,
-          "Mushroom Soup": 0,
+          "Sunflower": 1018.4,
+          "Rhubarb Tart": 10,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 9,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -24493,7 +24766,7 @@
           "Pizza Margherita": 0,
           "scanned_text": "",
           "scanned_num": 0,
-          "рівень": 291,
+          "рівень": 1175,
           "удочка": 3,
           "Желізна кирка": 0,
           "Золота кирка": 0,
@@ -24502,15 +24775,15 @@
           "Граблі": 0,
           "Желізо": 0,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 120,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813535322
+          "_cooldown_sub_1779811939183": 1779911423048
         },
         "color": "#1dd7cb",
         "activeNodeLabel": null,
@@ -24534,22 +24807,26 @@
       "width": 247,
       "height": 187,
       "resizing": false,
+      "style": {
+        "boxShadow": "none",
+        "outline": "none"
+      },
       "data": {
         "label": "Коментар",
         "selector": "",
         "globalVariables": {
           "scanned_text": "",
           "scanned_num": 0,
-          "Золото": 2066.41,
-          "Сокира": 0,
-          "дерево": 18.7,
-          "камяна кирка": 1,
-          "кирка": 2,
-          "камень": 1,
-          "Sunflower": 347.6,
+          "Золото": 2149.21,
+          "Сокира": 2,
+          "дерево": 19.3,
+          "камяна кирка": 0,
+          "кирка": 4,
+          "камень": 0.6,
+          "Sunflower": 878.6,
           "Rhubard": 0,
-          "Carrot": 28,
-          "Cabbage": 0,
+          "Carrot": 30.5,
+          "Cabbage": 27.5,
           "Soybean": 0,
           "Corn": 0,
           "Wheat": 0,
@@ -24581,12 +24858,12 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Rhubarb": 10.6,
+          "Rhubarb": 252.6,
           "Pumpkin Soup": 0,
           "Mashed Potato": 0,
-          "Rhubarb Tart": 1,
-          "Reindeer Carrot": 1,
-          "Mushroom Soup": 0,
+          "Rhubarb Tart": 10,
+          "Reindeer Carrot": 0,
+          "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
           "Popcorn": 0,
@@ -24599,24 +24876,24 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "рівень": 275,
-          "удочка": 3,
+          "рівень": 4275,
+          "удочка": 2,
           "Желізна кирка": 0,
           "Золота кирка": 0,
           "Крабова пастка": 0,
           "Морська пастка": 0,
           "Граблі": 0,
-          "Желізо": 0,
+          "Желізо": 1,
           "Золото (Gold)": 0,
-          "Дикий гриб": 6,
-          "Чарівний гриб": 1,
+          "Дикий гриб": 3,
+          "Чарівний гриб": 2,
           "Сіль": 0,
-          "FLOWER": 0,
-          "Підбадьорування": 18,
-          "Gem": 70,
+          "FLOWER": 0.1,
+          "Підбадьорування": 21,
+          "Gem": 150,
           "Love": 0,
           "Монети гільдії": 0,
-          "_cooldown_sub_1779811939183": 1779813538630
+          "_cooldown_sub_1779811939183": 1779911288694
         },
         "comment": " SF 4",
         "color": "#08e7e4",
@@ -25588,19 +25865,24 @@
       "data": {
         "delay": 0
       },
-      "id": "xy-edge__node_1779812233284_f06wlout-node_1779812233284_hnr4fin"
+      "id": "xy-edge__node_1779812233284_f06wlout-node_1779812233284_hnr4fin",
+      "animated": false,
+      "style": {
+        "strokeWidth": 1.5,
+        "opacity": 0.4
+      }
     }
   ],
   "variables": {
-    "Золото": 2699.91,
-    "Сокира": 0,
-    "дерево": 30.4,
+    "Золото": 3593.3099999999995,
+    "Сокира": 2,
+    "дерево": 21.3,
     "камяна кирка": 0,
     "кирка": 4,
-    "камень": 3,
+    "камень": 0.7,
     "Mashed Potato": 0,
-    "Rhubarb": 17,
-    "Carrot": 25,
+    "Rhubarb": 494.2,
+    "Carrot": 0,
     "Cabbage": 0,
     "Soybean": 0,
     "Corn": 0,
@@ -25633,11 +25915,11 @@
     "Celestine": 0,
     "Lunara": 0,
     "Duskberry": 0,
-    "Sunflower": 795.3,
-    "Rhubarb Tart": 0,
+    "Sunflower": 1018.4,
+    "Rhubarb Tart": 10,
     "Pumpkin Soup": 0,
-    "Reindeer Carrot": 2,
-    "Mushroom Soup": 0,
+    "Reindeer Carrot": 9,
+    "Mushroom Soup": 1,
     "Boiled Eggs": 0,
     "Bumpkin Broth": 0,
     "Popcorn": 0,
@@ -25659,17 +25941,17 @@
     "Крабова пастка": 0,
     "Морська пастка": 0,
     "Граблі": 0,
-    "Желізо": 1,
+    "Желізо": 0,
     "Золото (Gold)": 0,
-    "Дикий гриб": 6,
-    "Чарівний гриб": 1,
+    "Дикий гриб": 3,
+    "Чарівний гриб": 2,
     "Сіль": 0,
-    "FLOWER": 0,
-    "Підбадьорування": 18,
-    "Gem": 70,
+    "FLOWER": 0.1,
+    "Підбадьорування": 21,
+    "Gem": 120,
     "Love": 0,
     "Монети гільдії": 0,
-    "_cooldown_sub_1779811939183": 1779813535322
+    "_cooldown_sub_1779811939183": 1779911423048
   },
   "launchSettings": {
     "mode": "single",
@@ -25693,5 +25975,5 @@
     "photoDebug": false,
     "snapToGrid": true
   },
-  "updatedAt": 1779821466935
+  "updatedAt": 1779919192217
 }

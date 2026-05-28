@@ -56,7 +56,7 @@
               "Pumpkin Seed": "2",
               "Rhubarb Tart": "15",
               "Wood": "31.9",
-              "Carrot": "206.4",
+              "Carrot": "218.3",
               "Mushroom Soup": "1",
               "Wild Mushroom": "25",
               "Earthworm": "6",
@@ -69,9 +69,9 @@
               "Soybean": "52.4",
               "Fishing Lure": "2",
               "Corn": "18",
-              "Reindeer Carrot": "6",
+              "Reindeer Carrot": "9",
               "Petting Hand": "1",
-              "Carrot Seed": "167",
+              "Carrot Seed": "138",
               "Salt Awakening Raffle Ticket": "10",
               "Wheat": "22",
               "Fancy Fries": "1",
@@ -85,10 +85,10 @@
               "Old Bottle": "1",
               "Stone Beetle": "1",
               "Basic Bear": "1",
-              "Club Sandwich": "1",
+              "Club Sandwich": "2",
               "Popcorn": "2",
               "Love Charm": "4",
-              "Bumpkin Broth": "3",
+              "Bumpkin Broth": "4",
               "Kitchen": "1",
               "Compost Bin": "1",
               "Ripped Salt Bag": "1",
@@ -548,8 +548,8 @@
                 "x": -3,
                 "y": -1,
                 "crop": {
-                  "id": "06588284",
-                  "plantedAt": 1779900718467,
+                  "id": "b3085cc5",
+                  "plantedAt": 1779905777196,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -559,8 +559,8 @@
                 "x": -2,
                 "y": 1,
                 "crop": {
-                  "id": "a9a640bb",
-                  "plantedAt": 1779900720555,
+                  "id": "4d470723",
+                  "plantedAt": 1779905773665,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -570,8 +570,8 @@
                 "x": 0,
                 "y": 1,
                 "crop": {
-                  "id": "19c54e8e",
-                  "plantedAt": 1779900715151,
+                  "id": "135dc886",
+                  "plantedAt": 1779905773929,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -581,8 +581,8 @@
                 "x": -1,
                 "y": 0,
                 "crop": {
-                  "id": "e6cb06ae",
-                  "plantedAt": 1779900717130,
+                  "id": "8a6d9157",
+                  "plantedAt": 1779905775450,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -592,8 +592,8 @@
                 "x": -1,
                 "y": 1,
                 "crop": {
-                  "id": "861266f7",
-                  "plantedAt": 1779900715647,
+                  "id": "54ad68f9",
+                  "plantedAt": 1779905774195,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -603,8 +603,8 @@
                 "x": -2,
                 "y": 0,
                 "crop": {
-                  "id": "e8f40f95",
-                  "plantedAt": 1779900720378,
+                  "id": "77d4c181",
+                  "plantedAt": 1779905775691,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -614,8 +614,8 @@
                 "x": 3,
                 "y": -2,
                 "crop": {
-                  "id": "817ff7f0",
-                  "plantedAt": 1779900710201,
+                  "id": "5afd5456",
+                  "plantedAt": 1779905778919,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -625,8 +625,8 @@
                 "x": 0,
                 "y": 0,
                 "crop": {
-                  "id": "05c8d2c5",
-                  "plantedAt": 1779900714825,
+                  "id": "43fb91e0",
+                  "plantedAt": 1779905775941,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -636,8 +636,8 @@
                 "x": 2,
                 "y": -1,
                 "crop": {
-                  "id": "69951d25",
-                  "plantedAt": 1779900711576,
+                  "id": "79b333ca",
+                  "plantedAt": 1779905777434,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -647,8 +647,8 @@
                 "x": 1,
                 "y": 0,
                 "crop": {
-                  "id": "1f9b7ea0",
-                  "plantedAt": 1779900713197,
+                  "id": "d2074a4a",
+                  "plantedAt": 1779905776180,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -658,8 +658,8 @@
                 "x": 1,
                 "y": 1,
                 "crop": {
-                  "id": "43c05804",
-                  "plantedAt": 1779900712871,
+                  "id": "bc7184da",
+                  "plantedAt": 1779905774450,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -669,8 +669,8 @@
                 "x": 2,
                 "y": -2,
                 "crop": {
-                  "id": "2ecc5b9b",
-                  "plantedAt": 1779900711279,
+                  "id": "93773018",
+                  "plantedAt": 1779905779176,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -680,8 +680,8 @@
                 "x": -1,
                 "y": -2,
                 "crop": {
-                  "id": "dfd9468a",
-                  "plantedAt": 1779900716702,
+                  "id": "098c6ada",
+                  "plantedAt": 1779905779427,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -691,8 +691,8 @@
                 "x": 2,
                 "y": 0,
                 "crop": {
-                  "id": "536fbdd5",
-                  "plantedAt": 1779900711923,
+                  "id": "e0e57b44",
+                  "plantedAt": 1779905776435,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -702,8 +702,8 @@
                 "x": 3,
                 "y": 0,
                 "crop": {
-                  "id": "6d097744",
-                  "plantedAt": 1779900709543,
+                  "id": "3b235b9a",
+                  "plantedAt": 1779905776688,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -713,8 +713,8 @@
                 "x": -1,
                 "y": -1,
                 "crop": {
-                  "id": "53e41dea",
-                  "plantedAt": 1779900716181,
+                  "id": "58aa83f3",
+                  "plantedAt": 1779905777669,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -724,8 +724,8 @@
                 "x": 3,
                 "y": -1,
                 "crop": {
-                  "id": "e1b2d326",
-                  "plantedAt": 1779900710810,
+                  "id": "dbc71286",
+                  "plantedAt": 1779905777925,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -735,8 +735,8 @@
                 "x": -3,
                 "y": 1,
                 "crop": {
-                  "id": "c377c7aa",
-                  "plantedAt": 1779900720713,
+                  "id": "6e2cc050",
+                  "plantedAt": 1779905774700,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -746,8 +746,8 @@
                 "x": -2,
                 "y": -1,
                 "crop": {
-                  "id": "97b738cb",
-                  "plantedAt": 1779900718799,
+                  "id": "2534de18",
+                  "plantedAt": 1779905778160,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -757,8 +757,8 @@
                 "x": 0,
                 "y": -2,
                 "crop": {
-                  "id": "c734c6db",
-                  "plantedAt": 1779900714344,
+                  "id": "d1ee4f2e",
+                  "plantedAt": 1779905779662,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -768,8 +768,8 @@
                 "x": 1,
                 "y": -1,
                 "crop": {
-                  "id": "85e10ef9",
-                  "plantedAt": 1779900713521,
+                  "id": "3705e061",
+                  "plantedAt": 1779905778429,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -779,8 +779,8 @@
                 "x": 2,
                 "y": 1,
                 "crop": {
-                  "id": "948a2585",
-                  "plantedAt": 1779900712373,
+                  "id": "13785b02",
+                  "plantedAt": 1779905774952,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -790,8 +790,8 @@
                 "x": 1,
                 "y": -2,
                 "crop": {
-                  "id": "90414da2",
-                  "plantedAt": 1779900713846,
+                  "id": "08344e10",
+                  "plantedAt": 1779905779917,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -801,8 +801,8 @@
                 "x": 0,
                 "y": -1,
                 "crop": {
-                  "id": "b60085f5",
-                  "plantedAt": 1779900716939,
+                  "id": "0d3aa51a",
+                  "plantedAt": 1779905778679,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -812,8 +812,8 @@
                 "x": -3,
                 "y": 0,
                 "crop": {
-                  "id": "32846ae1",
-                  "plantedAt": 1779900719305,
+                  "id": "71654b45",
+                  "plantedAt": 1779905776944,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -823,8 +823,8 @@
                 "x": -3,
                 "y": -2,
                 "crop": {
-                  "id": "36a86543",
-                  "plantedAt": 1779900718142,
+                  "id": "28b4461d",
+                  "plantedAt": 1779905780177,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -834,8 +834,8 @@
                 "x": -2,
                 "y": -2,
                 "crop": {
-                  "id": "87e85f31",
-                  "plantedAt": 1779900717819,
+                  "id": "c79d337a",
+                  "plantedAt": 1779905780428,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -845,8 +845,8 @@
                 "x": 0,
                 "y": 2,
                 "crop": {
-                  "id": "d8974d23",
-                  "plantedAt": 1779900708447,
+                  "id": "a99550d2",
+                  "plantedAt": 1779905773403,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -856,8 +856,8 @@
                 "x": 3,
                 "y": 1,
                 "crop": {
-                  "id": "76190231",
-                  "plantedAt": 1779900709208,
+                  "id": "8bc00a93",
+                  "plantedAt": 1779905775194,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -1114,14 +1114,14 @@
                   "readyAt": 1771347829676,
                   "crafting": [
                     {
-                      "name": "Bumpkin Broth",
+                      "name": "Reindeer Carrot",
                       "boost": {
                         "Oil": 0
                       },
                       "skills": {
                         "Double Nom": false
                       },
-                      "readyAt": 1779901878034
+                      "readyAt": 1779907898219
                     }
                   ],
                   "oil": 0
@@ -1160,18 +1160,7 @@
                     "y": 8
                   },
                   "readyAt": 1779829923338,
-                  "crafting": [
-                    {
-                      "name": "Club Sandwich",
-                      "boost": {
-                        "Oil": 0
-                      },
-                      "skills": {
-                        "Double Nom": false
-                      },
-                      "readyAt": 1779903706893
-                    }
-                  ],
+                  "crafting": [],
                   "oil": 0
                 }
               ],
@@ -1337,11 +1326,11 @@
               "Building Constructed": 4,
               "Pumpkin Harvested": 8,
               "Carrot Seed Bought": 560,
-              "Carrot Planted": 454,
+              "Carrot Planted": 483,
               "Salt Rock Collected": 29,
-              "Carrot Harvested": 427,
+              "Carrot Harvested": 456,
               "Cabbers n Mash Fed": 2,
-              "Reindeer Carrot Cooked": 31,
+              "Reindeer Carrot Cooked": 34,
               "Face Recognition Started": 2,
               "Cabbage Seed Bought": 520,
               "Corn Seed Bought": 100,
@@ -1391,7 +1380,7 @@
               "Gold Rock Mined": 1,
               "Iron Pickaxe Crafted": 1,
               "Rhubarb Sold": 10,
-              "Bumpkin Broth Cooked": 3,
+              "Bumpkin Broth Cooked": 4,
               "Olive Flounder Caught": 1,
               "Sunflower Crunch Cooked": 2,
               "Aged Tuna Fed": 1,
@@ -1401,7 +1390,8 @@
               "Rod Crafted": 2,
               "Aged Olive Flounder Collected": 1,
               "Compost Bin Collected": 1,
-              "Earthworm Collected": 1
+              "Earthworm Collected": 1,
+              "Club Sandwich Cooked": 1
             },
             "milestones": {},
             "fishing": {
@@ -2273,7 +2263,7 @@
               "Rock'N'Roll": 1779892335726,
               "Lumberjack's Extra": 1779900700154,
               "Forge-Ward Profits": 1779840492453,
-              "Experienced Farmer": 1779900719803,
+              "Experienced Farmer": 1779905771018,
               "Stone Beetle": 1779892335726
             },
             "socialFarming": {
@@ -2380,7 +2370,7 @@
               "Rhubarb Tart": "15",
               "Wood": "31.9",
               "Salt Rock": "39",
-              "Carrot": "206.4",
+              "Carrot": "218.3",
               "Mushroom Soup": "1",
               "Wild Mushroom": "25",
               "Earthworm": "6",
@@ -2393,9 +2383,9 @@
               "Soybean": "52.4",
               "Fishing Lure": "2",
               "Corn": "18",
-              "Reindeer Carrot": "6",
+              "Reindeer Carrot": "9",
               "Petting Hand": "1",
-              "Carrot Seed": "167",
+              "Carrot Seed": "138",
               "Salt Awakening Raffle Ticket": "10",
               "Wheat": "22",
               "Fancy Fries": "1",
@@ -2409,10 +2399,10 @@
               "Old Bottle": "1",
               "Stone Beetle": "1",
               "Basic Bear": "1",
-              "Club Sandwich": "1",
+              "Club Sandwich": "2",
               "Popcorn": "2",
               "Love Charm": "4",
-              "Bumpkin Broth": "3",
+              "Bumpkin Broth": "4",
               "Kitchen": "1",
               "Compost Bin": "1",
               "Ripped Salt Bag": "1",
@@ -2875,8 +2865,8 @@
                 "x": -3,
                 "y": -1,
                 "crop": {
-                  "id": "06588284",
-                  "plantedAt": 1779900718467,
+                  "id": "b3085cc5",
+                  "plantedAt": 1779905777196,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2886,8 +2876,8 @@
                 "x": -2,
                 "y": 1,
                 "crop": {
-                  "id": "a9a640bb",
-                  "plantedAt": 1779900720555,
+                  "id": "4d470723",
+                  "plantedAt": 1779905773665,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2897,8 +2887,8 @@
                 "x": 0,
                 "y": 1,
                 "crop": {
-                  "id": "19c54e8e",
-                  "plantedAt": 1779900715151,
+                  "id": "135dc886",
+                  "plantedAt": 1779905773929,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2908,8 +2898,8 @@
                 "x": -1,
                 "y": 0,
                 "crop": {
-                  "id": "e6cb06ae",
-                  "plantedAt": 1779900717130,
+                  "id": "8a6d9157",
+                  "plantedAt": 1779905775450,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2919,8 +2909,8 @@
                 "x": -1,
                 "y": 1,
                 "crop": {
-                  "id": "861266f7",
-                  "plantedAt": 1779900715647,
+                  "id": "54ad68f9",
+                  "plantedAt": 1779905774195,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2930,8 +2920,8 @@
                 "x": -2,
                 "y": 0,
                 "crop": {
-                  "id": "e8f40f95",
-                  "plantedAt": 1779900720378,
+                  "id": "77d4c181",
+                  "plantedAt": 1779905775691,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2941,8 +2931,8 @@
                 "x": 3,
                 "y": -2,
                 "crop": {
-                  "id": "817ff7f0",
-                  "plantedAt": 1779900710201,
+                  "id": "5afd5456",
+                  "plantedAt": 1779905778919,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2952,8 +2942,8 @@
                 "x": 0,
                 "y": 0,
                 "crop": {
-                  "id": "05c8d2c5",
-                  "plantedAt": 1779900714825,
+                  "id": "43fb91e0",
+                  "plantedAt": 1779905775941,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2963,8 +2953,8 @@
                 "x": 2,
                 "y": -1,
                 "crop": {
-                  "id": "69951d25",
-                  "plantedAt": 1779900711576,
+                  "id": "79b333ca",
+                  "plantedAt": 1779905777434,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2974,8 +2964,8 @@
                 "x": 1,
                 "y": 0,
                 "crop": {
-                  "id": "1f9b7ea0",
-                  "plantedAt": 1779900713197,
+                  "id": "d2074a4a",
+                  "plantedAt": 1779905776180,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2985,8 +2975,8 @@
                 "x": 1,
                 "y": 1,
                 "crop": {
-                  "id": "43c05804",
-                  "plantedAt": 1779900712871,
+                  "id": "bc7184da",
+                  "plantedAt": 1779905774450,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -2996,8 +2986,8 @@
                 "x": 2,
                 "y": -2,
                 "crop": {
-                  "id": "2ecc5b9b",
-                  "plantedAt": 1779900711279,
+                  "id": "93773018",
+                  "plantedAt": 1779905779176,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3007,8 +2997,8 @@
                 "x": -1,
                 "y": -2,
                 "crop": {
-                  "id": "dfd9468a",
-                  "plantedAt": 1779900716702,
+                  "id": "098c6ada",
+                  "plantedAt": 1779905779427,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3018,8 +3008,8 @@
                 "x": 2,
                 "y": 0,
                 "crop": {
-                  "id": "536fbdd5",
-                  "plantedAt": 1779900711923,
+                  "id": "e0e57b44",
+                  "plantedAt": 1779905776435,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3029,8 +3019,8 @@
                 "x": 3,
                 "y": 0,
                 "crop": {
-                  "id": "6d097744",
-                  "plantedAt": 1779900709543,
+                  "id": "3b235b9a",
+                  "plantedAt": 1779905776688,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3040,8 +3030,8 @@
                 "x": -1,
                 "y": -1,
                 "crop": {
-                  "id": "53e41dea",
-                  "plantedAt": 1779900716181,
+                  "id": "58aa83f3",
+                  "plantedAt": 1779905777669,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3051,8 +3041,8 @@
                 "x": 3,
                 "y": -1,
                 "crop": {
-                  "id": "e1b2d326",
-                  "plantedAt": 1779900710810,
+                  "id": "dbc71286",
+                  "plantedAt": 1779905777925,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3062,8 +3052,8 @@
                 "x": -3,
                 "y": 1,
                 "crop": {
-                  "id": "c377c7aa",
-                  "plantedAt": 1779900720713,
+                  "id": "6e2cc050",
+                  "plantedAt": 1779905774700,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3073,8 +3063,8 @@
                 "x": -2,
                 "y": -1,
                 "crop": {
-                  "id": "97b738cb",
-                  "plantedAt": 1779900718799,
+                  "id": "2534de18",
+                  "plantedAt": 1779905778160,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3084,8 +3074,8 @@
                 "x": 0,
                 "y": -2,
                 "crop": {
-                  "id": "c734c6db",
-                  "plantedAt": 1779900714344,
+                  "id": "d1ee4f2e",
+                  "plantedAt": 1779905779662,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3095,8 +3085,8 @@
                 "x": 1,
                 "y": -1,
                 "crop": {
-                  "id": "85e10ef9",
-                  "plantedAt": 1779900713521,
+                  "id": "3705e061",
+                  "plantedAt": 1779905778429,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3106,8 +3096,8 @@
                 "x": 2,
                 "y": 1,
                 "crop": {
-                  "id": "948a2585",
-                  "plantedAt": 1779900712373,
+                  "id": "13785b02",
+                  "plantedAt": 1779905774952,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3117,8 +3107,8 @@
                 "x": 1,
                 "y": -2,
                 "crop": {
-                  "id": "90414da2",
-                  "plantedAt": 1779900713846,
+                  "id": "08344e10",
+                  "plantedAt": 1779905779917,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3128,8 +3118,8 @@
                 "x": 0,
                 "y": -1,
                 "crop": {
-                  "id": "b60085f5",
-                  "plantedAt": 1779900716939,
+                  "id": "0d3aa51a",
+                  "plantedAt": 1779905778679,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3139,8 +3129,8 @@
                 "x": -3,
                 "y": 0,
                 "crop": {
-                  "id": "32846ae1",
-                  "plantedAt": 1779900719305,
+                  "id": "71654b45",
+                  "plantedAt": 1779905776944,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3150,8 +3140,8 @@
                 "x": -3,
                 "y": -2,
                 "crop": {
-                  "id": "36a86543",
-                  "plantedAt": 1779900718142,
+                  "id": "28b4461d",
+                  "plantedAt": 1779905780177,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3161,8 +3151,8 @@
                 "x": -2,
                 "y": -2,
                 "crop": {
-                  "id": "87e85f31",
-                  "plantedAt": 1779900717819,
+                  "id": "c79d337a",
+                  "plantedAt": 1779905780428,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3172,8 +3162,8 @@
                 "x": 0,
                 "y": 2,
                 "crop": {
-                  "id": "d8974d23",
-                  "plantedAt": 1779900708447,
+                  "id": "a99550d2",
+                  "plantedAt": 1779905773403,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3183,8 +3173,8 @@
                 "x": 3,
                 "y": 1,
                 "crop": {
-                  "id": "76190231",
-                  "plantedAt": 1779900709208,
+                  "id": "8bc00a93",
+                  "plantedAt": 1779905775194,
                   "boostedTime": 0,
                   "name": "Carrot"
                 }
@@ -3453,14 +3443,14 @@
                   "readyAt": 1771347829676,
                   "crafting": [
                     {
-                      "name": "Bumpkin Broth",
+                      "name": "Reindeer Carrot",
                       "boost": {
                         "Oil": 0
                       },
                       "skills": {
                         "Double Nom": false
                       },
-                      "readyAt": 1779901878034
+                      "readyAt": 1779907898219
                     }
                   ],
                   "oil": 0
@@ -3499,18 +3489,7 @@
                     "y": 8
                   },
                   "readyAt": 1779829923338,
-                  "crafting": [
-                    {
-                      "name": "Club Sandwich",
-                      "boost": {
-                        "Oil": 0
-                      },
-                      "skills": {
-                        "Double Nom": false
-                      },
-                      "readyAt": 1779903706893
-                    }
-                  ],
+                  "crafting": [],
                   "oil": 0
                 }
               ],
@@ -3678,11 +3657,11 @@
               "Building Constructed": 4,
               "Pumpkin Harvested": 8,
               "Carrot Seed Bought": 560,
-              "Carrot Planted": 454,
+              "Carrot Planted": 483,
               "Salt Rock Collected": 29,
-              "Carrot Harvested": 427,
+              "Carrot Harvested": 456,
               "Cabbers n Mash Fed": 2,
-              "Reindeer Carrot Cooked": 31,
+              "Reindeer Carrot Cooked": 34,
               "Face Recognition Started": 2,
               "Cabbage Seed Bought": 520,
               "Corn Seed Bought": 100,
@@ -3732,7 +3711,7 @@
               "Gold Rock Mined": 1,
               "Iron Pickaxe Crafted": 1,
               "Rhubarb Sold": 10,
-              "Bumpkin Broth Cooked": 3,
+              "Bumpkin Broth Cooked": 4,
               "Olive Flounder Caught": 1,
               "Sunflower Crunch Cooked": 2,
               "Aged Tuna Fed": 1,
@@ -3742,7 +3721,8 @@
               "Rod Crafted": 2,
               "Aged Olive Flounder Collected": 1,
               "Compost Bin Collected": 1,
-              "Earthworm Collected": 1
+              "Earthworm Collected": 1,
+              "Club Sandwich Cooked": 1
             },
             "milestones": {},
             "fishing": {
@@ -4731,7 +4711,7 @@
               "Rock'N'Roll": 1779892335726,
               "Lumberjack's Extra": 1779900700154,
               "Forge-Ward Profits": 1779840492453,
-              "Experienced Farmer": 1779900719803,
+              "Experienced Farmer": 1779905771018,
               "Stone Beetle": 1779892335726
             },
             "socialFarming": {
@@ -4963,9 +4943,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -4996,13 +4976,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -5013,12 +4993,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -5035,7 +5015,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "variableName": "visitedFarmState.coins",
         "value": "4",
@@ -5067,9 +5050,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -5100,13 +5083,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -5117,12 +5100,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -5139,7 +5122,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "miniCollapsed": false,
         "selectedNodes": []
@@ -8823,9 +8809,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -8856,13 +8842,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -8873,12 +8859,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -8895,7 +8881,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#00ff55",
         "activeNodeLabel": null,
@@ -10899,9 +10888,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -10932,13 +10921,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -10949,12 +10938,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -10971,7 +10960,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#ff9500",
         "activeNodeLabel": null,
@@ -12900,9 +12892,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -12933,13 +12925,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -12950,12 +12942,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -12972,7 +12964,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#5c5d60",
         "activeNodeLabel": null,
@@ -13183,9 +13178,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -13216,13 +13211,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -13233,12 +13228,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -13255,7 +13250,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#b7bac2",
         "activeNodeLabel": null,
@@ -13465,9 +13463,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -13498,13 +13496,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -13515,12 +13513,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -13537,7 +13535,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#d7d11d",
         "activeNodeLabel": null,
@@ -13750,9 +13751,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -13783,13 +13784,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -13800,12 +13801,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -13822,7 +13823,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "miniCollapsed": true
       }
@@ -13938,9 +13942,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -13971,13 +13975,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -13988,12 +13992,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -14010,7 +14014,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "miniCollapsed": true
       }
@@ -14662,9 +14669,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -14695,13 +14702,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -14712,12 +14719,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -14734,7 +14741,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#3e1304",
         "activeNodeLabel": null,
@@ -16883,9 +16893,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -16916,13 +16926,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -16933,12 +16943,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -16955,7 +16965,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#d7711d",
         "activeNodeLabel": null,
@@ -20686,9 +20699,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -20719,13 +20732,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -20736,12 +20749,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -20758,7 +20771,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#000000",
         "activeNodeLabel": null,
@@ -21988,9 +22004,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -22021,13 +22037,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -22038,12 +22054,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -22060,7 +22076,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#f24545",
         "activeNodeLabel": null,
@@ -23663,9 +23682,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -23696,13 +23715,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -23713,12 +23732,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -23735,7 +23754,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#1dd7cb",
         "activeNodeLabel": null,
@@ -26518,9 +26540,9 @@
         "globalVariables": {
           "Mashed Potato": 0,
           "Rhubarb": 1169.4,
-          "Carrot": 206.4,
-          "Cabbage": 152.7,
-          "Soybean": 52.4,
+          "Carrot": 289,
+          "Cabbage": 142.7,
+          "Soybean": 37.4,
           "Corn": 18,
           "Wheat": 22,
           "Kale": 0,
@@ -26551,13 +26573,13 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 838.4,
+          "Sunflower": 338.4,
           "Rhubarb Tart": 15,
           "Pumpkin Soup": 0,
-          "Reindeer Carrot": 6,
+          "Reindeer Carrot": 11,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
-          "Bumpkin Broth": 3,
+          "Bumpkin Broth": 6,
           "Popcorn": 2,
           "Cabbers n Mash": 0,
           "Rapid Roast": 0,
@@ -26568,12 +26590,12 @@
           "Rice Bun": 0,
           "Antipasto": 0,
           "Pizza Margherita": 0,
-          "Золото": 3755.9500000000003,
-          "Сокира": 2,
-          "дерево": 31.9,
+          "Золото": 2665.9500000000003,
+          "Сокира": 0,
+          "дерево": 44.7,
           "камяна кирка": 0,
           "кирка": 4,
-          "камень": 18.5,
+          "камень": 22.1,
           "рівень": 5427,
           "удочка": 0,
           "Желізна кирка": 0,
@@ -26590,7 +26612,10 @@
           "Підбадьорування": 60,
           "Gem": 120,
           "Love": 4,
-          "Монети гільдії": 110
+          "Монети гільдії": 110,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1779908188442
         },
         "color": "#fb5656"
       }
@@ -26607,7 +26632,7 @@
         "width": 247,
         "height": 187
       },
-      "selected": false,
+      "selected": true,
       "dragging": false,
       "width": 247,
       "height": 187,
@@ -26623,6 +26648,24 @@
         "comment": "  SF",
         "color": "#08e7e4",
         "fontSize": 100
+      }
+    },
+    {
+      "id": "node_1779926373054_rusq",
+      "type": "infoNode",
+      "position": {
+        "x": 1100,
+        "y": 1020
+      },
+      "dragHandle": ".drag-handle",
+      "measured": {
+        "width": 256,
+        "height": 300
+      },
+      "data": {
+        "label": "Сканер",
+        "selector": "",
+        "globalVariables": {}
       }
     }
   ],
@@ -27643,16 +27686,17 @@
       "animated": false,
       "style": {
         "strokeWidth": 1.5,
-        "opacity": 0.4
+        "opacity": 0.4,
+        "stroke": "#334155"
       }
     }
   ],
   "variables": {
     "Mashed Potato": 0,
     "Rhubarb": 1169.4,
-    "Carrot": 206.4,
-    "Cabbage": 152.7,
-    "Soybean": 52.4,
+    "Carrot": 289,
+    "Cabbage": 142.7,
+    "Soybean": 37.4,
     "Corn": 18,
     "Wheat": 22,
     "Kale": 0,
@@ -27683,13 +27727,13 @@
     "Celestine": 0,
     "Lunara": 0,
     "Duskberry": 0,
-    "Sunflower": 838.4,
+    "Sunflower": 338.4,
     "Rhubarb Tart": 15,
     "Pumpkin Soup": 0,
-    "Reindeer Carrot": 6,
+    "Reindeer Carrot": 11,
     "Mushroom Soup": 1,
     "Boiled Eggs": 0,
-    "Bumpkin Broth": 3,
+    "Bumpkin Broth": 6,
     "Popcorn": 2,
     "Cabbers n Mash": 0,
     "Rapid Roast": 0,
@@ -27700,12 +27744,12 @@
     "Rice Bun": 0,
     "Antipasto": 0,
     "Pizza Margherita": 0,
-    "Золото": 3755.9500000000003,
-    "Сокира": 2,
-    "дерево": 31.9,
+    "Золото": 2665.9500000000003,
+    "Сокира": 0,
+    "дерево": 44.7,
     "камяна кирка": 0,
     "кирка": 4,
-    "камень": 18.5,
+    "камень": 22.1,
     "рівень": 5427,
     "удочка": 0,
     "Желізна кирка": 0,
@@ -27722,7 +27766,10 @@
     "Підбадьорування": 60,
     "Gem": 120,
     "Love": 4,
-    "Монети гільдії": 110
+    "Монети гільдії": 110,
+    "scanned_text": "",
+    "scanned_num": 0,
+    "_cooldown_sub_1779811939183": 1779908188442
   },
   "launchSettings": {
     "mode": "single",
@@ -27748,5 +27795,5 @@
     "snapToGrid": true,
     "profileDir": "20260506212424"
   },
-  "updatedAt": 1779903223297
+  "updatedAt": 1779930478326
 }
