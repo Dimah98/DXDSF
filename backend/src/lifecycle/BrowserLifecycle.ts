@@ -21,8 +21,8 @@ import { Logger } from '../logger';
 import { BrowserLifecycle as IBrowserLifecycle, BrowserSettings, ProjectSession } from '../types';
 import { connectToBrowser, closeSessionBrowser } from '../browserManager';
 
-/** Safety timeout: 10 minutes in milliseconds */
-const SAFETY_TIMEOUT_MS = 10 * 60 * 1000;
+/** Safety timeout: 24 hours in milliseconds */
+const SAFETY_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 const logger = new Logger('BrowserLifecycle');
 

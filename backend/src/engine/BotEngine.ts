@@ -29,7 +29,7 @@ export interface QueueItem {
 
 export class BotEngine {
   private params: EngineParams;
-  private executionTimeoutMs = 5 * 60 * 1000; // 5 хвилин — максимальний час виконання сценарію
+  private executionTimeoutMs = 24 * 60 * 60 * 1000; // 24 години — максимальний час виконання сценарію
 
   constructor(params: EngineParams) {
     this.params = params;

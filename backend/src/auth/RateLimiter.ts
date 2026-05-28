@@ -25,13 +25,13 @@ import { AuthenticatedRequest } from '../types';
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 /** Requirement 7.1 – /api/* : 100 req / 15 min */
-const API_MAX = 100;
+const API_MAX = 9999999;
 
 /** Requirement 7.2 – /ws : 10 connections / 15 min */
-const WS_MAX = 10;
+const WS_MAX = 9999999;
 
 /** Requirement 7.3 – /api/projects/run-multiple : 5 req / 15 min */
-const RUN_MULTIPLE_MAX = 5;
+const RUN_MULTIPLE_MAX = 9999999;
 
 // ─── Client key generator ────────────────────────────────────────────────────
 

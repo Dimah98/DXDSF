@@ -944,7 +944,7 @@ async function startProject(projectName: string, overrideBrowserSettings?: Recor
     });
     
     // Requirement 9.3: Setup 10-minute safety timeout
-    browserLifecycle.setupSafetyTimeout(session, 10 * 60 * 1000);
+    browserLifecycle.setupSafetyTimeout(session, 24 * 60 * 60 * 1000); // 24 години замість 10 хвилин
 
     // Скидаємо лічильники для Gate нод
     nodes.forEach((n: any) => {
@@ -954,7 +954,7 @@ async function startProject(projectName: string, overrideBrowserSettings?: Recor
     });
 
     // Фіктивний або реальний веб-сокет для відправки статусів
-    const wsSender = session.activeWs || ({ send: () => {} } as any); // Використовуємо реальний сокет або пусту заглушку
+    const wsSender = session.activeWs || ({ send: () => {}, projectName } as any); // Використовуємо реальний сокет або пусту заглушку
 
     // Створюємо двигун BotEngine для сесії
     const engine = new BotEngine({

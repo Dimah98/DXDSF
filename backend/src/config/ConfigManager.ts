@@ -78,16 +78,16 @@ class ConfigManager {
       ALLOWED_ORIGINS: this.getStringArray('ALLOWED_ORIGINS', ['http://localhost:5173', 'http://localhost:3000']),
       
       // Bot Engine Configuration
-      BOT_SAFETY_LIMIT: this.getNumber('BOT_SAFETY_LIMIT', 1000, 1, 100000),
-      SCREENSHOT_TIMEOUT: this.getNumber('SCREENSHOT_TIMEOUT', 5000, 1000, 60000),
+      BOT_SAFETY_LIMIT: this.getNumber('BOT_SAFETY_LIMIT', 9999999, 1, 99999999),
+      SCREENSHOT_TIMEOUT: this.getNumber('SCREENSHOT_TIMEOUT', 60000, 1000, 600000),
       
       // Streaming Configuration
       STREAM_QUALITY: this.getNumber('STREAM_QUALITY', 50, 1, 100),
       STREAM_DELAY: this.getNumber('STREAM_DELAY', 200, 100, 5000),
       
       // Resource Management
-      MAX_PARALLEL_BROWSERS: this.getNumber('MAX_PARALLEL_BROWSERS', 5, 1, 20),
-      SESSION_CLEANUP_INTERVAL: this.getNumber('SESSION_CLEANUP_INTERVAL', 3600000, 60000, 86400000),
+      MAX_PARALLEL_BROWSERS: this.getNumber('MAX_PARALLEL_BROWSERS', 9999999, 1, 99999999),
+      SESSION_CLEANUP_INTERVAL: this.getNumber('SESSION_CLEANUP_INTERVAL', 86400000, 60000, 864000000),
       
       // Logging
       LOG_LEVEL: this.getLogLevel('LOG_LEVEL', LogLevel.INFO),
