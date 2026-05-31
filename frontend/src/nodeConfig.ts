@@ -7,7 +7,7 @@ import {
   GitFork, MousePointerClick, Crosshair, Keyboard,
   Camera, Layers, Monitor, Repeat, Move,
   MessageSquare, Timer, XCircle, Calculator, Activity,
-  ArrowRightLeft, Package, Clock, // Clock — іконка для delayNode
+  ArrowRightLeft, Package, Clock, CalendarClock, Bell // Clock — іконка для delayNode
 } from 'lucide-react';
 
 // Тип одного запису конфігурації ноди
@@ -260,15 +260,38 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     },
   },
   cooldownNode: {
-    label: 'Таймаут (Кулдаун)',
-    icon: Timer,
-    desc: 'Один сигнал за час',
-    hint: 'Пропускає сигнал 1 раз в заданий час. Якщо протягом цього часу надходять інші сигнали, вони направляються у порт блокування (червоний). Таймер зберігається між перезапусками.',
+    label: 'Таймаут',
+    icon: Clock, // або Timer, але Timer вже є вище
+    desc: 'Затримка викликів',
+    hint: 'Пропускає сигнал лише раз на вказаний проміжок часу. Всі інші спроби протягом таймауту йдуть по червоній гілці.',
     defaultColor: '#0d9488',
     defaults: {
       duration: 20,
       unit: 'minutes'
     }
+  },
+  setNextRunNode: {
+    label: 'Наступний запуск',
+    icon: CalendarClock,
+    desc: 'Запланувати повтор',
+    hint: 'Встановлює час наступного автоматичного запуску цього проекту. Два режими: "Через N годин" або "У заданий час (HH:MM)". Запуск відбудеться навіть якщо інтерфейс закритий.',
+    defaultColor: '#0ea5e9',
+    defaults: {
+      scheduleMode: 'delay',
+      delayValue: 2,
+      delayUnit: 'hours',
+      targetTime: '08:00',
+    },
+  },
+  notifyNode: {
+    label: 'Сповіщення',
+    icon: Bell,
+    desc: 'Надіслати повідомлення',
+    hint: 'Надсилає сповіщення з текстом. Підтримує шаблони: {project} — назва проекту, {time} — поточний час, {varName} — значення глобальної змінної. Сповіщення видно у вкладці "Сповіщення".',
+    defaultColor: '#f59e0b',
+    defaults: {
+      message: 'Бот {project} завершив роботу',
+    },
   }
 };
 

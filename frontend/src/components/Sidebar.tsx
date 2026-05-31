@@ -2,7 +2,7 @@
 // Використовує NODE_CONFIG як єдине джерело правди для списку нод
 import React, { useState, useEffect, useRef } from 'react';
 // Більше не використовуємо DropdownMenu — замінено на ProjectManagerModal
-import { Settings2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Settings2, PanelLeftClose, PanelLeftOpen, Calendar } from 'lucide-react';
 import { NODE_CONFIG, SIDEBAR_NODE_TYPES } from '../nodeConfig';
 
 // Колір за замовчуванням для кожного типу ноди
@@ -28,10 +28,11 @@ const addNodeByTap = (nodeType: string) => {
 };
 
 const Sidebar = ({
-  onSettingsToggle, isCollapsed, setIsCollapsed, onOpenManager
+  onSettingsToggle, isCollapsed, setIsCollapsed, onOpenManager, onScheduleToggle
 }: {
   onSettingsToggle: () => void, isCollapsed: boolean, setIsCollapsed: (val: boolean) => void,
   onOpenManager: () => void; // Відкриває великий менеджер проектів
+  onScheduleToggle: () => void; // Відкриває менеджер розкладу
 }) => {
   const [customColors, setCustomColors] = useState<Record<string, string>>(() => {
     const saved = localStorage.getItem('sfl_node_colors_hex');
@@ -227,6 +228,18 @@ const Sidebar = ({
             <NodeItem key={type} type={type} />
           ))}
         </div>
+      </div>
+
+      {/* Кнопка розкладу внизу сайдбару */}
+      <div className={`p-2 border-t border-[var(--interface-border)] ${isCollapsed ? 'flex justify-center' : ''}`}>
+        <button
+          onClick={onScheduleToggle}
+          className={`flex items-center gap-2 p-2 rounded-lg w-full transition-colors text-muted-foreground hover:bg-white/10 hover:text-primary ${isCollapsed ? 'justify-center' : ''}`}
+          title="Менеджер розкладу"
+        >
+          <Calendar size={18} />
+          {!isCollapsed && <span className="text-[11px] font-bold">Розклад</span>}
+        </button>
       </div>
     </aside>
   );

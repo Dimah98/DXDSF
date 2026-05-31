@@ -1,5 +1,6 @@
-import React from 'react';
-import { Terminal, Camera, Trash2, Image as ImageIcon, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Terminal, Camera, Trash2, Image as ImageIcon, Search, Bell } from 'lucide-react';
+import { NotificationsPanel } from './NotificationsPanel';
 
 interface ConsolePaneProps {
   isOpen: boolean;
@@ -8,8 +9,8 @@ interface ConsolePaneProps {
   logs: any[];
   setLogs: (logs: any) => void;
   debugImages: any[];
-  activeTab: 'logs' | 'photos';
-  setActiveTab: (tab: 'logs' | 'photos') => void;
+  activeTab: 'logs' | 'photos' | 'notifications';
+  setActiveTab: (tab: 'logs' | 'photos' | 'notifications') => void;
 }
 
 export const ConsolePane: React.FC<ConsolePaneProps> = ({
@@ -22,6 +23,14 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   activeTab,
   setActiveTab
 }) => {
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => setUnreadNotifications(e.detail);
+    window.addEventListener('unread-notifications-update', handleUpdate);
+    return () => window.removeEventListener('unread-notifications-update', handleUpdate);
+  }, []);
+
   return (
     <div className={`absolute bottom-0 right-0 z-[110] transition-all duration-300 ease-in-out ${isOpen ? 'h-[350px]' : 'h-10'} ${isSidebarCollapsed ? 'left-14' : 'left-60'} bg-[var(--interface-bg)] backdrop-blur-md border-t border-[var(--interface-border)] shadow-2xl flex flex-col`}>
       {/* Шапка консолі */}
@@ -66,6 +75,20 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
               }`}
             >
               <Camera size={12} /> Фото дебагу
+            </button>
+            {/* Кнопка Сповіщень */}
+            <button 
+              onClick={() => setActiveTab('notifications')}
+              className={`px-3 py-1 rounded-md text-[9px] font-bold uppercase transition-all flex items-center gap-2 ${
+                activeTab === 'notifications' 
+                  ? 'bg-blue-500/30 text-blue-300 border border-blue-500/30 shadow-sm' 
+                  : 'text-white/40 hover:text-white/80'
+              }`}
+            >
+              <Bell size={12} /> Сповіщення
+              {unreadNotifications > 0 && (
+                <span className="bg-amber-500 text-black px-1 rounded-full text-[8px] leading-tight ml-1">{unreadNotifications}</span>
+              )}
             </button>
           </div>
         )}
@@ -149,7 +172,7 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
                 })
               )}
             </div>
-          ) : (
+          ) : activeTab === 'photos' ? (
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-black/20">
                {debugImages.length === 0 ? (
                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 italic">
@@ -188,6 +211,8 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
                  </div>
                )}
             </div>
+          ) : (
+            <NotificationsPanel isActive={activeTab === 'notifications'} />
           )}
         </div>
       )}

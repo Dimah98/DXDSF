@@ -37,6 +37,7 @@ export interface NodeHandlerParams {
   edges:        any[];       // Всі ребра поточного сценарію
   targetHandle?: string;     // На який вхідний порт прийшов сигнал
   globalVariables: Record<string, any>;  // Глобальна пам'ять
+  projectName:  string;      // Назва поточного проекту (передається напряму з запуску)
   nodeTitle:    string;      // Назва ноди для логів
   logToClient:  (message: string, type?: 'info' | 'error' | 'success' | 'debug') => void;
   takeDebugSnapshot: (nodeId: string, nodeTitle: string, highlight?: any) => Promise<void>;

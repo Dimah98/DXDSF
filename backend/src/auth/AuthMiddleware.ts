@@ -37,7 +37,7 @@ export function generateToken(userId: string, username: string): string {
  * Requirement 1.6: Expired token → return null (caller returns 401)
  */
 export function verifyToken(token: string): JWTPayload | null {
-  return { userId: 'disabled', username: 'disabled' };
+  return { userId: 'disabled', username: 'disabled', iat: 0, exp: 0 };
 }
 
 /**
@@ -50,7 +50,7 @@ export function verifyToken(token: string): JWTPayload | null {
  * Requirement 1.7: Valid token → attach decoded payload to req.user and call next()
  */
 export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  req.user = { userId: 'disabled', username: 'disabled' };
+  req.user = { userId: 'disabled', username: 'disabled', iat: 0, exp: 0 };
   next();
 }
 

@@ -50,6 +50,8 @@ import GroupNode from './CustomNodes/GroupNode';
 import SubEntryNode from './CustomNodes/SubEntryNode';
 import SubExitNode from './CustomNodes/SubExitNode';
 import CooldownNode from './CustomNodes/CooldownNode';
+import SetNextRunNode from './CustomNodes/SetNextRunNode';
+import NotifyNode from './CustomNodes/NotifyNode';
 import DelayEdge from './DelayEdge';
 import GlobalSettings from './GlobalSettings';
 import Sidebar from './Sidebar';
@@ -60,6 +62,7 @@ import { NODE_CONFIG } from '../nodeConfig';
 import { ConsolePane } from './ConsolePane';
 import { NodeContextMenu } from './ui/NodeContextMenu';
 import ProjectManagerModal from './ProjectManagerModal'; // Менеджер проектів
+import ScheduleManager from './ScheduleManager'; // Менеджер розкладу
 
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useProjectManager } from '../hooks/useProjectManager';
@@ -101,6 +104,8 @@ const nodeTypes = {
   subEntryNode: SubEntryNode,
   subExitNode: SubExitNode,
   cooldownNode: CooldownNode,
+  setNextRunNode: SetNextRunNode,
+  notifyNode: NotifyNode,
 };
 
 const edgeTypes = {
@@ -133,7 +138,7 @@ const NodeEditor = () => {
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [debugImages, setDebugImages] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'logs' | 'photos'>('logs');
+  const [activeTab, setActiveTab] = useState<'logs' | 'photos' | 'notifications'>('logs');
   const [isConsoleOpen, setIsConsoleOpen] = useState(true);
   
   const [globalVariables, setGlobalVariables] = useState<Record<string, any>>({});
@@ -186,6 +191,7 @@ const NodeEditor = () => {
   const snapToGrid = globalSettings.snapToGrid !== false;
   // Стан відображення менеджера проектів
   const [isManagerOpen, setIsManagerOpen] = useState(false);
+  const [isScheduleManagerOpen, setIsScheduleManagerOpen] = useState(false);
   // Ініціалізуємо поточний проект, пріоритетно зчитуючи його з query-параметра URL, потім з localStorage
   const [currentProject, setCurrentProject] = useState<string>(() => {
     // Створюємо об'єкт для роботи з query-параметрами поточного URL
@@ -577,6 +583,7 @@ const NodeEditor = () => {
             setIsCollapsed={(val) => { setIsSidebarCollapsed(val); localStorage.setItem('sfl_sidebar_collapsed', String(val)); }}
             onSettingsToggle={() => setShowSettings(true)}
             onOpenManager={() => setIsManagerOpen(true)}
+            onScheduleToggle={() => setIsScheduleManagerOpen(true)}
           />
         )}
         <ReactFlowProvider>
@@ -652,6 +659,11 @@ const NodeEditor = () => {
             <GlobalStatisticsModal
               isOpen={showGlobalStats}
               onClose={() => setShowGlobalStats(false)}
+            />
+
+            <ScheduleManager
+              isOpen={isScheduleManagerOpen}
+              onClose={() => setIsScheduleManagerOpen(false)}
             />
 
             <ReactFlow

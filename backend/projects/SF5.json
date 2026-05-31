@@ -4233,15 +4233,15 @@
           "isBanned": false
         },
         "globalVariables": {
-          "Золото": 4137.509999999999,
+          "Золото": 4690.709999999999,
           "Сокира": 0,
-          "дерево": 39.5,
+          "дерево": 19.5,
           "камяна кирка": 0,
           "кирка": 0,
           "камень": 3.7,
           "Mashed Potato": 0,
-          "Rhubarb": 506.3,
-          "Carrot": 89.8,
+          "Rhubarb": 529.4,
+          "Carrot": 79.8,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -4274,10 +4274,10 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 1009.9,
+          "Sunflower": 1129.8,
           "Rhubarb Tart": 10,
           "Pumpkin Soup": 1,
-          "Reindeer Carrot": 4,
+          "Reindeer Carrot": 5,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
@@ -4443,15 +4443,15 @@
         "label": "Початок",
         "selector": "",
         "globalVariables": {
-          "Золото": 4137.509999999999,
+          "Золото": 4690.709999999999,
           "Сокира": 0,
-          "дерево": 39.5,
+          "дерево": 19.5,
           "камяна кирка": 0,
           "кирка": 0,
           "камень": 3.7,
           "Mashed Potato": 0,
-          "Rhubarb": 506.3,
-          "Carrot": 89.8,
+          "Rhubarb": 529.4,
+          "Carrot": 79.8,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -4484,10 +4484,10 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 1009.9,
+          "Sunflower": 1129.8,
           "Rhubarb Tart": 10,
           "Pumpkin Soup": 1,
-          "Reindeer Carrot": 4,
+          "Reindeer Carrot": 5,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
@@ -5257,15 +5257,15 @@
         "label": "Коментар",
         "selector": "",
         "globalVariables": {
-          "Золото": 4137.509999999999,
+          "Золото": 4690.709999999999,
           "Сокира": 0,
-          "дерево": 39.5,
+          "дерево": 19.5,
           "камяна кирка": 0,
           "кирка": 0,
           "камень": 3.7,
           "Mashed Potato": 0,
-          "Rhubarb": 506.3,
-          "Carrot": 89.8,
+          "Rhubarb": 529.4,
+          "Carrot": 79.8,
           "Cabbage": 0,
           "Soybean": 0,
           "Corn": 0,
@@ -5298,10 +5298,10 @@
           "Celestine": 0,
           "Lunara": 0,
           "Duskberry": 0,
-          "Sunflower": 1009.9,
+          "Sunflower": 1129.8,
           "Rhubarb Tart": 10,
           "Pumpkin Soup": 1,
-          "Reindeer Carrot": 4,
+          "Reindeer Carrot": 5,
           "Mushroom Soup": 1,
           "Boiled Eggs": 0,
           "Bumpkin Broth": 0,
@@ -26766,6 +26766,849 @@
         "activeNodeLabel": null,
         "activeNodeId": null
       }
+    },
+    {
+      "id": "node_1780190507360_4rcwn",
+      "type": "groupNode",
+      "position": {
+        "x": 1640,
+        "y": 1320
+      },
+      "dragHandle": ".drag-handle",
+      "measured": {
+        "width": 240,
+        "height": 123
+      },
+      "selected": false,
+      "dragging": false,
+      "data": {
+        "label": "вихід",
+        "selector": "",
+        "subNodes": [
+          {
+            "id": "sub_entry",
+            "type": "subEntryNode",
+            "position": {
+              "x": -140,
+              "y": 840
+            },
+            "data": {
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              }
+            },
+            "draggable": true,
+            "deletable": false,
+            "measured": {
+              "width": 40,
+              "height": 58
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "sub_exit",
+            "type": "subExitNode",
+            "position": {
+              "x": 1900,
+              "y": 1460
+            },
+            "data": {
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              }
+            },
+            "draggable": true,
+            "deletable": false,
+            "measured": {
+              "width": 40,
+              "height": 58
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "node_1780189343073_uicg",
+            "type": "actionNode",
+            "position": {
+              "x": 180,
+              "y": 200
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Дія",
+              "selector": "div:has(> img[src*=\"market.webp\"])",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              }
+            },
+            "measured": {
+              "width": 256,
+              "height": 293
+            },
+            "selected": false,
+            "style": {
+              "boxShadow": "none",
+              "outline": "none"
+            }
+          },
+          {
+            "id": "node_1780189343074_z2ba",
+            "type": "infoNode",
+            "position": {
+              "x": 640,
+              "y": 140
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Сканер",
+              "selector": "div#SeasonSeeds > div:nth-of-type(2) > div:nth-of-type(1) > div",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              },
+              "lastCoords": "X:435, Y:393",
+              "lastText": "",
+              "lastNum": 0,
+              "lastChildrenCount": 0,
+              "lastImagesCount": 0,
+              "imageNames": [],
+              "childrenNames": [],
+              "miniCollapsed": false
+            },
+            "measured": {
+              "width": 256,
+              "height": 300
+            },
+            "selected": false,
+            "style": {
+              "boxShadow": "none",
+              "outline": "none"
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_1780189343082_gdfa",
+            "type": "compareNode",
+            "position": {
+              "x": 980,
+              "y": 120
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Порівняння",
+              "selector": "",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              },
+              "valB": "0",
+              "valA": 0
+            },
+            "measured": {
+              "width": 256,
+              "height": 289
+            },
+            "selected": false,
+            "style": {
+              "boxShadow": "none",
+              "outline": "none"
+            }
+          },
+          {
+            "id": "node_1780189343085_uiq6",
+            "type": "setNextRunNode",
+            "position": {
+              "x": 1540,
+              "y": 180
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Наступний запуск",
+              "selector": "",
+              "scheduleMode": "delay",
+              "delayValue": 1,
+              "delayUnit": "minutes",
+              "targetTime": "08:00",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              }
+            },
+            "measured": {
+              "width": 192,
+              "height": 229
+            },
+            "selected": false
+          },
+          {
+            "id": "node_1780190147841_91onf",
+            "type": "infoNode",
+            "position": {
+              "x": 560,
+              "y": 460
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Сканер",
+              "selector": "div#SeasonSeeds > div:nth-of-type(2) > div:nth-of-type(2) > div",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              },
+              "lastCoords": "X:435, Y:393",
+              "lastText": "",
+              "lastNum": 0,
+              "lastChildrenCount": 0,
+              "lastImagesCount": 0,
+              "imageNames": [],
+              "childrenNames": []
+            },
+            "measured": {
+              "width": 256,
+              "height": 300
+            },
+            "selected": false,
+            "style": {
+              "boxShadow": "none",
+              "outline": "none"
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_1780190147841_zf1kj",
+            "type": "compareNode",
+            "position": {
+              "x": 980,
+              "y": 480
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Порівняння",
+              "selector": "",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              },
+              "valB": "0",
+              "valA": 0
+            },
+            "measured": {
+              "width": 256,
+              "height": 289
+            },
+            "selected": false,
+            "style": {
+              "boxShadow": "none",
+              "outline": "none"
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_1780190147841_xa504",
+            "type": "setNextRunNode",
+            "position": {
+              "x": 1540,
+              "y": 540
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Наступний запуск",
+              "selector": "",
+              "scheduleMode": "delay",
+              "delayValue": 7,
+              "delayUnit": "minutes",
+              "targetTime": "08:00",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              }
+            },
+            "measured": {
+              "width": 192,
+              "height": 229
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "node_1780190166932_51pw1",
+            "type": "infoNode",
+            "position": {
+              "x": 560,
+              "y": 800
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Сканер",
+              "selector": "div#SeasonSeeds > div:nth-of-type(2) > div:nth-of-type(3) > div",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              },
+              "lastCoords": "X:435, Y:393",
+              "lastText": "",
+              "lastNum": 0,
+              "lastChildrenCount": 0,
+              "lastImagesCount": 0,
+              "imageNames": [],
+              "childrenNames": []
+            },
+            "measured": {
+              "width": 256,
+              "height": 300
+            },
+            "selected": false,
+            "style": {
+              "boxShadow": "none",
+              "outline": "none"
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_1780190166932_6o0uz",
+            "type": "compareNode",
+            "position": {
+              "x": 980,
+              "y": 820
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Порівняння",
+              "selector": "",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              },
+              "valB": "0",
+              "valA": 0
+            },
+            "measured": {
+              "width": 256,
+              "height": 289
+            },
+            "selected": false,
+            "style": {
+              "boxShadow": "none",
+              "outline": "none"
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_1780190166932_p3crk",
+            "type": "setNextRunNode",
+            "position": {
+              "x": 1540,
+              "y": 880
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Наступний запуск",
+              "selector": "",
+              "scheduleMode": "delay",
+              "delayValue": 1,
+              "delayUnit": "hours",
+              "targetTime": "08:00",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              }
+            },
+            "measured": {
+              "width": 192,
+              "height": 229
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "node_1780190166932_jwx3q",
+            "type": "infoNode",
+            "position": {
+              "x": 560,
+              "y": 1160
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Сканер",
+              "selector": "div#SeasonSeeds > div:nth-of-type(2) > div:nth-of-type(4) > div",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              },
+              "lastCoords": "X:435, Y:393",
+              "lastText": "",
+              "lastNum": 0,
+              "lastChildrenCount": 0,
+              "lastImagesCount": 0,
+              "imageNames": [],
+              "childrenNames": []
+            },
+            "measured": {
+              "width": 256,
+              "height": 300
+            },
+            "selected": false,
+            "style": {
+              "boxShadow": "none",
+              "outline": "none"
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_1780190166932_5ghoz",
+            "type": "compareNode",
+            "position": {
+              "x": 980,
+              "y": 1180
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Порівняння",
+              "selector": "",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              },
+              "valB": "0",
+              "valA": 0
+            },
+            "measured": {
+              "width": 256,
+              "height": 289
+            },
+            "selected": false,
+            "style": {
+              "boxShadow": "none",
+              "outline": "none"
+            },
+            "dragging": false
+          },
+          {
+            "id": "node_1780190166932_7zi1z",
+            "type": "setNextRunNode",
+            "position": {
+              "x": 1540,
+              "y": 1240
+            },
+            "dragHandle": ".drag-handle",
+            "data": {
+              "label": "Наступний запуск",
+              "selector": "",
+              "scheduleMode": "delay",
+              "delayValue": 2,
+              "delayUnit": "hours",
+              "targetTime": "08:00",
+              "globalVariables": {
+                "_projectName": "SF",
+                "scanned_text": "",
+                "scanned_num": 0
+              }
+            },
+            "measured": {
+              "width": 192,
+              "height": 229
+            },
+            "selected": false,
+            "dragging": false
+          }
+        ],
+        "subEdges": [
+          {
+            "source": "node_1780189343074_z2ba",
+            "sourceHandle": "num",
+            "target": "node_1780189343082_gdfa",
+            "targetHandle": "valA",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "xy-edge__node_1780189343074_z2banum-node_1780189343082_gdfavalA",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780189343074_z2ba",
+            "sourceHandle": "coords",
+            "target": "node_1780189343082_gdfa",
+            "targetHandle": "execute",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "xy-edge__node_1780189343074_z2bacoords-node_1780189343082_gdfaexecute",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780189343073_uicg",
+            "sourceHandle": "success",
+            "target": "node_1780189343074_z2ba",
+            "type": "delayEdge",
+            "data": {
+              "delay": 2000
+            },
+            "id": "xy-edge__node_1780189343073_uicgsuccess-node_1780189343074_z2ba",
+            "selected": false,
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            }
+          },
+          {
+            "source": "node_1780189343082_gdfa",
+            "sourceHandle": "true",
+            "target": "node_1780189343085_uiq6",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "xy-edge__node_1780189343082_gdfatrue-node_1780189343085_uiq6",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190147841_91onf",
+            "sourceHandle": "num",
+            "target": "node_1780190147841_zf1kj",
+            "targetHandle": "valA",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "edge_1780190147841_yid0e",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190147841_91onf",
+            "sourceHandle": "coords",
+            "target": "node_1780190147841_zf1kj",
+            "targetHandle": "execute",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "edge_1780190147841_h6n6k",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190147841_zf1kj",
+            "sourceHandle": "true",
+            "target": "node_1780190147841_xa504",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "edge_1780190147841_k3zzv",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190166932_51pw1",
+            "sourceHandle": "num",
+            "target": "node_1780190166932_6o0uz",
+            "targetHandle": "valA",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "edge_1780190166932_2o3lv",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190166932_51pw1",
+            "sourceHandle": "coords",
+            "target": "node_1780190166932_6o0uz",
+            "targetHandle": "execute",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "edge_1780190166932_lch4c",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190166932_6o0uz",
+            "sourceHandle": "true",
+            "target": "node_1780190166932_p3crk",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "edge_1780190166932_x6qs9",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190166932_jwx3q",
+            "sourceHandle": "num",
+            "target": "node_1780190166932_5ghoz",
+            "targetHandle": "valA",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "edge_1780190166932_ev6cu",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190166932_jwx3q",
+            "sourceHandle": "coords",
+            "target": "node_1780190166932_5ghoz",
+            "targetHandle": "execute",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "edge_1780190166932_62aoi",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190166932_5ghoz",
+            "sourceHandle": "true",
+            "target": "node_1780190166932_7zi1z",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "edge_1780190166932_f1wru",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780189343082_gdfa",
+            "sourceHandle": "false",
+            "target": "node_1780190147841_91onf",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "xy-edge__node_1780189343082_gdfafalse-node_1780190147841_91onf",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190147841_zf1kj",
+            "sourceHandle": "false",
+            "target": "node_1780190166932_51pw1",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "xy-edge__node_1780190147841_zf1kjfalse-node_1780190166932_51pw1",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "node_1780190166932_6o0uz",
+            "sourceHandle": "false",
+            "target": "node_1780190166932_jwx3q",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "xy-edge__node_1780190166932_6o0uzfalse-node_1780190166932_jwx3q",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            },
+            "selected": false
+          },
+          {
+            "source": "sub_entry",
+            "sourceHandle": "out",
+            "target": "node_1780189343073_uicg",
+            "type": "delayEdge",
+            "data": {
+              "delay": 0
+            },
+            "id": "xy-edge__sub_entryout-node_1780189343073_uicg",
+            "animated": false,
+            "style": {
+              "stroke": "#334155",
+              "strokeWidth": 1.5,
+              "opacity": 0.4
+            }
+          }
+        ],
+        "globalVariables": {
+          "Mashed Potato": 0,
+          "Rhubarb": 487.9,
+          "Carrot": 131.8,
+          "Cabbage": 1.1,
+          "Soybean": 0,
+          "Corn": 0,
+          "Wheat": 0,
+          "Kale": 0,
+          "Barley": 0,
+          "Tomato": 0,
+          "Blueberry": 0,
+          "Orange": 0,
+          "Grepe": 0,
+          "Rice": 0,
+          "Olive": 0,
+          "Potato": 0,
+          "Pumpkin": 8.8,
+          "Zucchini": 0,
+          "Yam": 0,
+          "Broccoli": 0,
+          "Beetroot": 0,
+          "Pepper": 0,
+          "Cauliflower": 0,
+          "Parsnip": 0,
+          "Eggplant": 0,
+          "Onion": 0,
+          "Radish": 0,
+          "Turnip": 0,
+          "Artichoke": 0,
+          "Lemon": 0,
+          "Apple": 0,
+          "Banana": 0,
+          "Celestine": 0,
+          "Lunara": 0,
+          "Duskberry": 0,
+          "Sunflower": 953.2,
+          "Rhubarb Tart": 12,
+          "Pumpkin Soup": 0,
+          "Reindeer Carrot": 3,
+          "Mushroom Soup": 1,
+          "Boiled Eggs": 0,
+          "Bumpkin Broth": 0,
+          "Popcorn": 0,
+          "Cabbers n Mash": 1,
+          "Rapid Roast": 0,
+          "Kale Stew": 0,
+          "Fried Tofu": 0,
+          "Furikake Sprinkle": 0,
+          "Kale Omelette": 0,
+          "Rice Bun": 0,
+          "Antipasto": 0,
+          "Pizza Margherita": 0,
+          "Золото": 2910.37,
+          "Сокира": 0,
+          "дерево": 45.8,
+          "камяна кирка": 0,
+          "кирка": 0,
+          "камень": 6.2,
+          "рівень": 16327,
+          "удочка": 3,
+          "Желізна кирка": 0,
+          "Золота кирка": 0,
+          "Крабова пастка": 0,
+          "Морська пастка": 0,
+          "Граблі": 0,
+          "Желізо": 1,
+          "Золото (Gold)": 0,
+          "Дикий гриб": 7,
+          "Чарівний гриб": 3,
+          "Сіль": 0,
+          "FLOWER": 0.1,
+          "Підбадьорування": 30,
+          "Gem": 120,
+          "Love": 3,
+          "Монети гільдії": 0,
+          "scanned_text": "",
+          "scanned_num": 0,
+          "_cooldown_sub_1779811939183": 1780178077544
+        }
+      }
     }
   ],
   "edges": [
@@ -27009,6 +27852,24 @@
         "strokeWidth": 1.5,
         "opacity": 0.4,
         "stroke": "#334155"
+      },
+      "selected": false
+    },
+    {
+      "source": "node_1780181364680_m340o",
+      "sourceHandle": "out",
+      "target": "node_1780190507360_4rcwn",
+      "targetHandle": "in",
+      "type": "delayEdge",
+      "data": {
+        "delay": 0
+      },
+      "id": "xy-edge__node_1780181364680_m340oout-node_1780190507360_4rcwnin",
+      "animated": false,
+      "style": {
+        "stroke": "#334155",
+        "strokeWidth": 1.5,
+        "opacity": 0.4
       }
     }
   ],
@@ -27090,12 +27951,13 @@
     "Монети гільдії": 0,
     "scanned_text": "",
     "scanned_num": 0,
-    "_cooldown_sub_1779811939183": 1780178077544
+    "_cooldown_sub_1779811939183": 1780178077544,
+    "_projectName": "SF5"
   },
   "launchSettings": {
-    "mode": "single",
-    "intervalValue": 1,
-    "intervalUnit": "minutes",
+    "mode": "interval",
+    "intervalValue": 3,
+    "intervalUnit": "hours",
     "scheduleTime": "09:00",
     "scheduleDays": [
       1,
@@ -27103,7 +27965,8 @@
       3,
       4,
       5
-    ]
+    ],
+    "randomOffsetMinutes": 50
   },
   "browserSettings": {
     "width": 1280,
@@ -27114,5 +27977,5 @@
     "photoDebug": false,
     "snapToGrid": true
   },
-  "updatedAt": 1780181408699
+  "updatedAt": 1780190525272
 }

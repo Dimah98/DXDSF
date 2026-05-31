@@ -31,6 +31,8 @@ import RotatorNode from './RotatorNode';
 import SubEntryNode from './SubEntryNode';
 import SubExitNode from './SubExitNode';
 import CooldownNode from './CooldownNode';
+import SetNextRunNode from './SetNextRunNode';
+import NotifyNode from './NotifyNode';
 
 // Всі доступні типи нод для sub-canvas (без GroupNode — без рекурсії)
 export const SUB_NODE_TYPES: Record<string, any> = {
@@ -65,4 +67,6 @@ export const SUB_NODE_TYPES: Record<string, any> = {
   subEntryNode: SubEntryNode,
   subExitNode: SubExitNode,
   cooldownNode: CooldownNode,
+  setNextRunNode: SetNextRunNode,
+  notifyNode: NotifyNode,
 };

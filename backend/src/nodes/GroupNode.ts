@@ -11,6 +11,7 @@ export const groupNodeHandler = async ({
   ws,
   context,
   globalVariables,
+  projectName, // Назва поточного проекту для передачі в підпрограмний двигун
   broadcastVariables,
   logToClient,
   takeDebugSnapshot,
@@ -34,7 +35,7 @@ export const groupNodeHandler = async ({
 
   logger.debug(`Entry node found for group "${groupLabel}"`, { entryNodeId: entryNode.id });
 
-  const projectName = (ws as any).projectName || 'default'; // Визначаємо назву поточного проекту з WebSocket
+  // Отримуємо сесію за назвою проекту (projectName приходить з параметрів ноди)
   const session = getOrCreateSession(projectName); // Отримуємо відповідну сесію для перевірки стану
 
   const engine = new BotEngine({
@@ -43,6 +44,7 @@ export const groupNodeHandler = async ({
     activePage,
     ws,
     globalVariables,
+    projectName, // Передаємо назву проекту з параметрів ноди в підрушній двигун
     broadcastVariables,
     logToClient: (msg, type) => logToClient(`  ↳ ${msg}`, type),
     takeDebugSnapshot,

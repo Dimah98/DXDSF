@@ -80,6 +80,18 @@ export function useProjectManager({
       
       if (data.variables) setGlobalVariables(data.variables);
       
+      // Перевіряємо чи є налаштування запуску у завантажених даних проекту
+      if (data.launchSettings) {
+        // Зберігаємо налаштування запуску в localStorage для поточного проекту
+        localStorage.setItem(`sfl_launch_settings_${name}`, JSON.stringify(data.launchSettings));
+      }
+      
+      // Перевіряємо чи є налаштування браузера у завантажених даних проекту
+      if (data.browserSettings) {
+        // Зберігаємо налаштування браузера в localStorage для поточного проекту
+        localStorage.setItem(`sfl_browser_${name}`, JSON.stringify(data.browserSettings));
+      }
+
       // Використовуємо ref для attachCallbacks — стабільна залежність
       setNodes(attachCallbacksRef.current(data.nodes || []));
       

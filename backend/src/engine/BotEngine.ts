@@ -8,6 +8,7 @@ export interface EngineParams {
   activePage: Page | null;
   ws: WebSocket;
   globalVariables: Record<string, any>;
+  projectName: string; // Назва проекту для передачі в ноди
   broadcastVariables: () => void;
   logToClient: (message: string, type?: 'info' | 'error' | 'success' | 'debug') => void;
   takeDebugSnapshot: (nodeId: string, nodeTitle: string, highlight?: any) => Promise<void>;
@@ -145,6 +146,7 @@ export class BotEngine {
       edges: this.params.edges,
       targetHandle,
       globalVariables,
+      projectName: this.params.projectName, // Передаємо назву проекту напряму в склад параметрів ноди
       broadcastVariables,
       nodeTitle,
       logToClient: (msg, type) => logToClient(`[${nodeTitle}] ${msg}`, type),

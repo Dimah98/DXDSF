@@ -24,6 +24,8 @@ import { calculatorNodeHandler } from './CalculatorNode';
 import { rotatorNodeHandler } from './RotatorNode'; // Нода Чергувач
 import { groupNodeHandler } from './GroupNode'; // Нода-контейнер (підпрограма)
 import { cooldownNodeHandler } from './CooldownNode';
+import { setNextRunNodeHandler } from './SetNextRunNode';
+import { notifyNodeHandler } from './NotifyNode';
 
 import { NodeHandler } from './types';
 
@@ -58,6 +60,8 @@ export const nodeHandlers: Record<string, NodeHandler> = {
   rotatorNode: rotatorNodeHandler, // Чергувач — по черзі або рандом
   groupNode: groupNodeHandler,     // Контейнер — вкладена підпрограма
   cooldownNode: cooldownNodeHandler,
+  setNextRunNode: setNextRunNodeHandler,
+  notifyNode: notifyNodeHandler,
   subEntryNode: async ({ context }: any) => ({ nextHandle: 'out', data: context }),
   subExitNode: async ({ context }: any) => ({ data: context }),
 };
