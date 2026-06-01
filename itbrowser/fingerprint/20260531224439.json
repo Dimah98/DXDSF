@@ -1,0 +1,69 @@
+{
+	"scriptGui": {
+		"id": "20260531224439",
+		"group": "Default",
+		"name": "SF6",
+		"des": "",
+		"AutoLaunch": false,
+		"autoOpenPage": [],
+		"proxyId": "a31f3338-20e2-49a5-9dcd-c6f3a0d9966e",
+		"tempPort": ""
+	},
+	"canvas.noise1": 28,
+	"canvas.noise2": 25,
+	"canvas.noise3": 241,
+	"canvas.noise4": 192,
+	"audio.noise": 165,
+	"webgl.vendor": "Google Inc. (NVIDIA)",
+	"webgl.renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2080 (0x00001ED0) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+	"fonts.remove": [
+		"Symbol"
+	],
+	"cleanCdpFlag": true,
+	"deviceMemory": 8,
+	"hardwareConcurrency": 14,
+	"doNotTrack": "1",
+	"cleanWebDriver": true,
+	"event": 150,
+	"timezone": "Europe/Kyiv",
+	"language": "uk-UA",
+	"acceptLanguages": [
+		"de-DE",
+		"de",
+		"en-US",
+		"en",
+		"ar"
+	],
+	"userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+	"version": "131.0.6778.204",
+	"brand": "Google Chrome",
+	"hideInfoBar": true,
+	"dns": "https://dns.google/dns-query",
+	"frame": true,
+	"replacements": {
+		"__playwright__binding__": "__chromium_devtools_metrics_reporter",
+		"__playwright_utility_world__": "__chromium_utility_world__",
+		"__pwInitScripts__": "__itIgitscropts__",
+		"cdc_": "cba_"
+	},
+	"blockedList": [],
+	"commandsAdd": [
+		"--disable-blink-features=AutomationControlled",
+		"--disable-features=ReduceAcceptLanguage",
+		"--disable-crash-reporter",
+		"--disable-component-update",
+		"--no-default-browser-check"
+	],
+	"commandsRemove": [
+		"--enable-automation",
+		"--disable-component-update",
+		"--disable-popup-blocking",
+		"--disable-default-apps",
+		"--disable-extensions"
+	],
+	"webrtc.disabled": true,
+	"webrtc.publicIpv6": "",
+	"webrtc.privateIpv6": "",
+	"webrtc.publicIp": "213.5.196.206",
+	"webrtc.privateIp": "192.168.1.1"
+}

@@ -152,7 +152,11 @@ export function useWebSocket(props: UseWebSocketProps) {
       }, 3000);
     };
 
-    websocket.onerror = (e) => console.error('WebSocket помилка:', e);
+    websocket.onerror = (e) => {
+      const errorMsg = e instanceof Event ? `WebSocket error: ${e.type}` : String(e);
+      propsRef.current.addLog(`WebSocket помилка: ${errorMsg}`, 'error');
+      console.error('WebSocket помилка:', errorMsg);
+    };
 
     wsRef.current = websocket;
     return () => {
@@ -161,4 +165,3 @@ export function useWebSocket(props: UseWebSocketProps) {
     };
   }, [WS_HOST, wsRef, retryCount]);
 }
-

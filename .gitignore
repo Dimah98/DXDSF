@@ -38,7 +38,7 @@ backend/images/debug_*.png
 # ─── Обсідіан та нотатки ──────────────────────────────────────────────────────
 .obsidian/
 obsidian/
-*.md
+
   
 # Custom folders  
 itbrowser/Chrome-bin/  
@@ -47,3 +47,6 @@ scratch/
 .kiro/  
 .overlay/  
 frontend/.overlay/ 
+
+# Ігнорування вмісту папки проектів бекенду, щоб локальні проекти не потрапляли в репозиторій
+backend/projects/

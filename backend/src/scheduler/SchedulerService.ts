@@ -1,5 +1,9 @@
+// Імпортуємо вбудований модуль Node.js для роботи з файловою системою
 import fs from 'fs';
+// Імпортуємо вбудований модуль Node.js для обробки шляхів до файлів
 import path from 'path';
+// Імпортуємо активні сесії проектів з менеджера браузерів для перевірки статусу запуску
+import { sessions } from '../browserManager';
 
 export interface ScheduledRun {
   projectName: string;
@@ -134,21 +138,39 @@ export class SchedulerService {
           }
         }
 
+        // Перевіряємо, чи настав час запуску з урахуванням розрахованого інтервалу
         if (now >= targetRunAt) {
-          shouldRun = true;
-          // Видаляємо збережений зсув
-          this.removeScheduledRun(projectName, 'interval_random');
+          // Отримуємо поточну активну WebSocket сесію проекту з глобальної карти
+          const session = sessions.get(projectName);
+          // Видаляємо та запускаємо лише якщо сесія відсутня або бот зараз НЕ працює
+          if (!session || !session.isBotRunning) {
+            // Встановлюємо прапорець необхідності запуску проекту
+            shouldRun = true;
+            // Видаляємо тимчасовий випадковий зсув з бази запланованих запусків
+            this.removeScheduledRun(projectName, 'interval_random');
+          }
         }
       }
 
       // 2. Програмний запуск (від ноди setNextRunNode)
+      // Шукаємо запланований програмний запуск від ноди для поточного проекту
       const nodeRun = this.scheduledRuns.find(r => r.projectName === projectName && r.source === 'node');
+      // Якщо програмний запуск знайдено і його запланований час уже настав або минув
       if (nodeRun && now >= nodeRun.runAt) {
-        shouldRun = true;
-        this.removeScheduledRun(projectName, 'node');
+        // Отримуємо поточну активну WebSocket сесію проекту з глобальної карти
+        const session = sessions.get(projectName);
+        // Запускаємо проект та видаляємо запис тільки якщо бот зараз НЕ виконується
+        if (!session || !session.isBotRunning) {
+          // Встановлюємо прапорець готовності до запуску сценарію
+          shouldRun = true;
+          // Очищаємо програмний запуск з бази запланованих, оскільки він зараз виконається
+          this.removeScheduledRun(projectName, 'node');
+        }
       }
 
+      // Якщо запуск проекту схвалено за будь-яким з двох розкладів
       if (shouldRun) {
+        // Додаємо назву проекту до списку проектів, які необхідно терміново запустити
         toRun.push(projectName);
       }
     }

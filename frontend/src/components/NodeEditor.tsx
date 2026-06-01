@@ -139,7 +139,13 @@ const NodeEditor = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [debugImages, setDebugImages] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'logs' | 'photos' | 'notifications'>('logs');
-  const [isConsoleOpen, setIsConsoleOpen] = useState(true);
+  // Термінал за замовчуванням згорнутий — зберігаємо стан у localStorage
+  const [isConsoleOpen, setIsConsoleOpen] = useState(() => {
+    // Зчитуємо збережений стан відкритості терміналу або закриваємо за замовчуванням
+    const saved = localStorage.getItem('sfl_console_open');
+    // Якщо збереженого значення немає — за замовчуванням false (згорнутий)
+    return saved !== null ? saved === 'true' : false;
+  });
   
   const [globalVariables, setGlobalVariables] = useState<Record<string, any>>({});
   const globalVariablesRef = useRef(globalVariables);
@@ -169,7 +175,13 @@ const NodeEditor = () => {
   const [menu, setMenu] = useState<{ x: number, y: number, type: 'pane' | 'node' | 'selection', nodeId?: string, hasSelection?: boolean } | null>(null);
   const [theme] = useState<'light' | 'dark'>('dark'); 
   const [isBotRunning, setIsBotRunning] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => localStorage.getItem('sfl_sidebar_collapsed') === 'true');
+  // Бокова панель за замовчуванням згорнута — зберігаємо стан у localStorage
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    // Зчитуємо збережений стан згорнутості сайдбару або згортаємо за замовчуванням
+    const saved = localStorage.getItem('sfl_sidebar_collapsed');
+    // Якщо збереженого значення немає — за замовчуванням true (згорнутий)
+    return saved !== null ? saved === 'true' : true;
+  });
 
   const subNodeCallbacksRef = useRef<Map<string, (data: any) => void>>(new Map());
   const [showSettings, setShowSettings] = useState(false);

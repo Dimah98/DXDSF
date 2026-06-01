@@ -493,7 +493,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
             )}
 
             {/* Підписи внизу списку */}
-            <div className="pt-3 mt-3 border-t border-white/10 space-y-1">
+            <div className="pt-3 mt-3 border-t border-white/10 space-y-1 flex flex-col items-center justify-end">
               <p className="text-[9px] text-slate-500 px-3">↑ Відкриває вибраний проект</p>
               <p className="text-[9px] text-slate-500 px-3">🔍 Показує яка нода в проекті активна</p>
               <p className="text-[9px] text-slate-500 px-3">📊 Загальна статистика</p>

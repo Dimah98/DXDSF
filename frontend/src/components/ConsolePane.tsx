@@ -25,6 +25,16 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
 }) => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
+  // Функція перемикача зі збереженням стану у localStorage
+  const handleToggle = () => {
+    // Розраховуємо новий стан (інверсія поточного)
+    const next = !isOpen;
+    // Оновлюємо стан в батьківському компоненті
+    setIsOpen(next);
+    // Зберігаємо стан відкритості консолі для наступного сеансу
+    localStorage.setItem('sfl_console_open', String(next));
+  };
+
   useEffect(() => {
     const handleUpdate = (e: any) => setUnreadNotifications(e.detail);
     window.addEventListener('unread-notifications-update', handleUpdate);
@@ -37,7 +47,7 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
       <div className="flex items-center justify-between px-4 h-10 border-b border-border/50">
         <div 
           className="flex items-center gap-3 cursor-pointer flex-1 h-full"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleToggle}
         >
           <div className={`p-1 rounded ${isOpen ? 'bg-indigo-500 text-white' : 'text-muted-foreground'}`}>
             <Terminal size={14} />
@@ -104,7 +114,7 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
             </button>
           )}
           <button 
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={handleToggle}
             className="p-1.5 hover:bg-muted text-muted-foreground rounded-lg transition-colors"
           >
             <Search size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />

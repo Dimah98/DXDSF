@@ -34,13 +34,23 @@ const BrowserNode = memo(({ id, data }: { id: string, data: any }) => {
                Дія браузера
             </label>
             <select 
+              // Значення вибраної дії (за замовчуванням оновлення)
               value={data.browser_action || 'refresh'} 
+              // Обробник вибору нової дії зі збереженням у стан ноди
               onChange={(e) => data.onDataChange(id, { browser_action: e.target.value })} 
+              // Стилізація випадаючого списку дій браузера
               className="w-full h-7 text-xs border rounded bg-muted text-muted-foreground border-border px-1 outline-none focus:ring-1 ring-purple-500 transition-all"
             >
+              {/* Опція оновлення сторінки */}
               <option value="refresh">Оновити сторінку</option>
+              {/* Опція повернення на попередню сторінку в історії */}
               <option value="back">Назад</option>
+              {/* Опція очікування спокою мережі */}
               <option value="wait_load">Чекати завантаження</option>
+              {/* Опція віддалення камери за допомогою Ctrl + прокрутка */}
+              <option value="zoom_out">Віддалити камеру (Ctrl+Scroll)</option>
+              {/* Опція примусового закриття сесії браузера */}
+              <option value="close">Закрити браузер</option>
             </select>
           </div>
         </div>
