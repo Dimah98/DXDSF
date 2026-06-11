@@ -386,6 +386,29 @@ const NodeEditor = () => {
     }
   }, []);
 
+  const handleRunGroup = useCallback((_groupId: string, subNodes: any[], subEdges: any[]) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const savedGlobal = localStorage.getItem('sfl_global_settings_v4');
+      const globalSettings = savedGlobal ? JSON.parse(savedGlobal) : {};
+      const projName = localStorage.getItem('sfl_current_project') || 'default';
+      const savedBrowser = localStorage.getItem(`sfl_browser_${projName}`);
+      const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {};
+      delete browserSettings.photoDebug;
+      delete browserSettings.snapToGrid;
+      const settings = { ...globalSettings, ...browserSettings };
+      ws.send(JSON.stringify({
+        type: 'RUN_GROUP',
+        nodes: subNodes || [],
+        edges: subEdges || [],
+        globalVariables: globalVariablesRef.current,
+        settings
+      }));
+      setIsBotRunning(true);
+      addLog('Запуск контейнера...', 'success');
+    }
+  }, [addLog]);
+
   const handlePickElement = useCallback((nodeId: string, pickType: string, subNodeUpdateCb?: (data: any) => void) => {
     if (subNodeUpdateCb) subNodeCallbacksRef.current.set(nodeId, subNodeUpdateCb);
     setPickerConfig({ nodeId, pickType });
@@ -444,6 +467,7 @@ const NodeEditor = () => {
         onDataChange: handleDataChange,
         onRunNode: handleRunNode,
         onRunSubNode: handleRunSubNode,
+        onRunGroup: handleRunGroup,
         onDeleteNode: handleDeleteNode,
         onToggleMini: handleToggleMini,
         onSetCustomIcon: handleSetCustomIcon,
@@ -455,7 +479,7 @@ const NodeEditor = () => {
         onUpdateVariable: handleUpdateGlobalVariable,
       }
     }));
-  }, [handlePickElement, handleDataChange, handleRunNode, handleRunSubNode, handleDeleteNode, handleToggleMini, handleSetCustomIcon, handleDeleteNodes, handleExportData, handleUpdateGlobalVariable]);
+  }, [handlePickElement, handleDataChange, handleRunNode, handleRunSubNode, handleRunGroup, handleDeleteNode, handleToggleMini, handleSetCustomIcon, handleDeleteNodes, handleExportData, handleUpdateGlobalVariable]);
 
   useEffect(() => { attachCallbacksRef.current = attachCallbacks; }, [attachCallbacks]);
 
