@@ -944,10 +944,10 @@ app.post('/api/projects/stop-multiple', authMiddleware, csrfMiddleware, async (r
 const STATE_PATH = path.join(__dirname, '../state.json');
 
 // Допоміжна функція для надсилання повідомлень логування у веб-сокет клієнта сесії
-const logToClient = (session: ProjectSession, message: string, type: 'info' | 'error' | 'success' | 'debug' = 'info') => {
+const logToClient = (session: ProjectSession, message: string, type: 'info' | 'error' | 'success' | 'debug' = 'info', data?: any) => {
   // Якщо веб-сокет з'єднання активне, надсилаємо повідомлення
   if (session.activeWs && session.activeWs.readyState === 1) {
-    session.activeWs.send(JSON.stringify({ type: 'CONSOLE_LOG', message, logType: type }));
+    session.activeWs.send(JSON.stringify({ type: 'CONSOLE_LOG', message, logType: type, data }));
   }
 };
 
@@ -1843,11 +1843,12 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
               globalVariables: session.globalVariables,
               projectName, // Передаємо назву проекту для планувальника
               broadcastVariables: () => broadcastVariables(session),
-              logToClient: (msg, type) => logToClient(session, msg, type), 
+              logToClient: (msg, type, logData) => logToClient(session, msg, type, logData), 
               takeDebugSnapshot: (nodeId, nodeTitle, highlight) => takeDebugSnapshot(session, nodeId, nodeTitle, highlight), 
               smartSleep, 
               nodeRuntimeState: session.nodeRuntimeState,
               checkRunning: () => session.isBotRunning,
+              verboseLogs: session.botSettings?.verboseLogs !== false,
               nodeHandlers,
               onNodeDisplayUpdate: (nodeId, data) => {
                 const msg = JSON.stringify({ type: 'UPDATE_NODE_DATA', nodeId, newData: data });

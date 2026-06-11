@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Terminal, Camera, Trash2, Image as ImageIcon, Search, Bell } from 'lucide-react';
+import { Terminal, Camera, Trash2, Image as ImageIcon, Search, Bell, Bug } from 'lucide-react';
 import { NotificationsPanel } from './NotificationsPanel';
 
 interface ConsolePaneProps {
@@ -26,6 +26,17 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   currentProject // Назва поточного проекту для збереження/очищення логів на диску
 }) => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  // Чи показувати детальні (debug) логи кроків нод. Зберігається між сеансами.
+  const [showDebug, setShowDebug] = useState(() => localStorage.getItem('sfl_console_show_debug') !== 'false');
+
+  const toggleDebug = () => {
+    const next = !showDebug;
+    setShowDebug(next);
+    localStorage.setItem('sfl_console_show_debug', String(next));
+  };
+
+  // Логи з урахуванням фільтра детальності
+  const visibleLogs = showDebug ? logs : logs.filter((l) => l.type !== 'debug');
 
   // Функція перемикача зі збереженням стану у localStorage
   const handleToggle = () => {
@@ -56,9 +67,9 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
             Консоль
-            {logs.length > 0 && (
+            {visibleLogs.length > 0 && (
               <span className="bg-indigo-500/20 text-indigo-400 text-[9px] px-1.5 py-0.5 rounded-full">
-                {logs.length}
+                {visibleLogs.length}
               </span>
             )}
           </span>
@@ -106,6 +117,19 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
         )}
 
         <div className="flex items-center gap-2">
+          {isOpen && activeTab === 'logs' && (
+            <button
+              onClick={toggleDebug}
+              className={`p-1.5 rounded-lg transition-colors ${
+                showDebug
+                  ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
+                  : 'text-muted-foreground hover:bg-muted'
+              }`}
+              title={showDebug ? 'Сховати детальні логи кроків нод' : 'Показати детальні логи кроків нод'}
+            >
+              <Bug size={14} />
+            </button>
+          )}
           {isOpen && (
             <button 
               onClick={() => {
@@ -134,12 +158,12 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
         <div className="flex-1 flex flex-col min-h-0">
           {activeTab === 'logs' ? (
             <div className="flex-1 overflow-y-auto p-2 font-mono text-[11px] custom-scrollbar bg-black/20">
-              {logs.length === 0 ? (
+              {visibleLogs.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-muted-foreground opacity-30 italic">
-                  Консоль порожня...
+                  {logs.length === 0 ? 'Консоль порожня...' : 'Детальні логи приховано'}
                 </div>
               ) : (
-                logs.map((log) => {
+                visibleLogs.map((log) => {
                   const hasNodeTag = log.message.startsWith('[');
                   const nodeTitle = hasNodeTag ? log.message.split(']')[0].substring(1) : null;
                   const cleanMessage = hasNodeTag ? log.message.split(']').slice(1).join(']').trim() : log.message;

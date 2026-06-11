@@ -39,7 +39,7 @@ export interface NodeHandlerParams {
   globalVariables: Record<string, any>;  // Глобальна пам'ять
   projectName:  string;      // Назва поточного проекту (передається напряму з запуску)
   nodeTitle:    string;      // Назва ноди для логів
-  logToClient:  (message: string, type?: 'info' | 'error' | 'success' | 'debug') => void;
+  logToClient:  (message: string, type?: 'info' | 'error' | 'success' | 'debug', data?: any) => void;
   takeDebugSnapshot: (nodeId: string, nodeTitle: string, highlight?: any) => Promise<void>;
   smartSleep:   (ms: number, ws: WebSocket) => Promise<void>;
   broadcastVariables: () => void;
