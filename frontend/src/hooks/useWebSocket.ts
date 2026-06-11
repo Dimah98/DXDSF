@@ -115,7 +115,7 @@ export function useWebSocket(props: UseWebSocketProps) {
           };
           setNodes((nds) => attachCallbacks([...nds, newNode]));
         } else if (data.type === 'CONSOLE_LOG') {
-          addLog(data.message, data.logType || 'info');
+          addLog(data.message, data.logType || 'info', data.data);
         } else if (data.type === 'DEBUG_SNAPSHOT') {
           const node = nodesRef.current.find(n => n.id === data.nodeId);
           const nodeName = node?.data.title || node?.type || 'Нода';

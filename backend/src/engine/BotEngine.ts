@@ -10,11 +10,12 @@ export interface EngineParams {
   globalVariables: Record<string, any>;
   projectName: string; // Назва проекту для передачі в ноди
   broadcastVariables: () => void;
-  logToClient: (message: string, type?: 'info' | 'error' | 'success' | 'debug') => void;
+  logToClient: (message: string, type?: 'info' | 'error' | 'success' | 'debug', data?: any) => void;
   takeDebugSnapshot: (nodeId: string, nodeTitle: string, highlight?: any) => Promise<void>;
   smartSleep: (ms: number, ws: WebSocket) => Promise<void>;
   nodeRuntimeState: Map<string, Record<string, any>>;
   checkRunning: () => boolean;
+  verboseLogs?: boolean; // Детальне логування кожного кроку ноди (за замовчуванням увімкнено)
   nodeHandlers: Record<string, any>;
   onNodeDisplayUpdate?: (nodeId: string, data: any) => void;
   onNodeExecuting?: (nodeId: string, nodeTitle?: string) => void;
@@ -41,6 +42,7 @@ export class BotEngine {
    */
   async run(startNodeId?: string, initialContext: NodeData = {}, initialQueue?: QueueItem[]) {
     const { nodes, edges, ws, logToClient, smartSleep, checkRunning } = this.params;
+    const verbose = this.params.verboseLogs !== false;
     
     let queue: QueueItem[] = initialQueue || [];
     
@@ -78,20 +80,36 @@ export class BotEngine {
         ws.send(JSON.stringify({ type: 'NODE_EXECUTING', nodeId: node.id, nodeTitle }));
       }
 
+      // 4.5 Детальний лог старту ноди (що нода отримала на вхід)
+      if (verbose) {
+        logToClient(
+          `[${nodeTitle}] ▶️ Старт • тип: ${node.type}${targetHandle ? ` • вхід: ${targetHandle}` : ''}`,
+          'debug',
+          this.summarizeData(context)
+        );
+      }
+
       // 5. Виконання логіки ноди
       let result: NodeResult;
+      const startedAt = Date.now();
       try {
         result = await this.executeNode(node, context, targetHandle);
       } catch (err: any) {
         logToClient(`❌ Помилка у ноді [${nodeTitle}]: ${err.message}`, 'error');
         break;
       }
+      const durationMs = Date.now() - startedAt;
 
-      if (result.skipNext) continue;
+      // 5.5 Детальний лог: нода зупинила сигнал у собі
+      if (result.skipNext) {
+        if (verbose) logToClient(`[${nodeTitle}] ⏹️ Сигнал зупинено в ноді • ${durationMs}мс`, 'debug', this.summarizeData(result.data));
+        continue;
+      }
 
       // 6. Передача сигналу наступним нодам
       const outEdges = edges.filter((e: any) => e.source === nodeId);
-      
+      const routedTitles: string[] = []; // Куди пішов сигнал — для детального логу
+
       for (const edge of outEdges) {
         const sourceHandle = edge.sourceHandle;
         const nextContext = result.data || context;
@@ -110,7 +128,19 @@ export class BotEngine {
             context: nextContext, 
             delay: edgeDelay 
           });
+          const targetNode = nodes.find((n: any) => n.id === edge.target);
+          const targetTitle = targetNode?.data?.label || targetNode?.data?.title || targetNode?.type || edge.target;
+          routedTitles.push(sourceHandle ? `${targetTitle} (${sourceHandle})` : targetTitle);
         }
+      }
+
+      // 6.5 Детальний лог завершення ноди (скільки тривало, куди пішов сигнал, що віддала)
+      if (verbose) {
+        let routeInfo: string;
+        if (result.nextHandle === null) routeInfo = '⛔ зупинка гілки';
+        else if (routedTitles.length) routeInfo = `→ ${routedTitles.join(', ')}`;
+        else routeInfo = '• далі підключень немає';
+        logToClient(`[${nodeTitle}] 🏁 ${durationMs}мс ${routeInfo}`, 'debug', this.summarizeData(result.data));
       }
 
       // Невелика пауза між нодами для запобігання 100% завантаженню CPU
@@ -122,6 +152,24 @@ export class BotEngine {
     }
 
     this.params.onFinished?.();
+  }
+
+  /**
+   * Готує компактний зріз даних ноди для консолі (лише значущі поля),
+   * щоб не засмічувати лог великими об'єктами.
+   */
+  private summarizeData(data?: NodeData): Record<string, any> | undefined {
+    if (!data || typeof data !== 'object') return undefined;
+    const out: Record<string, any> = {};
+    if (data.value !== undefined) out.value = data.value;
+    if (data.text !== undefined) out.text = data.text;
+    if (data.num !== undefined) out.num = data.num;
+    if (data.coords !== undefined) out.coords = data.coords;
+    if (data.count !== undefined) out.count = data.count;
+    if (Array.isArray(data.children)) out.children = data.children.length;
+    if (Array.isArray(data.images)) out.images = data.images.length;
+    if (data.raw !== undefined) out.raw = typeof data.raw === 'object' ? '[об\'єкт]' : data.raw;
+    return Object.keys(out).length ? out : undefined;
   }
 
   /**
@@ -149,7 +197,7 @@ export class BotEngine {
       projectName: this.params.projectName, // Передаємо назву проекту напряму в склад параметрів ноди
       broadcastVariables,
       nodeTitle,
-      logToClient: (msg, type) => logToClient(`[${nodeTitle}] ${msg}`, type),
+      logToClient: (msg, type, logData) => logToClient(`[${nodeTitle}] ${msg}`, type, logData),
       takeDebugSnapshot,
       smartSleep,
       nodeRuntimeState

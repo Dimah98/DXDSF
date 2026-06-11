@@ -337,7 +337,7 @@ const NodeEditor = () => {
   }, []); // Виконується тільки один раз при монтуванні компонента
 
   const addLog = useCallback((message: string, type: 'info' | 'error' | 'success' | 'debug' = 'info', data?: any) => {
-    setLogs(prev => [{ id: Date.now().toString() + Math.random(), time: new Date().toLocaleTimeString(), type, message, data }, ...prev.slice(0, 99)]);
+    setLogs(prev => [{ id: Date.now().toString() + Math.random(), time: new Date().toLocaleTimeString(), type, message, data }, ...prev.slice(0, 299)]);
   }, []);
 
   const onDragOver = useCallback((event: React.DragEvent) => {

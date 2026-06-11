@@ -229,6 +229,7 @@ export interface BotSettings {
   profile?: string;
   profileDir?: string;
   proxy?: string;
+  verboseLogs?: boolean; // Детальне логування кроків кожної ноди в консолі (за замовчуванням true)
 }
 
 /**
