@@ -8,7 +8,7 @@ import {
   SelectionMode,
   type Node as RFNode, type Edge as RFEdge
 } from '@xyflow/react';
-import { Package, ChevronRight, X, Download, Upload } from 'lucide-react';
+import { Package, ChevronRight, X, Download, Upload, Play } from 'lucide-react';
 import { getHandleStyle } from './BaseNode';
 import { SUB_NODE_TYPES } from './subNodeTypes';
 import { NODE_CONFIG, SIDEBAR_NODE_TYPES } from '../../nodeConfig';
@@ -393,7 +393,19 @@ const SubCanvas = ({
             <span className="text-[12px] font-bold text-white">📦 {groupData.label || 'Контейнер'}</span>
           </div>
           <div className="flex items-center gap-2">
-            
+
+            {/* Кнопка: Пуск — запустити тільки ноди всередині контейнера */}
+            <button
+              onClick={() => groupData.onRunGroup?.(groupData.id || '', subNodesRef.current, subEdgesRef.current)}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded transition-colors border bg-green-500/20 hover:bg-green-500/40 text-green-300 border-green-500/40 cursor-pointer"
+              title="Запустити тільки ноди всередині контейнера"
+            >
+              <Play size={10} />
+              Пуск
+            </button>
+
+            <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
+
             {/* Кнопка: Дістати ноди (експорт) */}
             <button
               onClick={exportSelected}
@@ -626,6 +638,15 @@ const GroupNode = memo(({ id, data }: any) => {
               className="w-4 h-4 p-0 border-0 rounded cursor-pointer bg-transparent"
               title="Змінити колір контейнера"
             />
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); data.onRunGroup?.(id, subNodes, subEdges); }}
+              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-green-300 bg-green-500/20 hover:bg-green-500/40 transition-colors border border-green-500/40"
+              title="Запустити тільки ноди всередині контейнера"
+            >
+              <Play size={10} />
+              Пуск
+            </button>
             <button
               onMouseDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); setIsOpen(true); }}

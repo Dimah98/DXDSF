@@ -1733,8 +1733,8 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
     }
 
     // Обробка запуску однієї ноди або повного сценарію бота
-    if (data.type === 'RUN_SINGLE_NODE' || data.type === 'RUN_BOT') {
-      if (data.type === 'RUN_BOT') {
+    if (data.type === 'RUN_SINGLE_NODE' || data.type === 'RUN_BOT' || data.type === 'RUN_GROUP') {
+      if (data.type === 'RUN_BOT' || data.type === 'RUN_GROUP') {
         if (session.isBotRunning) {
           logToClient(session, '❌ Бот вже працює! Зупиніть його перед новим запуском.', 'error');
           return;
@@ -1823,7 +1823,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
           }
 
           session.isBotRunning = true;
-          logToClient(session, '🚀 Запуск сценарію...', 'success');
+          logToClient(session, data.type === 'RUN_GROUP' ? '🚀 Запуск контейнера...' : '🚀 Запуск сценарію...', 'success');
           
           // Скидаємо лічильники для Gate нод
           nodes.forEach((n: any) => {
@@ -1832,8 +1832,10 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
             }
           });
 
-          // Шукаємо початкову ноду
-          const startNode = nodes.find((n: any) => n.type === 'startNode');
+          // Шукаємо початкову ноду. Для контейнера (RUN_GROUP) стартуємо з вхідної ноди підпрограми.
+          const startNode = data.type === 'RUN_GROUP'
+            ? nodes.find((n: any) => n.type === 'subEntryNode')
+            : nodes.find((n: any) => n.type === 'startNode');
           if (startNode) {
             // Створюємо екземпляр BotEngine
             const engine = new BotEngine({
@@ -1912,7 +1914,9 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
               }
             });
           } else {
-             logToClient(session, '❌ Помилка: ноду "Start" не знайдено', 'error');
+             logToClient(session, data.type === 'RUN_GROUP'
+               ? '❌ Помилка: у контейнері не знайдено вхідної ноди (subEntryNode)'
+               : '❌ Помилка: ноду "Start" не знайдено', 'error');
              session.isBotRunning = false;
              ws.send(JSON.stringify({ type: 'BOT_FINISHED' }));
           }
