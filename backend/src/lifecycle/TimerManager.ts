@@ -116,32 +116,47 @@ export class TimerManager {
    * Requirement 10.3: Check for inactive timers every 60 minutes
    * Requirement 10.4: Clear timers for sessions with no active WebSocket
    */
+  // Очищаємо неактивні таймери для проектів, які не мають активного з'єднання
   cleanupInactiveTimers(): void {
+    // Перевіряємо чи задано функцію пошуку сесії проекту
     if (!this.sessionLookup) {
+      // Якщо ні, логуємо дебаг-повідомлення
       logger.debug('cleanupInactiveTimers: no sessionLookup provided, skipping');
+      // Завершуємо виконання функції
       return;
     }
 
+    // Зберігаємо кількість очищених таймерів для статистики
     let clearedCount = 0;
 
+    // Проходимо по всіх зареєстрованих ключах таймерів у мапі
     for (const key of this.timers.keys()) {
+      // Витягуємо назву проекту з поточного ключа таймера
       const projectName = this.extractProjectName(key);
 
-      if (!projectName) {
-        // Key has no project prefix — skip
+      // Якщо префікс відсутній або це системний таймер
+      if (!projectName || projectName === 'system') {
+        // Пропускаємо очищення для цього таймера
         continue;
       }
 
+      // Шукаємо активну сесію для знайденого проекту
       const session = this.sessionLookup(projectName);
 
-      // Clear the timer if the session doesn't exist or has no active WebSocket
+      // Перевіряємо чи відсутня сесія або чи немає активного веб-сокету
       if (!session || session.activeWs === null) {
+        // Логуємо інформацію про видалення неактивного таймера проекту
         logger.info('Clearing timer for project with no active WebSocket', {
+          // Ключ таймера
           key,
+          // Назва проекту
           projectName,
+          // Прапорець чи взагалі існує сесія
           sessionExists: !!session,
         });
+        // Очищаємо цей таймер з мапи та зупиняємо його
         this.clearTimer(key);
+        // Збільшуємо лічильник очищених таймерів
         clearedCount++;
       }
     }

@@ -52,6 +52,10 @@ import SubExitNode from './CustomNodes/SubExitNode';
 import CooldownNode from './CustomNodes/CooldownNode';
 import SetNextRunNode from './CustomNodes/SetNextRunNode';
 import NotifyNode from './CustomNodes/NotifyNode';
+import CropAnalyzerNode from './CustomNodes/CropAnalyzerNode';
+import FirePitNode from './CustomNodes/FirePitNode';
+import KitchenNode from './CustomNodes/KitchenNode';
+import InventoryScannerNode from './CustomNodes/InventoryScannerNode';
 import DelayEdge from './DelayEdge';
 import GlobalSettings from './GlobalSettings';
 import Sidebar from './Sidebar';
@@ -63,6 +67,7 @@ import { ConsolePane } from './ConsolePane';
 import { NodeContextMenu } from './ui/NodeContextMenu';
 import ProjectManagerModal from './ProjectManagerModal'; // Менеджер проектів
 import ScheduleManager from './ScheduleManager'; // Менеджер розкладу
+import { InventoryModal } from './InventoryModal'; // Модалка інвентаря
 
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useProjectManager } from '../hooks/useProjectManager';
@@ -106,6 +111,10 @@ const nodeTypes = {
   cooldownNode: CooldownNode,
   setNextRunNode: SetNextRunNode,
   notifyNode: NotifyNode,
+  cropAnalyzerNode: CropAnalyzerNode,
+  firePitNode: FirePitNode,
+  kitchenNode: KitchenNode,
+  inventoryScannerNode: InventoryScannerNode,
 };
 
 const edgeTypes = {
@@ -146,6 +155,20 @@ const NodeEditor = () => {
     // Якщо збереженого значення немає — за замовчуванням false (згорнутий)
     return saved !== null ? saved === 'true' : false;
   });
+
+  // === Збереження логів окремо для кожного проекту ===
+  // Карта для зберігання логів кожного проекту (ключ — назва проекту)
+  const projectLogsRef = useRef<Map<string, any[]>>(new Map());
+  // Карта для зберігання скріншотів дебагу кожного проекту
+  const projectImagesRef = useRef<Map<string, any[]>>(new Map());
+  // Ref для доступу до поточних логів (потрібен для збереження при зміні проекту)
+  const logsRef = useRef(logs);
+  // Синхронізація ref логів з актуальним стейтом після кожного рендеру
+  useEffect(() => { logsRef.current = logs; }, [logs]);
+  // Ref для доступу до поточних скріншотів дебагу
+  const debugImagesRef = useRef(debugImages);
+  // Синхронізація ref скріншотів з актуальним стейтом після кожного рендеру
+  useEffect(() => { debugImagesRef.current = debugImages; }, [debugImages]);
   
   const [globalVariables, setGlobalVariables] = useState<Record<string, any>>({});
   const globalVariablesRef = useRef(globalVariables);
@@ -204,6 +227,8 @@ const NodeEditor = () => {
   // Стан відображення менеджера проектів
   const [isManagerOpen, setIsManagerOpen] = useState(false);
   const [isScheduleManagerOpen, setIsScheduleManagerOpen] = useState(false);
+  // Стан відображення модалки інвентаря
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   // Ініціалізуємо поточний проект, пріоритетно зчитуючи його з query-параметра URL, потім з localStorage
   const [currentProject, setCurrentProject] = useState<string>(() => {
     // Створюємо об'єкт для роботи з query-параметрами поточного URL
@@ -231,6 +256,85 @@ const NodeEditor = () => {
 
   // Формуємо поточний хост для WebSocket-з'єднання з урахуванням обраного проекту
   const WS_HOST = getWsHost(currentProject);
+
+  // Ref для збереження назви попереднього проекту при перемиканні
+  const prevProjectRef = useRef<string>(currentProject);
+
+  // Функція для завантаження збережених логів проекту з бекенду (файлова система)
+  const fetchProjectLogs = useCallback(async (projectName: string) => {
+    try {
+      // Надсилаємо GET-запит до ендпоінту збережених логів проекту
+      const res = await fetch(`/api/logs/${encodeURIComponent(projectName)}`);
+      // Якщо запит успішний
+      if (res.ok) {
+        // Парсимо JSON-масив логів з відповіді сервера
+        const savedLogs = await res.json();
+        // Якщо сервер повернув непустий масив логів
+        if (Array.isArray(savedLogs) && savedLogs.length > 0) {
+          // Встановлюємо збережені логи як початкові (вони вже в порядку найновіші спочатку)
+          setLogs(savedLogs);
+          // Також кешуємо їх у Map для швидкого перемикання без мережі
+          projectLogsRef.current.set(projectName, savedLogs);
+        }
+      }
+    } catch {
+      // Помилки мережі ігноруємо — покажемо кешовані логи або пустий масив
+    }
+  }, []);
+
+  // Ефект для збереження та відновлення логів при зміні поточного проекту
+  useEffect(() => {
+    // Отримуємо назву попереднього проекту з ref
+    const prevProject = prevProjectRef.current;
+    // Якщо проект дійсно змінився (а не просто перерендер)
+    if (prevProject !== currentProject) {
+      // Зберігаємо логи попереднього проекту в карту за його назвою
+      projectLogsRef.current.set(prevProject, logsRef.current);
+      
+      // Відправляємо логи попереднього проекту на сервер для збереження
+      fetch(`/api/logs/${encodeURIComponent(prevProject)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logsRef.current)
+      }).catch(() => {});
+
+      // Зберігаємо скріншоти дебагу попереднього проекту в карту
+      projectImagesRef.current.set(prevProject, debugImagesRef.current);
+      // Миттєво встановлюємо кешовані логи нового проекту (або пустий масив)
+      setLogs(projectLogsRef.current.get(currentProject) || []);
+      // Відновлюємо збережені скріншоти дебагу нового проекту (або пустий масив)
+      setDebugImages(projectImagesRef.current.get(currentProject) || []);
+      // Оновлюємо ref попереднього проекту на актуальну назву
+      prevProjectRef.current = currentProject;
+      // Фоново завантажуємо збережені логи з файлу на сервері
+      fetchProjectLogs(currentProject);
+    }
+  }, [currentProject, fetchProjectLogs]); // Ефект виконується кожного разу при зміні поточного проекту
+
+  // Ефект для збереження логів при події sfl-save-logs (викликається з useProjectManager)
+  useEffect(() => {
+    const handleSaveLogs = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const projectName = customEvent.detail?.projectName || currentProject;
+      
+      // Відправляємо поточні логи на сервер
+      fetch(`/api/logs/${encodeURIComponent(projectName)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logsRef.current)
+      }).catch(() => {});
+    };
+
+    window.addEventListener('sfl-save-logs', handleSaveLogs);
+    return () => window.removeEventListener('sfl-save-logs', handleSaveLogs);
+  }, [currentProject]);
+
+  // Ефект для завантаження збережених логів при першому завантаженні сторінки
+  useEffect(() => {
+    // Завантажуємо логи поточного проекту з бекенду при ініціалізації
+    fetchProjectLogs(currentProject);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Виконується тільки один раз при монтуванні компонента
 
   const addLog = useCallback((message: string, type: 'info' | 'error' | 'success' | 'debug' = 'info', data?: any) => {
     setLogs(prev => [{ id: Date.now().toString() + Math.random(), time: new Date().toLocaleTimeString(), type, message, data }, ...prev.slice(0, 99)]);
@@ -561,12 +665,18 @@ const NodeEditor = () => {
       const projName = localStorage.getItem('sfl_current_project') || 'default';
       const savedBrowser = localStorage.getItem(`sfl_browser_${projName}`);
       const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {};
+      
+      // Ігноруємо застарілі параметри з налаштувань браузера, щоб завжди працювали глобальні
+      delete browserSettings.photoDebug;
+      delete browserSettings.snapToGrid;
+
       const settings = { ...globalSettings, ...browserSettings };
 
       ws.send(JSON.stringify({ 
         type: 'RUN_BOT', 
-        nodes: nodesRef.current, 
-        edges: edgesRef.current, 
+        // Якщо ноди ще не завантажено — надсилаємо порожній масив, бекенд підтягне з файлу
+        nodes: nodesRef.current || [], 
+        edges: edgesRef.current || [], 
         globalVariables: globalVariablesRef.current,
         settings
       }));
@@ -574,6 +684,7 @@ const NodeEditor = () => {
       addLog('Запуск сценарію...', 'success');
     }
   }, [addLog]);
+
 
   const onSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     setSelectedNodes(params.nodes);
@@ -601,8 +712,24 @@ const NodeEditor = () => {
         <ReactFlowProvider>
           <div className="absolute inset-0 overflow-hidden" ref={reactFlowWrapper}>
             
-            {/* ── Кнопка Старт/Стоп (Верхній правий кут) ── */}
+            {/* ── Кнопка Старт/Стоп та Інвентар (Верхній правий кут) ── */}
             <div className="fixed top-6 right-6 z-[120] flex items-center gap-3">
+              {/* Кнопка Інвентар */}
+              <button
+                onClick={() => setIsInventoryOpen(true)}
+                disabled={!currentProject}
+                className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl transition-all duration-500 hover:scale-105 active:scale-95 border-2 ${
+                  currentProject
+                    ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 hover:bg-indigo-500/30 shadow-indigo-500/20'
+                    : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'
+                }`}
+                title={currentProject ? 'Відкрити інвентар' : 'Завантажте проект'}
+              >
+                <LucideIcons.Package size={16} />
+                <span>Інвентар</span>
+              </button>
+
+              {/* Кнопка Старт/Стоп */}
               <button
                 onClick={isBotRunning ? stopBot : runBot}
                 className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl transition-all duration-500 hover:scale-105 active:scale-95 border-2 ${
@@ -653,6 +780,7 @@ const NodeEditor = () => {
                 debugImages={debugImages}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
+                currentProject={currentProject}
               />
             )}
 
@@ -676,6 +804,13 @@ const NodeEditor = () => {
             <ScheduleManager
               isOpen={isScheduleManagerOpen}
               onClose={() => setIsScheduleManagerOpen(false)}
+            />
+
+            {/* Модалка інвентаря */}
+            <InventoryModal
+              isOpen={isInventoryOpen}
+              onClose={() => setIsInventoryOpen(false)}
+              projectName={currentProject}
             />
 
             <ReactFlow

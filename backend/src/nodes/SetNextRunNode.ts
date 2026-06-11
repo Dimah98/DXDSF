@@ -3,9 +3,9 @@ import { schedulerService } from '../index';
 
 // Обробник ноди "Наступний запуск" — встановлює час наступного запуску поточного проекту
 export const setNextRunNodeHandler = async ({
-  currentNode, context, logToClient, projectName
+  currentNode, context, logToClient, projectName, globalVariables
 }: NodeHandlerParams) => {
-  // Зчитуємо режим: 'delay' — через N часу, 'fixedTime' — у заданий час
+  // Зчитуємо режим: 'delay' — через N часу, 'fixedTime' — у заданий час, 'absoluteTimestamp' - зі змінної
   const mode = currentNode.data.scheduleMode || 'delay';
 
   let runAt: number; // Часова мітка наступного запуску (мс)
@@ -16,7 +16,24 @@ export const setNextRunNodeHandler = async ({
     const unit = currentNode.data.delayUnit || 'hours'; // Одиниця: 'hours' або 'minutes'
     const delayMs = unit === 'hours' ? value * 3600000 : value * 60000; // Переводимо у мілісекунди
     runAt = Date.now() + delayMs; // Час наступного запуску = зараз + затримка
-    logToClient(`📅 Наступний запуск заплановано через ${value} ${unit === 'hours' ? 'год' : 'хв'}`, 'success');
+    // Логуємо запланований запуск з префіксом [Розклад] для відображення відповідного бейджа
+    logToClient(`[Розклад] 📅 Наступний запуск заплановано через ${value} ${unit === 'hours' ? 'год' : 'хв'}`, 'success');
+  } else if (mode === 'absoluteTimestamp') {
+    // Режим 3: Запуск за абсолютною міткою часу з глобальної змінної
+    const varName = currentNode.data.timestampVariable || 'nextCropHarvest';
+    const timestamp = globalVariables[varName];
+
+    if (timestamp && typeof timestamp === 'number') {
+      runAt = timestamp;
+      const date = new Date(runAt);
+      const timeStr = date.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const diffMin = Math.max(0, Math.round((runAt - Date.now()) / 60000));
+      logToClient(`[Розклад] 📅 Наступний запуск заплановано о ${timeStr} (через ~${diffMin} хв) [Змінна: ${varName}]`, 'success');
+    } else {
+      // Фолбек: якщо змінна не задана або недійсна, ставимо затримку 1 годину
+      logToClient(`⚠️ Невалідна змінна часу '${varName}', фолбек: запуск через 1 годину`, 'info');
+      runAt = Date.now() + 3600000;
+    }
   } else {
     // Режим 2: Запуск у конкретний час HH:MM
     const targetTime = currentNode.data.targetTime || '08:00'; // Час у форматі "ГГ:ХХ"
@@ -27,10 +44,11 @@ export const setNextRunNodeHandler = async ({
 
     // Якщо час вже минув сьогодні — переносимо на завтра
     if (target.getTime() <= now.getTime()) {
-      target.setDate(target.getDate() + 1);
+      target.setDate(target.getDate() + 1); // Збільшуємо дату на 1 день
     }
     runAt = target.getTime(); // Зберігаємо часову мітку цільового запуску
-    logToClient(`📅 Наступний запуск заплановано о ${targetTime}`, 'success');
+    // Логуємо запланований запуск з префіксом [Розклад] для відображення відповідного бейджа
+    logToClient(`[Розклад] 📅 Наступний запуск заплановано о ${targetTime}`, 'success');
   }
 
   // Додаємо запис у сервіс планувальника із джерелом 'node' (від ноди сценарію)

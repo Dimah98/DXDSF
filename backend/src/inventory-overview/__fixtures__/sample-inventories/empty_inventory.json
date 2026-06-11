@@ -1,0 +1,11 @@
+{
+  "projectName": "SF999",
+  "data": [],
+  "timestamp": 1780877200000,
+  "version": "1.0",
+  "metadata": {
+    "selector": "div.relative:has(img[alt=\"item\"])",
+    "itemCount": 0,
+    "scanDuration": 5
+  }
+}

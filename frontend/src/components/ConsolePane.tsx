@@ -3,14 +3,15 @@ import { Terminal, Camera, Trash2, Image as ImageIcon, Search, Bell } from 'luci
 import { NotificationsPanel } from './NotificationsPanel';
 
 interface ConsolePaneProps {
-  isOpen: boolean;
-  setIsOpen: (isOpen: boolean) => void;
-  isSidebarCollapsed: boolean;
-  logs: any[];
-  setLogs: (logs: any) => void;
-  debugImages: any[];
-  activeTab: 'logs' | 'photos' | 'notifications';
-  setActiveTab: (tab: 'logs' | 'photos' | 'notifications') => void;
+  isOpen: boolean; // Чи відкрита панель консолі
+  setIsOpen: (isOpen: boolean) => void; // Функція зміни стану відкритості
+  isSidebarCollapsed: boolean; // Чи згорнута бокова панель
+  logs: any[]; // Масив поточних логів
+  setLogs: (logs: any) => void; // Функція оновлення масиву логів
+  debugImages: any[]; // Масив скріншотів дебагу
+  activeTab: 'logs' | 'photos' | 'notifications'; // Активна вкладка
+  setActiveTab: (tab: 'logs' | 'photos' | 'notifications') => void; // Функція зміни активної вкладки
+  currentProject: string; // Назва поточного проекту для збереження логів
 }
 
 export const ConsolePane: React.FC<ConsolePaneProps> = ({
@@ -21,7 +22,8 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   setLogs,
   debugImages,
   activeTab,
-  setActiveTab
+  setActiveTab,
+  currentProject // Назва поточного проекту для збереження/очищення логів на диску
 }) => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
@@ -106,7 +108,12 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
         <div className="flex items-center gap-2">
           {isOpen && (
             <button 
-              onClick={() => setLogs([])}
+              onClick={() => {
+                // Очищуємо логи в UI
+                setLogs([]);
+                // Також видаляємо збережені логи з файлу на бекенді
+                fetch(`/api/logs/${encodeURIComponent(currentProject)}`, { method: 'DELETE' }).catch(() => {});
+              }}
               className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-lg transition-colors"
               title="Очистити консоль"
             >
@@ -222,7 +229,11 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
                )}
             </div>
           ) : (
-            <NotificationsPanel isActive={activeTab === 'notifications'} />
+            // Рендеримо панель сповіщень, передаючи стан активності та назву поточного проекту для фільтрації
+            <NotificationsPanel 
+              isActive={activeTab === 'notifications'} 
+              projectName={currentProject} 
+            />
           )}
         </div>
       )}

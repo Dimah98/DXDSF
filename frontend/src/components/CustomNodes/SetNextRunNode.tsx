@@ -33,6 +33,7 @@ const SetNextRunNode = memo(({ id, data }: any) => {
             >
               <option value="delay">Через N часу</option>
               <option value="fixedTime">У заданий час</option>
+              <option value="absoluteTimestamp">За міткою часу зі змінної</option>
             </select>
 
             {mode === 'delay' ? (
@@ -53,7 +54,7 @@ const SetNextRunNode = memo(({ id, data }: any) => {
                   <option value="hours">Годин</option>
                 </select>
               </div>
-            ) : (
+            ) : mode === 'fixedTime' ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Час:</span>
                 <Input 
@@ -61,6 +62,17 @@ const SetNextRunNode = memo(({ id, data }: any) => {
                   value={targetTime}
                   onChange={(e) => handleChange('targetTime', e.target.value)}
                   className="flex-1 h-7 text-xs bg-slate-800 border-slate-700"
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] text-muted-foreground">Назва змінної:</span>
+                <Input 
+                  type="text"
+                  value={data.timestampVariable || 'nextCropHarvest'}
+                  onChange={(e) => handleChange('timestampVariable', e.target.value)}
+                  placeholder="напр. nextCropHarvest"
+                  className="w-full h-7 text-xs bg-slate-800 border-slate-700"
                 />
               </div>
             )}

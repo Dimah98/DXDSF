@@ -266,6 +266,10 @@ export interface ProjectSession {
   lastActiveNodeId: string | null;
   lastActiveNodeTitle: string | null;
 
+  // Network Interception Cache (for API Node)
+  latestFarmId?: string | null;
+  latestApiToken?: string | null;
+
   // Bot Configuration
   botSettings: BotSettings;
   globalVariables: Record<string, any>;

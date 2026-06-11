@@ -1,0 +1,30 @@
+{
+  "projectName": "SF1",
+  "data": [
+    {
+      "image": "https://sunflower-land.com/game-assets/crops/corn/seed.png",
+      "number": 29,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": { "x": 283, "y": 308 }
+    },
+    {
+      "image": "https://sunflower-land.com/game-assets/crops/wheat/seed.png",
+      "number": 70.5,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": { "x": 350, "y": 308 }
+    },
+    {
+      "image": "/api/images/iron_ore.png",
+      "number": 150,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": { "x": 417, "y": 308 }
+    }
+  ],
+  "timestamp": 1780876990943,
+  "version": "1.0",
+  "metadata": {
+    "selector": "div.relative:has(img[alt=\"item\"])",
+    "itemCount": 3,
+    "scanDuration": 20
+  }
+}

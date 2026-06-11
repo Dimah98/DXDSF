@@ -219,14 +219,32 @@ describe('TimerManager', () => {
       expect(timerManager.hasTimer('proj2:autoSave')).toBe(false);
     });
 
+    // Тест на перевірку ігнорування ключів без префікса проекту (без двокрапки)
     it('skips keys without a project prefix (no colon)', () => {
+      // Створюємо тестовий таймер
       const timer = setTimeout(() => {}, 10000) as unknown as ReturnType<typeof setTimeout>;
+      // Реєструємо його з ключем без двокрапки
       timerManager.registerTimer('globalCleanup', timer);
 
+      // Викликаємо очищення неактивних таймерів
       timerManager.cleanupInactiveTimers();
 
-      // Key has no colon, so it should be skipped (not cleared)
+      // Очікуємо, що таймер не буде видалено
       expect(timerManager.hasTimer('globalCleanup')).toBe(true);
+    });
+
+    // Тест на перевірку ігнорування ключів із системним префіксом
+    it('skips keys with system prefix', () => {
+      // Створюємо тестовий таймер
+      const timer = setTimeout(() => {}, 10000) as unknown as ReturnType<typeof setTimeout>;
+      // Реєструємо його з системним ключем
+      timerManager.registerTimer('system:scheduler', timer);
+
+      // Викликаємо очищення неактивних таймерів
+      timerManager.cleanupInactiveTimers();
+
+      // Очікуємо, що системний таймер залишиться активним
+      expect(timerManager.hasTimer('system:scheduler')).toBe(true);
     });
 
     it('is a no-op when no sessionLookup is provided', () => {

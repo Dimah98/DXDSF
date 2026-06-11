@@ -1,0 +1,24 @@
+{
+  "projectName": "SF2",
+  "data": [
+    {
+      "image": "https://sunflower-land.com/game-assets/crops/corn/seed.png",
+      "number": 15,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": { "x": 283, "y": 308 }
+    },
+    {
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA",
+      "number": 42.3,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": { "x": 417, "y": 308 }
+    }
+  ],
+  "timestamp": 1780877000000,
+  "version": "1.0",
+  "metadata": {
+    "selector": "div.relative:has(img[alt=\"item\"])",
+    "itemCount": 2,
+    "scanDuration": 15
+  }
+}

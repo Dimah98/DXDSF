@@ -258,9 +258,9 @@ export default function ScheduleManager({ isOpen, onClose }: { isOpen: boolean, 
               </div>
 
               {/* Рядки проектів на таймлайні */}
-              <div 
+              <div
                 // Список рядів запусків з оптимальним вертикальним відступом
-                className="mt-6 space-y-3 relative z-10"
+                className="mt-1.5 space-y-3 relative z-10"
               >
                 {schedules.map((proj) => (
                   <div 
@@ -291,11 +291,12 @@ export default function ScheduleManager({ isOpen, onClose }: { isOpen: boolean, 
                       </div>
                     </div>
 
-                    {/* Горизонтальна лінія-вісь ряду проекту — фіксована ширина до кінця таймлайну */}
+                    {/* Горизонтальна лінія-вісь ряду проекту — тепер розтягується до самого правого краю */}
                     <div 
+                      // Встановлюємо абсолютне позиціонування, висоту 1 піксель, напівпрозорий колір рамки та вирівнювання по центру осі Y
                       className="absolute h-[1px] bg-[var(--interface-border)]/20 top-1/2"
-                      // Починаємо після sticky-плашки назви і тягнемо до кінця timelineWidth
-                      style={{ left: '160px', width: `${24 * 40 + 100}px` }}
+                      // Починаємо лінію після лівої фіксованої плашки (160px) і тягнемо до самого правого краю контейнера (right: 0)
+                      style={{ left: '160px', right: 0 }}
                     ></div>
                     
                     {/* Синій маркер регулярного запуску — ЗНИЗУ рядка */}

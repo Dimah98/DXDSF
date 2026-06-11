@@ -54,6 +54,10 @@ export function useProjectManager({
           } 
         }),
       });
+      
+      // Відправляємо подію для збереження поточних логів
+      window.dispatchEvent(new CustomEvent('sfl-save-logs', { detail: { projectName: name } }));
+      
       addLog(`Проект "${name}" успішно збережено`, 'success');
     } catch (e) {
       addLog(`Помилка збереження: ${e}`, 'error');

@@ -182,6 +182,9 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
     // Перевіряємо чи є вибрані проекти у списку
     if (checkedProjects.length === 0) return;
     try {
+      const savedGlobal = localStorage.getItem('sfl_global_settings_v4');
+      const globalSettings = savedGlobal ? JSON.parse(savedGlobal) : {};
+
       // Збираємо browserSettings для кожного вибраного проекту з localStorage
       // Це потрібно, щоб бекенд відкрив правильний профіль, а не дефолтний
       const projectSettings: Record<string, any> = {};
@@ -192,7 +195,12 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
         // Зчитуємо збережені налаштування браузера для цього проекту
         const savedBrowser = localStorage.getItem(storageKey);
         // Якщо налаштування знайдені — парсимо їх, інакше використовуємо порожній об'єкт
-        projectSettings[projName] = savedBrowser ? JSON.parse(savedBrowser) : {};
+        const parsedBrowser = savedBrowser ? JSON.parse(savedBrowser) : {};
+        
+        delete parsedBrowser.photoDebug;
+        delete parsedBrowser.snapToGrid;
+
+        projectSettings[projName] = { ...globalSettings, ...parsedBrowser };
       }
 
       // Робимо POST запит до ендпоінту групового запуску

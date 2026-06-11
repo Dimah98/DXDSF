@@ -18,6 +18,7 @@ import { gateNodeHandler } from './GateNode';
 import { nestedCheckNodeHandler } from './NestedCheckNode';
 import { searchInNodeHandler } from './SearchInNode';
 import { commentNodeHandler } from './CommentNode';
+import { firePitNodeHandler } from './FirePitNode';
 import { randomDelayNodeHandler } from './RandomDelayNode';
 import { eventVariationsHandler } from './EventVariationsNode';
 import { calculatorNodeHandler } from './CalculatorNode';
@@ -26,6 +27,9 @@ import { groupNodeHandler } from './GroupNode'; // Нода-контейнер (
 import { cooldownNodeHandler } from './CooldownNode';
 import { setNextRunNodeHandler } from './SetNextRunNode';
 import { notifyNodeHandler } from './NotifyNode';
+import { cropAnalyzerNodeHandler } from './CropAnalyzerNode';
+import { kitchenNodeHandler } from './KitchenNode';
+import { inventoryScannerNodeHandler } from './InventoryScannerNode';
 
 import { NodeHandler } from './types';
 
@@ -57,11 +61,15 @@ export const nodeHandlers: Record<string, NodeHandler> = {
   nestedCheckNode: nestedCheckNodeHandler,
   searchInNode: searchInNodeHandler,
   commentNode: commentNodeHandler,
+  firePitNode: firePitNodeHandler,
   rotatorNode: rotatorNodeHandler, // Чергувач — по черзі або рандом
   groupNode: groupNodeHandler,     // Контейнер — вкладена підпрограма
   cooldownNode: cooldownNodeHandler,
   setNextRunNode: setNextRunNodeHandler,
   notifyNode: notifyNodeHandler,
+  cropAnalyzerNode: cropAnalyzerNodeHandler,
+  kitchenNode: kitchenNodeHandler,
+  inventoryScannerNode: inventoryScannerNodeHandler,
   subEntryNode: async ({ context }: any) => ({ nextHandle: 'out', data: context }),
   subExitNode: async ({ context }: any) => ({ data: context }),
 };

@@ -9,56 +9,88 @@ interface Notification {
   read: boolean;
 }
 
-export function NotificationsPanel({ isActive }: { isActive: boolean }) {
+// Оголошуємо інтерфейс для пропсів компонента NotificationsPanel
+interface NotificationsPanelProps {
+  // Чи є панель сповіщень активною/видимою у даний момент
+  isActive: boolean;
+  // Назва поточного проекту (залишено для сумісності з пропсами)
+  projectName: string;
+}
+
+// Головна функція компонента NotificationsPanel з типом пропсів
+export function NotificationsPanel({ isActive, projectName }: NotificationsPanelProps) {
+  // Стейт для зберігання списку сповіщень усіх проектів
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  // Стейт для зберігання загальної кількості непрочитаних сповіщень
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Асинхронна функція для завантаження всіх сповіщень через API
   const fetchNotifications = async () => {
     try {
+      // Робимо HTTP GET запит до API для отримання сповіщень від усіх проектів в одному місці
       const res = await fetch('/api/notifications');
+      // Якщо відповідь від сервера успішна
       if (res.ok) {
+        // Розбираємо JSON-відповідь
         const data = await res.json();
+        // Оновлюємо стейт списку сповіщень
         setNotifications(data.notifications || []);
+        // Оновлюємо стейт кількості непрочитаних сповіщень
         setUnreadCount(data.unreadCount || 0);
-        // Також сповіщаємо батьківські компоненти про кількість непрочитаних
+        // Сповіщаємо інші компоненти про зміну кількості непрочитаних сповіщень через подію
         window.dispatchEvent(new CustomEvent('unread-notifications-update', { detail: data.unreadCount }));
       }
     } catch (e) {
+      // Логуємо помилку у разі невдалого запиту
       console.error('Failed to fetch notifications', e);
     }
   };
 
+  // Ефект для оновлення даних при монтуванні та при зміні імені поточного проекту
   useEffect(() => {
-    // Первинне завантаження
+    // Викликаємо завантаження всіх сповіщень
     fetchNotifications();
-    // Поллінг кожні 5 секунд
+    // Налаштовуємо регулярне опитування сервера кожні 5 секунд
     const interval = setInterval(fetchNotifications, 5000);
+    // Повертаємо функцію очищення для видалення таймера при розмонтуванні або зміні projectName
     return () => clearInterval(interval);
-  }, []);
+  }, [projectName]); // Залежність від projectName гарантує оновлення при зміні проекту
 
+  // Обробник для позначення конкретного сповіщення як прочитане
   const handleMarkAsRead = async (id: string) => {
     try {
+      // Надсилаємо HTTP PUT запит для оновлення статусу сповіщення на сервері
       await fetch(`/api/notifications/${id}/read`, { method: 'PUT' });
+      // Перезавантажуємо список сповіщень
       fetchNotifications();
     } catch (e) {
+      // Логуємо помилку
       console.error(e);
     }
   };
 
+  // Обробник для позначення всіх сповіщень усіх проектів як прочитані
   const handleMarkAllAsRead = async () => {
     try {
+      // Надсилаємо HTTP PUT запит без фільтрації для позначення прочитаними сповіщень від усіх проектів
       await fetch('/api/notifications/read-all', { method: 'PUT' });
+      // Перезавантажуємо список сповіщень
       fetchNotifications();
     } catch (e) {
+      // Логуємо помилку
       console.error(e);
     }
   };
 
+  // Обробник для видалення конкретного сповіщення
   const handleDelete = async (id: string) => {
     try {
+      // Надсилаємо HTTP DELETE запит для видалення сповіщення з бази даних
       await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+      // Перезавантажуємо список сповіщень
       fetchNotifications();
     } catch (e) {
+      // Логуємо помилку
       console.error(e);
     }
   };

@@ -22,6 +22,10 @@ import { authMiddleware, AuthMiddleware } from './auth/AuthMiddleware';
 import { csrfMiddleware, CSRFMiddleware } from './auth/CSRFMiddleware';
 // Імпортуємо input validation service
 import { inputValidator } from './validation/InputValidator';
+import { internalConfig } from './internalConfig';
+// Імпортуємо класи для роботи з інвентарем
+import { InventoryReader } from './inventory-overview/InventoryReader';
+import { ResourceAggregator } from './inventory-overview/ResourceAggregator';
 // Імпортуємо обробники нод з папки nodes
 import { nodeHandlers } from './nodes';
 // Імпортуємо двигун бота BotEngine
@@ -229,13 +233,213 @@ app.get('/api/projects', authMiddleware, async (req, res) => {
   try {
     // Читаємо файли в папці проектів і фільтруємо лише файли .json
     const files = await fs.promises.readdir(PROJECTS_DIR);
-    const projectFiles = files.filter(f => f.endsWith('.json') && !f.endsWith('_stats.json'));
+    const projectFiles = files.filter(f => 
+      f.endsWith('.json') && 
+      !f.endsWith('_stats.json') &&
+      !f.includes('schedule') &&
+      !f.includes('notifications') &&
+      !f.includes('_inventory') &&
+      !f.includes('_logs')
+    );
     // Повертаємо список імен проектів без розширення .json
     res.json(projectFiles.map(f => f.replace('.json', '')));
   } catch (err: any) { 
     // У разі помилки відправляємо статус 500 та повідомлення
     logger.error('Failed to read projects directory', err instanceof Error ? err : new Error(String(err)), { path: PROJECTS_DIR });
     res.status(500).json({ success: false, error: 'Failed to load project list. Please try again later.' }); 
+  }
+});
+
+// ============================================================================
+// Logs API Endpoints
+// ============================================================================
+
+// Отримання логів проекту
+app.get('/api/logs/:project', authMiddleware, async (req, res) => {
+  try {
+    const { project } = req.params;
+    const logPath = path.join(PROJECTS_DIR, `${project}_logs.json`);
+    
+    if (fs.existsSync(logPath)) {
+      const data = await fs.promises.readFile(logPath, 'utf-8');
+      try {
+        res.json(JSON.parse(data));
+      } catch (parseErr) {
+        res.json([]);
+      }
+    } else {
+      res.json([]);
+    }
+  } catch (err) {
+    logger.error('Failed to read logs', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ error: 'Failed to read logs' });
+  }
+});
+
+// Збереження логів проекту
+app.post('/api/logs/:project', authMiddleware, async (req, res) => {
+  try {
+    const { project } = req.params;
+    const logPath = path.join(PROJECTS_DIR, `${project}_logs.json`);
+    
+    const logs = req.body;
+    if (Array.isArray(logs)) {
+      await fs.promises.writeFile(logPath, JSON.stringify(logs, null, 2), 'utf-8');
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: 'Logs must be an array' });
+    }
+  } catch (err) {
+    logger.error('Failed to save logs', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ error: 'Failed to save logs' });
+  }
+});
+
+// Очищення логів проекту
+app.delete('/api/logs/:project', authMiddleware, async (req, res) => {
+  try {
+    const { project } = req.params;
+    const logPath = path.join(PROJECTS_DIR, `${project}_logs.json`);
+    
+    if (fs.existsSync(logPath)) {
+      await fs.promises.unlink(logPath);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Failed to delete logs', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ error: 'Failed to delete logs' });
+  }
+});
+
+// ============================================================================
+// Config API Endpoints
+// ============================================================================
+
+// GET /api/config - Публічний ендпоінт для отримання конфігурації модулів
+// Доступ без авторизації (читання відкрите для нод ApiNode через internal://config)
+app.get('/api/config', (req, res) => {
+  try {
+    // Повертаємо весь словник конфігурації {ключ: 0/1}
+    res.status(200).json(internalConfig.getAll());
+  } catch (error: any) {
+    logger.error('Failed to get config', error instanceof Error ? error : new Error(String(error)));
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /api/config - Захищений ендпоінт для оновлення конфігурації модулів
+// Приймає словник {ключ: 0|1} - той самий формат що /api/internal/config
+// Доступно з Android-додатку (з авторизацією та CSRF-токеном)
+app.put('/api/config', authMiddleware, csrfMiddleware, (req, res) => {
+  try {
+    const changes = req.body;
+    // Проходимо по всіх ключах та оновлюємо значення
+    for (const [key, value] of Object.entries(changes)) {
+      if (typeof value === 'number') {
+        internalConfig.set(key, value); // Зберігаємо кожен ключ-значення
+      }
+    }
+    // Повертаємо оновлений конфіг
+    res.status(200).json({ success: true, config: internalConfig.getAll() });
+  } catch (error: any) {
+    logger.error('Failed to update config', error instanceof Error ? error : new Error(String(error)));
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// Inventory API Endpoints
+// ============================================================================
+
+// GET /api/inventory/overview - Отримати зведені дані інвентаря всіх проектів
+app.get('/api/inventory/overview', authMiddleware, async (req, res) => {
+  try {
+    const reader = new InventoryReader();
+    const aggregator = new ResourceAggregator();
+    
+    // Читаємо всі інвентарі
+    const inventories = await reader.readAllInventories(PROJECTS_DIR);
+    
+    // Агрегуємо дані
+    const result = aggregator.aggregate(inventories);
+    
+    res.json(result);
+  } catch (err: any) {
+    logger.error('Failed to get inventory overview', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to load inventory overview' });
+  }
+});
+
+// GET /api/inventory/:projectName - Отримати дані інвентаря проекту
+app.get('/api/inventory/:projectName', authMiddleware, async (req, res) => {
+  try {
+    const projectName = req.params.projectName;
+
+    // Validate project name
+    const validation = inputValidator.validateProjectName(projectName);
+    if (!validation.isValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid project name. Only alphanumeric characters, hyphens, and underscores are allowed.'
+      });
+    }
+
+    // Read inventory file
+    const inventoryPath = path.join(PROJECTS_DIR, `${projectName}_inventory.json`);
+
+    try {
+      await fs.promises.access(inventoryPath);
+      const fileContent = await fs.promises.readFile(inventoryPath, 'utf-8');
+      const inventoryData = JSON.parse(fileContent);
+
+      let variables = {};
+      try {
+        const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+        if (fs.existsSync(projectPath)) {
+          const projectContent = await fs.promises.readFile(projectPath, 'utf-8');
+          const projectData = JSON.parse(projectContent);
+          variables = projectData.variables || projectData;
+        }
+      } catch (e) {}
+
+      res.json({
+        data: inventoryData.data || [],
+        timestamp: inventoryData.timestamp || null,
+        projectName: inventoryData.projectName || projectName,
+        variables: variables
+      });
+    } catch (fileErr: any) {
+      if (fileErr.code === 'ENOENT') {
+        let variables = {};
+        try {
+          const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+          if (fs.existsSync(projectPath)) {
+            const projectContent = await fs.promises.readFile(projectPath, 'utf-8');
+            const projectData = JSON.parse(projectContent);
+            variables = projectData.variables || projectData;
+          }
+        } catch (e) {}
+        
+        return res.json({
+          data: [],
+          timestamp: null,
+          projectName,
+          variables: variables
+        });
+      }
+
+      logger.error('Failed to read inventory file', fileErr);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to load inventory data. Please try again later.'
+      });
+    }
+  } catch (err) {
+    logger.error('Inventory endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({
+      success: false,
+      error: 'Failed to load inventory data. Please try again later.'
+    });
   }
 });
 
@@ -772,6 +976,19 @@ const enqueueWrite = (projectName: string, fn: () => Promise<void>): void => {
   });
   writeQueues.set(projectName, next);
 };
+
+// Функція для завантаження налаштувань браузера з файлу проекту, якщо вони ще не в сесії
+async function ensureBrowserSettings(projectName: string, session: ProjectSession) {
+  try {
+    const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+    const rawData = await fs.promises.readFile(projectPath, 'utf-8');
+    const projectData = JSON.parse(rawData);
+    const bs = projectData.browserSettings || projectData.settings || {};
+    session.botSettings = { ...session.botSettings, ...bs };
+  } catch (err) {
+    logger.warn(`Could not read project file for ${projectName} to ensure browser settings`, { error: String(err) });
+  }
+}
 
 // Функція для збереження змінних проекту та надсилання оновлень клієнту
 const broadcastVariables = (session: ProjectSession) => {
@@ -1317,8 +1534,9 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         }
       };
       
-    // Requirement 13.1: Wrap connectToBrowser in try-catch with logging
-    await connectToBrowser(
+      // Requirement 13.1: Wrap connectToBrowser in try-catch with logging
+      await ensureBrowserSettings(projectName, session);
+      await connectToBrowser(
         session,
         session.botSettings?.width || session.botSettings?.browserWidth,
         session.botSettings?.height || session.botSettings?.browserHeight,
@@ -1525,7 +1743,23 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         ws.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: true }));
       }
 
-      const { node, nodes, edges, settings } = data;
+      const { node, settings } = data;
+      // Якщо nodes/edges не передані або порожні (запуск з моніторингу) — читаємо з файлу проекту
+      let nodes = data.nodes;
+      let edges = data.edges;
+      if (!nodes || !edges || (nodes.length === 0 && data.type === 'RUN_BOT')) {
+        try {
+          const projPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+          const projContent = fs.readFileSync(projPath, 'utf-8');
+          const projData = JSON.parse(projContent);
+          if (!nodes || nodes.length === 0) nodes = projData.nodes || [];
+          if (!edges || edges.length === 0) edges = projData.edges || [];
+        } catch (loadProjErr) {
+          logger.warn(`Failed to load nodes/edges from project file for ${projectName}`, { error: String(loadProjErr) });
+          nodes = nodes || [];
+          edges = edges || [];
+        }
+      }
       if (settings) {
         session.botSettings = { ...session.botSettings, ...settings };
         session.photoDebugEnabled = session.botSettings.photoDebug !== false;
@@ -1536,6 +1770,7 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
         const height = settings?.height || settings?.browserHeight || 720;
         
         // Підключаємося до браузера сесії
+        await ensureBrowserSettings(projectName, session);
         const activePage = await connectToBrowser(
           session,
           width,
@@ -1814,9 +2049,63 @@ app.delete('/api/notifications/:id', (req, res) => {
 // Requirement 10: Register scheduler interval with TimerManager
 timerManager.registerTimer('system:scheduler', schedulerInterval);
 
+app.post('/api/browser/open/:projectName', authMiddleware, csrfMiddleware, async (req, res) => {
+  const projectName = req.params.projectName;
+  try {
+    let session = sessions.get(projectName);
+    if (!session) {
+      session = getOrCreateSession(projectName);
+    }
+    
+    // Якщо браузер вже запущений — повертаємо успіх без повторного запуску
+    if (isSessionBrowserAlive(session)) {
+      return res.json({ success: true, message: 'Browser is already running' });
+    }
+
+    // Читаємо налаштування профілю та проксі з файлу проекту
+    await ensureBrowserSettings(projectName, session);
+
+    // Відкриваємо браузер
+    await connectToBrowser(
+      session,
+      session.botSettings?.width || session.botSettings?.browserWidth || 1280,
+      session.botSettings?.height || session.botSettings?.browserHeight || 720,
+      session.botSettings?.profile,
+      session.botSettings?.profileDir,
+      session.botSettings?.proxy
+    );
+    
+    res.json({ success: true, message: 'Browser opened successfully' });
+  } catch (error: any) {
+    logger.error(`Failed to open browser for ${projectName}`, error instanceof Error ? error : new Error(String(error)));
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/browser/close/:projectName', authMiddleware, csrfMiddleware, async (req, res) => {
+  const projectName = req.params.projectName;
+  try {
+    const session = sessions.get(projectName);
+    if (session) {
+      await closeSessionBrowser(session);
+    }
+    res.json({ success: true, message: 'Browser closed' });
+  } catch (error: any) {
+    logger.error(`Failed to close browser for ${projectName}`, error instanceof Error ? error : new Error(String(error)));
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.get('/api/browser/status/:projectName', authMiddleware, async (req, res) => {
+  const projectName = req.params.projectName;
+  const session = sessions.get(projectName);
+  const isRunning = session ? isSessionBrowserAlive(session) : false;
+  res.json({ success: true, isRunning });
+});
+
 // Запускаємо HTTP сервер на вказаному порті
 server.listen(HTTP_PORT, '0.0.0.0', () => {
-  console.log(`🚀 Сервер на порту ${HTTP_PORT}`);
+  logger.info(`🚀 Сервер на порту ${HTTP_PORT}`);
 });
 
 // Requirement 8 & 20: Graceful shutdown handling

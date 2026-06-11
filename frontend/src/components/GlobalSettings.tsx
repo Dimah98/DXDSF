@@ -1,6 +1,7 @@
 // Панель глобальних налаштувань інтерфейсу
 import { useState, useEffect } from 'react';
-import { Settings, X, Palette, AppWindow, Layers, Type, Square, CreditCard, ClipboardList, Monitor, ImageOff, Globe, Camera, Grid3x3 } from 'lucide-react';
+import { Settings, X, Palette, AppWindow, Layers, Type, Square, CreditCard, ClipboardList, Monitor, ImageOff, Globe, Camera, Grid3x3, Database } from 'lucide-react';
+import { ConfigSettings } from './ConfigSettings';
 
 const ColorRow = ({ label, icon: Icon, value, onChange }: any) => (
   <div className="flex items-center justify-between py-1.5 group px-1">
@@ -272,6 +273,18 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
                         className="rounded border-white/20 text-amber-500 focus:ring-amber-500 bg-black/20" 
                       />
                     </label>
+                  </div>
+                </div>
+
+                {/* Секція: Global Config */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center gap-2 mb-2 px-1">
+                     <Database size={14} className="text-purple-400" />
+                     <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">Глобальна Конфігурація</span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-black/20 border border-white/5">
+                    <ConfigSettings />
                   </div>
                 </div>
             </div>

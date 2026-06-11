@@ -612,6 +612,36 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
   try {
     session.page.on('console', msg => logger.debug(`[BROWSER-${session.projectName}] ${msg.text()}`));
     session.page.on('pageerror', err => logger.error(`[BROWSER-${session.projectName}] Page error`, err instanceof Error ? err : new Error(String(err))));
+    
+    // Фоновий перехоплювач мережі для API ноди
+    session.page.on('response', async (response) => {
+      try {
+        const responseUrl = response.url();
+        const method = response.request().method();
+
+        if (!responseUrl.includes('api.sunflower-land.com') || method !== 'GET') return;
+
+        const reqHeaders = response.request().headers();
+        const authHeader = reqHeaders['authorization'] || reqHeaders['Authorization'] || null;
+        const token = authHeader ? authHeader.replace('Bearer ', '') : null;
+
+        if (!token) return;
+
+        const hasNumericId = /\/\d{6,}/.test(responseUrl);
+        if (!hasNumericId) return;
+
+        const farmIdMatch = responseUrl.match(/\/(\d{6,})/);
+        const farmId = farmIdMatch ? farmIdMatch[1] : null;
+
+        if (farmId && token) {
+          session.latestFarmId = farmId;
+          session.latestApiToken = token;
+        }
+      } catch {
+        // Ігноруємо помилки фонового перехоплювача
+      }
+    });
+
   } catch (handlerErr) {
     logger.warn(`Failed to attach page event handlers for project ${session.projectName}`, { error: String(handlerErr) });
   }
@@ -880,7 +910,7 @@ export async function takeDebugSnapshot(session: ProjectSession, nodeId: string,
   if (!isSessionBrowserAlive(session) || !session.page || !session.photoDebugEnabled) return;
   try {
     // Створюємо папку для скріншотів, якщо вона не існує
-    const imagesDir = path.join(__dirname, '../images');
+    const imagesDir = path.join(__dirname, '../images/debug');
     try {
       if (!fs.existsSync(imagesDir)) {
         fs.mkdirSync(imagesDir, { recursive: true });

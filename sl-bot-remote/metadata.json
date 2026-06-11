@@ -1,0 +1,6 @@
+{
+  "name": "SL Bot Remote",
+  "description": "Android application for managing and monitoring the Sunflower Land Bot Constructor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

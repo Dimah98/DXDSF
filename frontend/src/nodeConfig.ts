@@ -7,7 +7,7 @@ import {
   GitFork, MousePointerClick, Crosshair, Keyboard,
   Camera, Layers, Monitor, Repeat, Move,
   MessageSquare, Timer, XCircle, Calculator, Activity,
-  ArrowRightLeft, Package, Clock, CalendarClock, Bell // Clock — іконка для delayNode
+  ArrowRightLeft, Package, Clock, CalendarClock, Bell, Sprout, Flame, ChefHat
 } from 'lucide-react';
 
 // Тип одного запису конфігурації ноди
@@ -19,6 +19,88 @@ export interface NodeConfig {
   defaultColor: string;   // Hex-колір за замовчуванням
   defaults?: Record<string, any>; // Початкові дані ноди при створенні
 }
+
+export const RECIPES_DATA: Record<string, Record<string, number>> = {
+  "Furikake Sprinkle": { "Fish Flake": 1, "Seaweed": 1 },
+  "Mashed Potato": { "Potato": 8 },
+  "Pumpkin Soup": { "Pumpkin": 10 },
+  "Reindeer Carrot": { "Carrot": 5 },
+  "Mushroom Soup": { "Wild Mushroom": 5 },
+  "Popcorn": { "Sunflower": 100, "Corn": 5 },
+  "Bumpkin Broth": { "Carrot": 10, "Cabbage": 5 },
+  "Cabbers n Mash": { "Mashed Potato": 10, "Cabbage": 20 },
+  "Boiled Eggs": { "Egg": 10 },
+  "Kale Stew": { "Kale": 10 },
+  "Kale Omelette": { "Egg": 40, "Kale": 5 },
+  "Gumbo": { "Potato": 50, "Pumpkin": 30, "Carrot": 20, "Red Snapper": 3 },
+  "Rapid Roast": { "Magic Mushroom": 1, "Pumpkin": 40 },
+  "Fried Tofu": { "Soybean": 15, "Sunflower": 200 },
+  "Rice Bun": { "Rice": 2, "Wheat": 50 },
+  "Antipasto": { "Olive": 2, "Grape": 2 },
+  "Pizza Margherita": { "Tomato": 30, "Cheese": 5, "Wheat": 20 },
+  "Rhubarb Tart": { "Rhubarb": 3 }
+};
+
+export const KITCHEN_RECIPES_DATA: Record<string, Record<string, number>> = {
+  "Surimi Rice Bowl": { "Fish Stick": 1, "Rice": 1, "Onion": 1 },
+  "Creamy Crab Bite": { "Crab Stick": 1, "Cheese": 3 },
+  "Crimstone Infused Fish Oil": { "Fish Oil": 1, "Crimstone": 1 },
+  "Sunflower Crunch": { "Sunflower": 300 },
+  "Mushroom Jacket Potatoes": { "Wild Mushroom": 10, "Potato": 5 },
+  "Fruit Salad": { "Apple": 1, "Orange": 1, "Blueberry": 1 },
+  "Pancakes": { "Wheat": 10, "Egg": 10, "Honey": 6 },
+  "Roast Veggies": { "Cauliflower": 15, "Carrot": 10 },
+  "Cauliflower Burger": { "Cauliflower": 15, "Wheat": 5 },
+  "Club Sandwich": { "Sunflower": 100, "Carrot": 25, "Wheat": 5 },
+  "Bumpkin Salad": { "Beetroot": 20, "Parsnip": 10 },
+  "Bumpkin ganoush": { "Eggplant": 30, "Potato": 50, "Parsnip": 10 },
+  "Goblin's Treat": { "Pumpkin": 10, "Radish": 20, "Cabbage": 10 },
+  "Chowder": { "Beetroot": 10, "Wheat": 10, "Parsnip": 5, "Anchovy": 3 },
+  "Bumpkin Roast": { "Mashed Potato": 20, "Roast Veggies": 5 },
+  "Goblin Brunch": { "Boiled Eggs": 5, "Goblin's Treat": 1 },
+  "Beetroot Blaze": { "Magic Mushroom": 2, "Beetroot": 50 },
+  "Steamed Red Rice": { "Rice": 3, "Beetroot": 50 },
+  "Tofu Scramble": { "Soybean": 20, "Egg": 20, "Cauliflower": 10 },
+  "Fried Calamari": { "Sunflower": 200, "Wheat": 15, "Squid": 1 },
+  "Fish Burger": { "Beetroot": 10, "Wheat": 10, "Horse Mackerel": 1 },
+  "Fish Omelette": { "Egg": 40, "Surgeonfish": 1, "Butterflyfish": 2 },
+  "Ocean's Olive": { "Olive Flounder": 1, "Olive": 2 },
+  "Seafood Basket": { "Blowfish": 2, "Napoleanfish": 2, "Sunfish": 2 },
+  "Fish n Chips": { "Fancy Fries": 1, "Halibut": 1 },
+  "Sushi Roll": { "Angelfish": 1, "Seaweed": 1, "Rice": 2 },
+  "Caprese Salad": { "Cheese": 1, "Tomato": 25, "Kale": 20 },
+  "Spaghetti al Limone": { "Wheat": 10, "Lemon": 15, "Cheese": 3 }
+};
+
+const defaultFirePitRules = Object.keys(RECIPES_DATA).map(recipeName => {
+  const ingMultipliers: Record<string, number> = {};
+  Object.keys(RECIPES_DATA[recipeName]).forEach(ing => {
+    ingMultipliers[ing] = 1; // Default multiplier is 1
+  });
+
+  return {
+    recipeName,
+    enabled: false,
+    maxDish: 10,
+    ingMultipliers,
+    selector: ''
+  };
+});
+
+const defaultKitchenRules = Object.keys(KITCHEN_RECIPES_DATA).map(recipeName => {
+  const ingMultipliers: Record<string, number> = {};
+  Object.keys(KITCHEN_RECIPES_DATA[recipeName]).forEach(ing => {
+    ingMultipliers[ing] = 1; // Default multiplier is 1
+  });
+
+  return {
+    recipeName,
+    enabled: false,
+    maxDish: 10,
+    ingMultipliers,
+    selector: ''
+  };
+});
 
 // Реєстр усіх типів нод проекту
 export const NODE_CONFIG: Record<string, NodeConfig> = {
@@ -39,214 +121,166 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
   infoNode: {
     label: 'Сканер',
     icon: Scan,
-    desc: 'Аналіз елемента',
-    hint: 'Зчитує дані елемента з браузера: координати, текст, число, кількість дочірніх елементів і картинок. Результати доступні через вихідні порти.',
-    defaultColor: '#14b8a6',
+    desc: 'Отримати текст/дані',
+    hint: 'Витягує текст, HTML або атрибут вказаного елемента (по CSS чи XPath) та зберігає його у змінну для подальшого використання.',
+    defaultColor: '#3b82f6',
+  },
+  displayNode: {
+    label: 'Екран',
+    icon: Monitor,
+    desc: 'Вивід значень',
+    hint: 'Зручний віджет на полотні, який дозволяє в реальному часі бачити значення вказаної змінної.',
+    defaultColor: '#0ea5e9',
   },
   imageSearchNode: {
-    label: 'Пошук картинки',
-    icon: Search,
-    desc: 'Знайти за файлом',
-    hint: 'Шукає еталонне зображення (з папки images/) на екрані або в межах CSS-селектора. Повертає координати і кількість збігів.',
-    defaultColor: '#6366f1',
+    label: 'Пошук по картинці',
+    icon: Camera,
+    desc: 'Шукає зображення на екрані',
+    hint: 'Аналізує екран браузера та шукає заданий шаблон (картинку). Результат можна використовувати для кліків по знайденим координатам.',
+    defaultColor: '#ec4899',
   },
-  searchInNode: {
-    label: 'Пошук у блоці',
+  selectorCheckNode: {
+    label: 'Перевірка елемента',
     icon: Search,
-    desc: 'Шукати в селекторі',
-    hint: 'Шукає дочірній елемент всередині батьківського блоку. Повертає "Знайдено" або "Немає". Корисно для перевірки стану конкретних частин UI.',
+    desc: 'Перевіряє наявність',
+    hint: 'Перевіряє чи існує елемент за вказаним CSS або XPath. Якщо знайдено — зелена гілка, якщо ні — синя гілка.',
+    defaultColor: '#f59e0b',
+  },
+  coordClickNode: {
+    label: 'Клік по координатах',
+    icon: Crosshair,
+    desc: 'Емуляція кліку мишкою',
+    hint: 'Виконує справжній клік мишкою у задані координати {X, Y}. Може використовувати координати, знайдені нодою ImageSearch.',
+    defaultColor: '#ef4444',
+  },
+  actionNode: {
+    label: 'Дія (Клік)',
+    icon: MousePointerClick,
+    desc: 'Клік по селектору',
+    hint: 'Найпопулярніша нода. Шукає елемент за селектором та виконує клік по ньому. Також може почекати поки елемент зʼявиться.',
+    defaultColor: '#22c55e',
+  },
+  keyboardNode: {
+    label: 'Клавіатура',
+    icon: Keyboard,
+    desc: 'Ввід тексту/клавіш',
+    hint: 'Емулює натискання клавіш або друкує текст у вибране поле.',
     defaultColor: '#6366f1',
   },
   apiNode: {
-    label: 'API Запит',
+    label: 'Запит до API',
     icon: CloudDownload,
-    desc: 'Дані з сервера SFL',
-    hint: 'Отримує дані з API Sunflower Land. Результат зберігається у змінну і може передаватись у ноди порівняння або змінних.',
-    defaultColor: '#6366f1',
-    defaults: {
-      url: 'https://api.sunflower-land.com/farm/status',
-      apiKey: '',
-    },
+    desc: 'HTTP GET/POST',
+    hint: 'Виконує зовнішній веб-запит (GET, POST тощо) до вказаного URL та зберігає відповідь сервера.',
+    defaultColor: '#10b981',
   },
   variableNode: {
-    label: 'Змінні',
+    label: 'Змінна',
     icon: Database,
-    desc: "Глобальна пам'ять",
-    hint: "Зберігає значення з контексту (наприклад, дані API) у глобальні змінні. Ці змінні доступні в логічних нодах і зберігаються між запусками.",
-    defaultColor: '#f59e0b',
-    defaults: {
-      variables: [{ name: 'wood', path: 'inventory.Wood', value: '0' }],
-    },
-  },
-  multiLogicNode: {
-    label: 'Логічний ХАБ',
-    icon: GitFork,
-    desc: 'Багато умов',
-    hint: 'Перевіряє кілька умов над глобальними змінними (AND/OR). Кожна гілка — окремий вихідний порт. Підтримує вирази типу "gold > 100 && energy < 50".',
+    desc: 'Створити/Змінити',
+    hint: 'Створює нову змінну або перезаписує існуючу вказаним значенням. Змінні зберігаються у загальному сховищі.',
     defaultColor: '#8b5cf6',
-    defaults: {
-      conditions: [{ rules: [{ varName: '', op: '>', value: '0' }], logicOp: '&&', expression: '' }],
-    },
-  },
-  compareNode: {
-    label: 'Порівняння',
-    icon: GitFork,
-    desc: 'Число або текст',
-    hint: 'Порівнює два значення (числа або рядки). Результат — "True" (зелений порт) або "False" (червоний порт). Значення можна вводити вручну або передавати через порти A/B.',
-    defaultColor: '#6366f1',
-  },
-  selectorCheckNode: {
-    label: 'Перевірка',
-    icon: Search,
-    desc: 'Чи є на екрані?',
-    hint: 'Перевіряє наявність CSS-елемента на сторінці. "Є" (зелений) — якщо елемент знайдено, "Немає" (червоний) — якщо відсутній.',
-    defaultColor: '#fb923c',
-  },
-  nestedCheckNode: {
-    label: 'Вкладена перевірка',
-    icon: Layers,
-    desc: 'Пошук всередині',
-    hint: 'Шукає дочірній елемент всередині батьківського. Обидва селектори задаються окремо. Корисно для перевірки стану компонента.',
-    defaultColor: '#ec4899',
   },
   valueLoopNode: {
-    label: 'Цикл Кліків',
+    label: 'Цикл значень',
     icon: Repeat,
-    desc: 'Клік за умовою',
-    hint: 'Знаходить всі дочірні елементи батьківського блоку і кліка по кожному по черзі. Фільтрує за мінімальним числом поруч. Видає прогрес у реальному часі.',
+    desc: 'Ітерація по масиву',
+    hint: 'Проходить по кожному елементу масиву (чи списку), зберігаючи його в змінну і виконуючи тіло циклу. Коли елементи закінчуються — йде по гілці "Завершено".',
     defaultColor: '#d946ef',
   },
-  actionNode: {
-    label: 'Дія',
-    icon: MousePointerClick,
-    desc: 'Клік / Наведення',
-    hint: 'Виконує дію над CSS-елементом: одинарний клік, подвійний клік, наведення (hover) або прокрутку до нього. Підтримує режим "Клікнути всі копії".',
-    defaultColor: '#3b82f6',
+  multiLogicNode: {
+    label: 'Диспетчер подій',
+    icon: GitFork,
+    desc: 'Варіації (Пріоритет)',
+    hint: 'Крута нода для гнучкості: перевіряє список умов згори донизу. Виконує гілку першої умови, що спрацювала.',
+    defaultColor: '#f43f5e',
   },
-  coordClickNode: {
-    label: 'Клік (X,Y)',
-    icon: Crosshair,
-    desc: 'Точний клік',
-    hint: 'Клікає по абсолютних координатах екрану. Координати можна встановити вручну або отримати через порт "update_coords" від ноди Сканер.',
-    defaultColor: '#06b6d4',
+  searchInNode: {
+    label: 'Пошук в області',
+    icon: Layers,
+    desc: 'Знайти елемент в іншому',
+    hint: 'Спочатку шукає батьківський елемент, а потім всередині нього виконує клік/перевірку за дочірнім селектором.',
+    defaultColor: '#14b8a6',
   },
-  coordOffsetNode: {
-    label: 'Зсув координат',
-    icon: Move,
-    desc: 'Додати X, Y',
-    hint: 'Зміщує вхідні координати на вказану кількість пікселів по X та Y. Повертає нові координати через порт "coords".',
-    defaultColor: '#4f46e5',
-  },
-  keyboardNode: {
-    label: 'Макрос',
-    icon: Keyboard,
-    desc: 'Клавіші',
-    hint: 'Натискає задану послідовність клавіш з паузами між ними. Підтримує: Enter, Escape, Tab, F1–F12, літери тощо.',
-    defaultColor: '#64748b',
-    defaults: {
-      keys: [{ key: 'Enter', delay: 100 }],
-    },
-  },
-  escNode: {
-    label: 'Натиснути ESC',
-    icon: XCircle,
-    desc: 'Закрити меню',
-    hint: 'Надсилає клавішу Escape в браузер. Корисно для закриття модальних вікон, меню або скасування дій.',
-    defaultColor: '#475569',
+  compareNode: {
+    label: 'Порівняння (IF)',
+    icon: Calculator,
+    desc: 'Математика або текст',
+    hint: 'Порівнює два значення (наприклад, {myVar} > 10). Якщо правда — зелена гілка, інакше — синя.',
+    defaultColor: '#fb923c',
   },
   multiScanNode: {
-    label: 'Мульти-Сканер',
-    icon: Layers,
-    desc: 'Список цілей',
-    hint: 'Перевіряє список CSS-селекторів по черзі і зупиняється на першому збігу. Повертає координати знайденого елемента.',
-    defaultColor: '#0891b2',
+    label: 'Мульти-сканер',
+    icon: Scan,
+    desc: 'Витягти масив даних',
+    hint: 'Сканує сторінку на наявність багатьох однакових елементів (наприклад, усіх товарів) і зберігає результати в масив.',
+    defaultColor: '#3b82f6',
   },
   gateNode: {
-    label: 'Шлюз-Лічильник',
-    icon: Repeat,
-    desc: 'Ліміт проходів',
-    hint: 'Пропускає сигнал до досягнення ліміту. Після — перемикається на порт "Ліміт". Лічильник зберігається між ітераціями сценарію.',
-    defaultColor: '#d97706',
+    label: 'Логічний Шлюз',
+    icon: ArrowRightLeft,
+    desc: 'Обʼєднання сигналів',
+    hint: 'Може обʼєднувати багато вхідних зʼєднань в одне (або розгалужувати сигнал). Також може працювати як "AND-вентиль" або "Перемикач".',
+    defaultColor: '#8b5cf6',
   },
-  visualSearchNode: {
-    label: 'Візуальний зір',
-    icon: Camera,
-    desc: 'Пошук скріншотом',
-    hint: 'Порівнює еталонне зображення з поточним скріншотом браузера. Налаштовується точність збігу (0–100%). Повертає координати знайденого.',
-    defaultColor: '#10b981',
+  escNode: {
+    label: 'Закрити (ESC)',
+    icon: XCircle,
+    desc: 'Закрити вікна/модалки',
+    hint: 'Універсальна нода для закриття вспливаючих вікон (шляхом натискання клавіші Escape або кліку поза вікном).',
+    defaultColor: '#64748b',
+  },
+  commentNode: {
+    label: 'Коментар',
+    icon: MessageSquare,
+    desc: 'Написи на полотні',
+    hint: 'Слугує виключно для документування та залишення нотаток прямо на полотні редактора.',
+    defaultColor: '#94a3b8',
+  },
+  randomDelayNode: {
+    label: 'Рандом-Пауза',
+    icon: Timer,
+    desc: 'Затримка X-Y мс',
+    hint: 'Витримує паузу у випадковому діапазоні між X та Y мілісекунд (наприклад 1000-3000 мс). Робить поведінку бота більш людяною.',
+    defaultColor: '#6366f1',
+    defaults: {
+      min: 1000,
+      max: 3000
+    }
   },
   eventVariationsNode: {
     label: 'Диспетчер подій',
     icon: GitFork,
     desc: 'Варіації (Пріоритет)',
-    hint: 'Перевіряє список умов по черзі (текст, селектор, картинка). Переходить у перший порт, де умова спрацювала. Якщо нічого не знайдено — у порт "Нічого".',
+    hint: 'Перевіряє список умов згори донизу. Клікає по першій підходящій.',
     defaultColor: '#f43f5e',
     defaults: {
-      rules: [{ type: 'text', value: '' }],
-    },
-  },
-  randomDelayNode: {
-    label: 'Рандом-Пауза',
-    icon: Timer,
-    desc: 'Затримка X–Y мс',
-    hint: 'Зупиняє виконання на випадковий час у діапазоні від "мін" до "макс" мілісекунд. Антидетект — імітує людську поведінку.',
-    defaultColor: '#6366f1',
-    defaults: {
-      minDelay: 500,
-      maxDelay: 2000,
-    },
-  },
-  delayNode: {
-    label: 'Пауза',                      // Назва в сайдбарі
-    icon: Clock,                          // Іконка годинника
-    desc: 'Фіксована затримка',           // Підпис в сайдбарі
-    hint: 'Зупиняє виконання на фіксовану кількість мілісекунд. Для змінної затримки використовуй "Рандом-Паузу".', // Пояснення ?
-    defaultColor: '#6366f1',
-    defaults: {
-      delay: 1000,                        // 1 секунда за замовчуванням
-    },
-  },
-  commentNode: {
-    label: 'Коментар',
-    icon: MessageSquare,
-    desc: 'Нотатка на полотні',
-    hint: 'Текстова нотатка — не виконується ботом. Використовується для документування схеми та пояснень для інших розробників.',
-    defaultColor: '#64748b',
-  },
-  displayNode: {
-    label: 'Вивід',
-    icon: Monitor,
-    desc: 'Результат',
-    hint: 'Відображає значення з контексту попередньої ноди. Корисно для налагодження — показує що передається між нодами.',
-    defaultColor: '#64748b',
+      variations: [
+        { text: "Прийняти", selector: ".accept" },
+        { text: "Відхилити", selector: ".reject" }
+      ]
+    }
   },
   calculatorNode: {
     label: 'Калькулятор',
     icon: Calculator,
     desc: 'Математичні вирази',
-    hint: 'Виконує розрахунки з числами та глобальними змінними. Можна додавати кілька незалежних блоків розрахунку, кожен з яких має свій вхід та вихід.',
-    defaultColor: '#0891b2',
-    defaults: {
-      examples: [{ id: 'ex_0', rows: [{ value: '0', op: '+' }], resultVar: '' }]
-    },
+    hint: 'Виконує математичні операції (+, -, *, /) між змінними або числами. Результат зберігає у нову змінну.',
+    defaultColor: '#0284c7',
   },
   variablesMonitorNode: {
     label: 'Монітор Змінних',
     icon: Activity,
     desc: 'Список усіх значень',
-    hint: 'Показує всі глобальні змінні проекту та їхні значення в реальному часі. Ідеально підходить для моніторингу ресурсів ферми.',
-    defaultColor: '#10b981',
+    hint: 'Зручне віконце прямо на полотні, яке відображає поточні значення всіх глобальних змінних проекту.',
+    defaultColor: '#059669',
   },
   rotatorNode: {
-    label: 'Чергувач',                                 // Назва в сайдбарі
-    icon: ArrowRightLeft,                              // Іконка (Sequential mode)
-    desc: 'По черзі або рандом',                  // Підпис в сайдбарі
-    hint: 'Щоразу приходить сигнал, направляє його на наступний вихід по черзі. Режим "Рандом" — вибирає вихід випадково. Кількість виходів 2–8 — налаштовується.', // Пояснення для ?
-    defaultColor: '#7c3aed',                           // Фіолетовий
-    defaults: {
-      outputCount: 3, // Початкова кількість виходів
-      mode: 'sequence', // Режим: 'sequence' або 'random'
-    },
+    label: 'Чергувач',
+    icon: Repeat, // Змінено з ArrowPath на Repeat
+    desc: 'По черзі або рандом',
+    hint: 'Кожен раз, коли сигнал приходить на цю ноду, вона передає його на НАСТУПНИЙ порт по колу (або у випадковий порт).',
+    defaultColor: '#8b5cf6',
   },
   groupNode: {
     label: 'Контейнер',                                // Назва в сайдбарі
@@ -292,6 +326,55 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     defaults: {
       message: 'Бот {project} завершив роботу',
     },
+  },
+  cropAnalyzerNode: {
+    label: 'Аналізатор врожаю',
+    icon: Sprout,
+    desc: 'Час дозрівання',
+    hint: 'Аналізує JSON з API, знаходить найближчий час дозрівання рослин. Якщо є дозрілий врожай — виходить через зелений порт. Якщо рослини ростуть — планує повторний запуск за таблицею правил і виходить через синій порт.',
+    defaultColor: '#16a34a',
+    defaults: {
+      variableName: 'nextCropHarvest',
+      scheduleRules: [
+        { fromMin: 0, toMin: 15, scheduleFromMin: 3, scheduleToMin: 5 },
+        { fromMin: 15, toMin: 120, scheduleFromMin: 10, scheduleToMin: 15 },
+        { fromMin: 120, toMin: 9999, scheduleFromMin: 60, scheduleToMin: 120 },
+      ]
+    }
+  },
+  firePitNode: {
+    label: 'Шеф Fire Pit',
+    icon: Flame,
+    desc: 'Готування страв',
+    hint: 'Перевіряє всі страви згори донизу. Якщо страва увімкнена, її кількість менша за ліміт і вистачає інгредієнтів (з урахуванням індивідуальних множників) — клікає по її селектору.',
+    defaultColor: '#ea580c',
+    defaults: {
+      rules: defaultFirePitRules
+    }
+  },
+  kitchenNode: {
+    label: 'Шеф Kitchen',
+    icon: ChefHat,
+    desc: 'Готування в Kitchen',
+    hint: 'Перевіряє всі страви Kitchen згори донизу. Якщо страва увімкнена, її кількість менша за ліміт і вистачає інгредієнтів — клікає по її селектору.',
+    defaultColor: '#a855f7',
+    defaults: {
+      rules: defaultKitchenRules
+    }
+  },
+  inventoryScannerNode: {
+    label: 'Сканер Інвентаря',
+    icon: Package,
+    desc: 'Зображення + числа',
+    hint: 'Сканує елементи на сторінці за CSS селектором, витягує зображення та числові значення. Можна обмежити пошук контейнером. Результати зберігаються у файл і доступні через кнопку "Інвентар".',
+    defaultColor: '#6366f1',
+    defaults: {
+      selector: '.inventory-item',
+      containerSelector: '',
+      mode: 'all',
+      imageSource: 'auto',
+      numberRegex: '(\\d+(?:\\.\\d+)?)'
+    }
   }
 };
 
