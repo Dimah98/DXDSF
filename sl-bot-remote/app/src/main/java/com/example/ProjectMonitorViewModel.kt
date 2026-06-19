@@ -78,6 +78,12 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
     private val _projectVariables = MutableStateFlow<Map<String, Any>>(emptyMap())
     val projectVariables: StateFlow<Map<String, Any>> = _projectVariables.asStateFlow()
 
+    private val _screenshots = MutableStateFlow<List<String>>(emptyList())
+    val screenshots: StateFlow<List<String>> = _screenshots.asStateFlow()
+
+    private val _showGallery = MutableStateFlow(false)
+    val showGallery: StateFlow<Boolean> = _showGallery.asStateFlow()
+
     init {
         // Collect network changes and updates from socket client in lifecycle scope
         viewModelScope.launch {
@@ -141,6 +147,7 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
 
         // Fetch historic project metrics via API
         fetchRestStats()
+        fetchScreenshots()
 
         // Fetch all projects for navigation
         viewModelScope.launch {
@@ -259,6 +266,7 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
                 val stats = service.getProjectStats(projName)
                 _projectStats.value = stats
                 Log.d(TAG, "Rest stats fetched: $stats")
+                fetchScreenshots() // Також оновлюємо скріншоти при оновленні статистики
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching REST project metrics: ${e.message}")
             } finally {
@@ -307,6 +315,57 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
      */
     fun sendMouseClick(x: Float, y: Float, width: Int, height: Int) {
         webSocketClient.sendMouseClick(x, y, width, height)
+    }
+
+    /**
+     * Завантажує список скріншотів проекту.
+     */
+    fun fetchScreenshots() {
+        val projName = _projectName.value
+        val service = apiService
+        if (projName.isBlank() || service == null) return
+
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Fetching screenshots for project: $projName")
+                val list = service.getScreenshots(projName)
+                Log.d(TAG, "Screenshots fetched for $projName: ${list.size} items -> $list")
+                _screenshots.value = list.sorted() // Сортування по алфавіту
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching screenshots for $projName: ${e.message}", e)
+            }
+        }
+    }
+
+    /**
+     * Перемикає між консоллю та галереєю скріншотів.
+     */
+    fun toggleGallery() {
+        _showGallery.value = !_showGallery.value
+    }
+
+    /**
+     * Видаляє скріншот.
+     */
+    fun deleteScreenshot(filename: String) {
+        val projName = _projectName.value
+        val service = apiService
+        if (projName.isBlank() || service == null) return
+
+        viewModelScope.launch {
+            try {
+                val response = service.deleteScreenshot(projName, filename)
+                if (response.success) {
+                    _screenshots.value = _screenshots.value.filter { it != filename }
+                    addLog("Скріншот $filename видалено", "success")
+                } else {
+                    addLog("Помилка видалення скріншота: ${response.message}", "error")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting screenshot: ${e.message}")
+                addLog("Помилка видалення скріншота: ${e.message}", "error")
+            }
+        }
     }
 
     /**

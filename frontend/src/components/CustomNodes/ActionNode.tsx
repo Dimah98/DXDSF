@@ -7,18 +7,20 @@ import BaseNode, { getHandleStyle } from './BaseNode';
 
 // Типи дій з описами
 const ACTION_TYPES = [
-  { value: 'click',        label: 'Одинарний клік' },
-  { value: 'double_click', label: 'Подвійний клік' },
-  { value: 'hover',        label: 'Наведення (Hover)' },
-  { value: 'scroll',       label: 'Прокрутити до (Scroll)' },
-  { value: 'force_click',  label: '⚡ Force Click (обхід капчі)' },
-  { value: 'js_click',     label: '💻 JS Click (dispatch event)' },
+  { value: 'click',          label: 'Одинарний клік' },
+  { value: 'double_click',   label: 'Подвійний клік' },
+  { value: 'hover',          label: 'Наведення (Hover)' },
+  { value: 'scroll',         label: 'Прокрутити до (Scroll)' },
+  { value: 'force_click',    label: '⚡ Force Click (обхід капчі)' },
+  { value: 'js_click',       label: '💻 JS Click (element.click())' },
+  { value: 'dispatch_click', label: '🎯 Dispatch Click (повна симуляція)' },
 ];
 
 // Підказки для спеціальних режимів
 const HINTS: Record<string, string> = {
-  force_click: 'Клік з force:true — ігнорує перевірку viewport. Для елементів з CSS 3D-трансформами (perspective, rotateX/Y).',
-  js_click:    'JS клік через element.click() — обходить будь-яку антибот перевірку координат.',
+  force_click:    'Клік з force:true — ігнорує перевірку viewport. Для елементів з CSS 3D-трансформами (perspective, rotateX/Y).',
+  js_click:       'JS клік через element.click() — обходить будь-яку антибот перевірку координат.',
+  dispatch_click: 'Повна симуляція кліку: pointerdown → mousedown → pointerup → mouseup → click. Обходить CSS 3D-трансформи та проблему зміщених координат.',
 };
 
 const ActionNode = memo(({ id, data }: { id: string, data: any }) => {
@@ -28,7 +30,7 @@ const ActionNode = memo(({ id, data }: { id: string, data: any }) => {
     : Play;
 
   const actionType = data.actionType || 'click';
-  const isSpecial = actionType === 'force_click' || actionType === 'js_click';
+  const isSpecial = actionType === 'force_click' || actionType === 'js_click' || actionType === 'dispatch_click';
 
   return (
     <BaseNode id={id} data={data} icon={<IconComponent size={16} />} title={data.label || 'Дія'} bgColor="bg-blue-500" type="actionNode">

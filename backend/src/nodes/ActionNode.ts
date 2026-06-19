@@ -91,6 +91,65 @@ export const actionNodeHandler = async ({
       return { data: context, nextHandle: [null, undefined, 'success'] };
     }
 
+    // ── dispatch_click: повна симуляція миші через dispatchEvent ─────────
+    // Обходить проблеми з CSS 3D-трансформами та невідповідністю координат
+    // Відтворює послідовність подій як при реальному кліку: pointer → mouse → click
+    if (actionType === 'dispatch_click') {
+      try {
+        const result = await activePage.evaluate(({ sel, all }) => {
+          // Знаходимо елементи за селектором
+          const elements = Array.from(document.querySelectorAll(sel));
+          if (elements.length === 0) return { count: 0, error: 'Елемент не знайдено' };
+
+          // Беремо потрібні елементи — всі або лише перший
+          const targets = all ? elements : [elements[0]];
+          let clickedCount = 0;
+
+          for (const el of targets) {
+            // Отримуємо координати центру елемента (відносно viewport)
+            const rect = (el as HTMLElement).getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+
+            // Спільні параметри для всіх подій
+            const eventInit = {
+              bubbles: true,       // Подія «спливає» вгору по DOM-дереву
+              cancelable: true,    // Подія може бути скасована
+              view: window,        // Контекст вікна
+              clientX: cx,         // X-координата відносно viewport
+              clientY: cy,         // Y-координата відносно viewport
+              screenX: cx,         // X-координата відносно екрану
+              screenY: cy,         // Y-координата відносно екрану
+              button: 0,           // Ліва кнопка миші
+              buttons: 1,          // Натиснута ліва кнопка
+            };
+
+            // Відтворюємо повну послідовність подій як при реальному кліку
+            el.dispatchEvent(new PointerEvent('pointerdown', { ...eventInit, pointerId: 1 }));
+            el.dispatchEvent(new MouseEvent('mousedown', eventInit));
+            el.dispatchEvent(new PointerEvent('pointerup', { ...eventInit, pointerId: 1 }));
+            el.dispatchEvent(new MouseEvent('mouseup', eventInit));
+            el.dispatchEvent(new MouseEvent('click', eventInit));
+
+            clickedCount++;
+          }
+
+          return { count: clickedCount, error: null };
+        }, { sel: selector, all: clickAll });
+
+        if (result.error) {
+          logToClient(`❌ dispatch_click: ${result.error}`, 'error');
+          return { data: context, nextHandle: ['error'] };
+        }
+
+        logToClient(`✅ Dispatch Click виконано (${result.count} елементів)`, 'success');
+      } catch (err: any) {
+        logToClient(`❌ dispatch_click провалився: ${err.message}`, 'error');
+        return { data: context, nextHandle: ['error'] };
+      }
+      return { data: context, nextHandle: [null, undefined, 'success'] };
+    }
+
     // ── force_click: Playwright клік з force:true, без waitForSelector ───────
     if (actionType === 'force_click') {
       try {

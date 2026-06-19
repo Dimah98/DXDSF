@@ -168,6 +168,9 @@ data class InventoryResponse(
     @Json(name = "variables") val variables: Map<String, Any>? = null // Змінні проекту
 )
 
+// Відповідь зі списком скріншотів (прямо масив імен файлів)
+typealias ScreenshotsList = List<String>
+
 /**
  * Проста універсальна відповідь на виклик операцій.
  */
@@ -252,6 +255,15 @@ interface BotApiService {
 
     @GET("/api/browser/status/{projectName}") // Отримати статус браузера
     suspend fun getBrowserStatus(@Path("projectName") projectName: String): Map<String, Boolean>
+
+    @GET("/api/screenshots/{projectName}") // Отримати список скріншотів проекту
+    suspend fun getScreenshots(@Path("projectName") projectName: String): ScreenshotsList // Повертає масив імен файлів
+
+    @DELETE("/api/screenshots/{projectName}/{filename}") // Видалити скріншот
+    suspend fun deleteScreenshot(
+        @Path("projectName") projectName: String,
+        @Path("filename") filename: String
+    ): ActionResponse // Повертає результат операції
 
     /**
      * Фабричний об'єкт для створення екземпляра REST-сервісу із динамічно налаштованими параметрами URL.

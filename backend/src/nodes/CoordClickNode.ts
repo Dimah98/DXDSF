@@ -53,6 +53,12 @@ export const coordClickNodeHandler = async ({
         y = currentScroll.y; 
       }
 
+      // Застосувати зсув координат
+      const offsetX = currentNode.data.offsetX || 0;
+      const offsetY = currentNode.data.offsetY || 0;
+      x = x + offsetX;
+      y = y + offsetY;
+
       const vSize = activePage.viewportSize() || { width: 960, height: 540 };
       if (wheelY !== 0) {
          await activePage.mouse.move(vSize.width / 2, vSize.height / 2);

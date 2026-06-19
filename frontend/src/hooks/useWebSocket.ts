@@ -123,6 +123,9 @@ export function useWebSocket(props: UseWebSocketProps) {
             { id: Date.now().toString(), time: new Date().toLocaleTimeString(), nodeName, image: data.image },
             ...prev.slice(0, 19)
           ]);
+        } else if (data.type === 'SCREENSHOT_SAVED') {
+          // Dispatch custom event for ScreenshotSidebar
+          window.dispatchEvent(new CustomEvent('screenshot-saved', { detail: data }));
         } else if (data.type === 'ERROR') {
           addLog(`ПОМИЛКА: ${data.message}`, 'error');
           alert(`❌ Помилка: ${data.message}`);

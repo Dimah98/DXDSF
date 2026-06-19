@@ -29,6 +29,8 @@ export class SchedulerService {
   private schedulePath: string;
   // Мапа для збереження часу останньої спроби запуску проекту (для уникнення занадто частих повторів при помилках)
   private lastAttemptTime: Map<string, number> = new Map();
+  // Максимальна кількість одночасних запусків від планувальника
+  private readonly maxConcurrentLaunches = 3;
 
   constructor(projectsDir: string) {
     // Встановлюємо шлях до файлу розкладу в папці проектів
@@ -382,6 +384,12 @@ export class SchedulerService {
         toRun.push(projectName); // Додавання проекту
       } // Кінець перевірки прапорця
     } // Кінець циклу перебору файлів
+
+    // Обмежуємо кількість одночасних запусків для запобігання перевантаження системи
+    if (toRun.length > this.maxConcurrentLaunches) {
+      console.warn(`Scheduler: limiting concurrent launches from ${toRun.length} to ${this.maxConcurrentLaunches}`);
+      toRun.length = this.maxConcurrentLaunches;
+    }
 
     // Повертаємо список проектів до запуску
     return toRun; // Повернення результату

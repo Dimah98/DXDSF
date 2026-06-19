@@ -37,6 +37,7 @@ import CropAnalyzerNode from './CropAnalyzerNode';
 import FirePitNode from './FirePitNode';
 import KitchenNode from './KitchenNode';
 import InventoryScannerNode from './InventoryScannerNode';
+import ScreenshotNode from './ScreenshotNode';
 
 // Всі доступні типи нод для sub-canvas (без GroupNode — без рекурсії)
 export const SUB_NODE_TYPES: Record<string, any> = {
@@ -78,4 +79,6 @@ export const SUB_NODE_TYPES: Record<string, any> = {
   kitchenNode: KitchenNode,
   // Сканер інвентаря — реєструємо для відображення всередині контейнера
   inventoryScannerNode: InventoryScannerNode,
+  // Скріншот — реєструємо для відображення всередині контейнера
+  screenshotNode: ScreenshotNode,
 };

@@ -30,6 +30,7 @@ import { notifyNodeHandler } from './NotifyNode';
 import { cropAnalyzerNodeHandler } from './CropAnalyzerNode';
 import { kitchenNodeHandler } from './KitchenNode';
 import { inventoryScannerNodeHandler } from './InventoryScannerNode';
+import { screenshotNodeHandler } from './ScreenshotNode';
 
 import { NodeHandler } from './types';
 
@@ -70,6 +71,7 @@ export const nodeHandlers: Record<string, NodeHandler> = {
   cropAnalyzerNode: cropAnalyzerNodeHandler,
   kitchenNode: kitchenNodeHandler,
   inventoryScannerNode: inventoryScannerNodeHandler,
+  screenshotNode: screenshotNodeHandler,
   subEntryNode: async ({ context }: any) => ({ nextHandle: 'out', data: context }),
   subExitNode: async ({ context }: any) => ({ data: context }),
 };

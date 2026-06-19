@@ -375,6 +375,18 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
       imageSource: 'auto',
       numberRegex: '(\\d+(?:\\.\\d+)?)'
     }
+  },
+  screenshotNode: {
+    label: 'Скріншот',
+    icon: Camera,
+    desc: 'Збереження екрану',
+    hint: 'Зберігає скріншот всієї сторінки або вказаного елемента. Зображення зберігаються окремо для кожного проекту.',
+    defaultColor: '#ec4899',
+    defaults: {
+      mode: 'fullPage',
+      selector: '',
+      imageName: ''
+    }
   }
 };
 

@@ -35,6 +35,23 @@ const CoordClickNode = memo(({ id, data }: any) => {
             </div>
           </div>
 
+          {/* Зсув координат */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[8px] font-bold text-purple-600 uppercase">Зсув координат</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+               <div className="flex items-center gap-1 bg-muted/30 p-1 rounded border border-border">
+                  <span className="text-[9px] font-bold text-purple-500">X:</span>
+                  <Input type="number" value={data.offsetX || 0} onChange={(e) => data.onDataChange(id, { offsetX: parseInt(e.target.value) || 0 })} className="h-6 text-[10px] border-none bg-transparent p-0 focus-visible:ring-0 text-center text-foreground" />
+               </div>
+               <div className="flex items-center gap-1 bg-muted/30 p-1 rounded border border-border">
+                  <span className="text-[9px] font-bold text-purple-500">Y:</span>
+                  <Input type="number" value={data.offsetY || 0} onChange={(e) => data.onDataChange(id, { offsetY: parseInt(e.target.value) || 0 })} className="h-6 text-[10px] border-none bg-transparent p-0 focus-visible:ring-0 text-center text-foreground" />
+               </div>
+            </div>
+          </div>
+
           {/* Кількість повторів */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">

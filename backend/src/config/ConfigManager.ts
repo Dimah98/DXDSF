@@ -86,7 +86,7 @@ class ConfigManager {
       STREAM_DELAY: this.getNumber('STREAM_DELAY', 200, 100, 5000),
       
       // Resource Management
-      MAX_PARALLEL_BROWSERS: this.getNumber('MAX_PARALLEL_BROWSERS', 9999999, 1, 99999999),
+      MAX_PARALLEL_BROWSERS: this.getNumber('MAX_PARALLEL_BROWSERS', 11, 1, 99999999),
       SESSION_CLEANUP_INTERVAL: this.getNumber('SESSION_CLEANUP_INTERVAL', 86400000, 60000, 864000000),
       
       // Logging

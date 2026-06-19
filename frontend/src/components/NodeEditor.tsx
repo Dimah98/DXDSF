@@ -56,6 +56,7 @@ import CropAnalyzerNode from './CustomNodes/CropAnalyzerNode';
 import FirePitNode from './CustomNodes/FirePitNode';
 import KitchenNode from './CustomNodes/KitchenNode';
 import InventoryScannerNode from './CustomNodes/InventoryScannerNode';
+import ScreenshotNode from './CustomNodes/ScreenshotNode';
 import DelayEdge from './DelayEdge';
 import GlobalSettings from './GlobalSettings';
 import Sidebar from './Sidebar';
@@ -68,6 +69,7 @@ import { NodeContextMenu } from './ui/NodeContextMenu';
 import ProjectManagerModal from './ProjectManagerModal'; // Менеджер проектів
 import ScheduleManager from './ScheduleManager'; // Менеджер розкладу
 import { InventoryModal } from './InventoryModal'; // Модалка інвентаря
+import ScreenshotSidebar from './ScreenshotSidebar'; // Панель скріншотів
 
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useProjectManager } from '../hooks/useProjectManager';
@@ -115,6 +117,7 @@ const nodeTypes = {
   firePitNode: FirePitNode,
   kitchenNode: KitchenNode,
   inventoryScannerNode: InventoryScannerNode,
+  screenshotNode: ScreenshotNode,
 };
 
 const edgeTypes = {
@@ -229,6 +232,15 @@ const NodeEditor = () => {
   const [isScheduleManagerOpen, setIsScheduleManagerOpen] = useState(false);
   // Стан відображення модалки інвентаря
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  // Стан відображення панелі скріншотів
+  const [isScreenshotSidebarCollapsed, setIsScreenshotSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sfl_screenshot_sidebar_collapsed');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sfl_screenshot_sidebar_collapsed', String(isScreenshotSidebarCollapsed));
+  }, [isScreenshotSidebarCollapsed]);
   // Ініціалізуємо поточний проект, пріоритетно зчитуючи його з query-параметра URL, потім з localStorage
   const [currentProject, setCurrentProject] = useState<string>(() => {
     // Створюємо об'єкт для роботи з query-параметрами поточного URL
@@ -720,8 +732,8 @@ const NodeEditor = () => {
   }, [setEdges]);
 
   return (
-    <div className={`h-screen w-screen bg-[#020617] text-slate-200 selection:bg-indigo-500/30 font-inter ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-      <style>{`.sidebar-collapsed .react-flow__pane { margin-left: 0 !important; }`}</style>
+    <div className={`h-screen w-screen bg-[#020617] text-slate-200 selection:bg-indigo-500/30 font-inter ${isSidebarCollapsed ? 'sidebar-collapsed' : ''} ${!isScreenshotSidebarCollapsed ? 'screenshot-sidebar-open' : ''}`}>
+      <style>{`.sidebar-collapsed .react-flow__pane { margin-left: 0 !important; } .screenshot-sidebar-open .react-flow__pane { margin-right: 320px !important; }`}</style>
       <div className="flex h-full w-full overflow-hidden relative">
         {/* Sidebar — ховається коли менеджер відкритий */}
         {!isManagerOpen && (
@@ -738,6 +750,21 @@ const NodeEditor = () => {
             
             {/* ── Кнопка Старт/Стоп та Інвентар (Верхній правий кут) ── */}
             <div className="fixed top-6 right-6 z-[120] flex items-center gap-3">
+              {/* Кнопка Скріншоти */}
+              <button
+                onClick={() => setIsScreenshotSidebarCollapsed(!isScreenshotSidebarCollapsed)}
+                disabled={!currentProject}
+                className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl transition-all duration-500 hover:scale-105 active:scale-95 border-2 ${
+                  currentProject
+                    ? 'bg-pink-500/20 text-pink-400 border-pink-500/40 hover:bg-pink-500/30 shadow-pink-500/20'
+                    : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'
+                }`}
+                title={currentProject ? 'Відкрити скріншоти' : 'Завантажте проект'}
+              >
+                <LucideIcons.Camera size={16} />
+                <span>Скріншоти</span>
+              </button>
+
               {/* Кнопка Інвентар */}
               <button
                 onClick={() => setIsInventoryOpen(true)}
@@ -835,6 +862,13 @@ const NodeEditor = () => {
               isOpen={isInventoryOpen}
               onClose={() => setIsInventoryOpen(false)}
               projectName={currentProject}
+            />
+
+            {/* Панель скріншотів */}
+            <ScreenshotSidebar
+              projectName={currentProject}
+              isCollapsed={isScreenshotSidebarCollapsed}
+              onToggle={() => setIsScreenshotSidebarCollapsed(!isScreenshotSidebarCollapsed)}
             />
 
             <ReactFlow

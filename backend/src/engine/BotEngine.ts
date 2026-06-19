@@ -32,6 +32,7 @@ export interface QueueItem {
 export class BotEngine {
   private params: EngineParams;
   private executionTimeoutMs = 24 * 60 * 60 * 1000; // 24 години — максимальний час виконання сценарію
+  private static readonly MAX_QUEUE_SIZE = 1000; // Максимальний розмір черги нод для запобігання витокам пам'яті
 
   constructor(params: EngineParams) {
     this.params = params;
@@ -122,6 +123,11 @@ export class BotEngine {
         const isNoHandle = result.nextHandle === undefined && !sourceHandle;
 
         if (!isHardStop && (isMatch || isNoHandle)) {
+          // Перевіряємо ліміт черги перед додаванням
+          if (queue.length >= BotEngine.MAX_QUEUE_SIZE) {
+            logToClient(`⚠️ Черга нод переповнена (${queue.length}/${BotEngine.MAX_QUEUE_SIZE}), пропускаємо ноду`, 'error');
+            continue;
+          }
           queue.push({ 
             nodeId: edge.target, 
             targetHandle: edge.targetHandle, 

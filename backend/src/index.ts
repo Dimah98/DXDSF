@@ -94,6 +94,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Налаштовуємо роздачу статичних зображень з папки images
 app.use('/api/images', express.static(path.join(__dirname, '../images')));
+// Налаштовуємо роздачу скріншотів з папки projects
+app.use('/api/screenshots', express.static(path.join(__dirname, '../projects')));
 
 // Застосовуємо rate limiting для всіх /api/* ендпоінтів (Requirement 7.1)
 app.use('/api', apiRateLimiter);
@@ -223,6 +225,62 @@ app.get('/health', (req, res) => {
   } catch (err) {
     logger.error('Health check error', err instanceof Error ? err : new Error(String(err)));
     res.status(500).json({ status: 'error', message: 'Health check failed' });
+  }
+});
+
+// System status endpoint with detailed monitoring information
+app.get('/api/system/status', authMiddleware, (req, res) => {
+  try {
+    const memoryUsage = process.memoryUsage();
+    const uptime = process.uptime();
+    const cpuUsage = process.cpuUsage();
+    
+    // Підраховуємо активні сесії та браузери
+    let activeSessionCount = 0;
+    let activeBrowserCount = 0;
+    
+    sessions.forEach((session) => {
+      activeSessionCount++;
+      if (session.page && session.isBotRunning) {
+        activeBrowserCount++;
+      }
+    });
+    
+    // Отримуємо статистику Semaphore
+    const semaphoreStats = browserSemaphore.getStatistics();
+    
+    // Формуємо детальну відповідь
+    const statusResponse = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor(uptime),
+      system: {
+        memory: {
+          heapUsed: Math.floor(memoryUsage.heapUsed / 1024 / 1024), // MB
+          heapTotal: Math.floor(memoryUsage.heapTotal / 1024 / 1024), // MB
+          rss: Math.floor(memoryUsage.rss / 1024 / 1024), // MB
+          external: Math.floor(memoryUsage.external / 1024 / 1024) // MB
+        },
+        cpu: {
+          user: cpuUsage.user,
+          system: cpuUsage.system
+        },
+        platform: process.platform,
+        nodeVersion: process.version
+      },
+      sessions: {
+        activeCount: activeSessionCount,
+        runningBrowsers: activeBrowserCount
+      },
+      concurrency: {
+        semaphore: semaphoreStats
+      }
+    };
+    
+    res.status(200).json(statusResponse);
+  } catch (err) {
+    logger.error('System status error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ status: 'error', message: 'Failed to get system status' });
   }
 });
 
@@ -737,6 +795,83 @@ app.get('/api/images', authMiddleware, async (req, res) => {
   }
 });
 
+// ============================================================================
+// Screenshots API Endpoints
+// ============================================================================
+
+// GET /api/screenshots/:projectName - List all screenshots for a project
+// Requirement 1: JWT authentication for /api/*
+// Requirement 3: Input validation for project names
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.get('/api/screenshots/:projectName', authMiddleware, async (req, res) => {
+  try {
+    const { projectName } = req.params;
+    
+    // Validate project name
+    const validation = inputValidator.validateProjectName(projectName);
+    if (!validation.isValid) {
+      logger.warn('Screenshots list failed: invalid project name', { projectName });
+      return res.status(400).json({ success: false, error: validation.error });
+    }
+    
+    const screenshotsDir = path.join(PROJECTS_DIR, `${projectName}_screenshots`);
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(screenshotsDir)) {
+      fs.mkdirSync(screenshotsDir, { recursive: true });
+    }
+    
+    const files = await fs.promises.readdir(screenshotsDir);
+    const screenshotFiles = files.filter(f => f.endsWith('.png'));
+    
+    res.json(screenshotFiles);
+  } catch (err: any) {
+    logger.error('Screenshots list endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to load screenshots list.' });
+  }
+});
+
+// DELETE /api/screenshots/:projectName/:filename - Delete specific screenshot
+// Requirement 1: JWT authentication for /api/*
+// Requirement 2: CSRF protection for DELETE requests
+// Requirement 3: Input validation for project names
+// Requirement 7: Rate limiting already applied globally to /api/*
+app.delete('/api/screenshots/:projectName/:filename', authMiddleware, csrfMiddleware, async (req, res) => {
+  try {
+    const { projectName, filename } = req.params;
+    
+    // Validate project name
+    const validation = inputValidator.validateProjectName(projectName);
+    if (!validation.isValid) {
+      logger.warn('Screenshot delete failed: invalid project name', { projectName });
+      return res.status(400).json({ success: false, error: validation.error });
+    }
+    
+    // Validate filename (basic security check)
+    if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      logger.warn('Screenshot delete failed: invalid filename', { filename });
+      return res.status(400).json({ success: false, error: 'Invalid filename' });
+    }
+    
+    const screenshotsDir = path.join(PROJECTS_DIR, `${projectName}_screenshots`);
+    const filePath = path.join(screenshotsDir, filename);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: 'Screenshot not found' });
+    }
+    
+    // Delete file
+    await fs.promises.unlink(filePath);
+    logger.info('Screenshot deleted', { projectName, filename });
+    
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error('Screenshot delete endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to delete screenshot.' });
+  }
+});
+
 // Роут для отримання глобальної статистики (по всім проектам)
 // Requirement 1: JWT authentication for /api/*
 // Requirement 7: Rate limiting already applied globally to /api/*
@@ -880,14 +1015,32 @@ app.post('/api/projects/run-multiple', authMiddleware, csrfMiddleware, runMultip
     // Створюємо об'єкт для збереження результатів запуску по кожному проекту
     const results: Record<string, boolean> = {}; // Карта: Назва -> Статус запуску
     
-    // Пробігаємось по кожному проекту та запускаємо його
-    for (const name of projectNames) {
-      // Отримуємо налаштування браузера для цього проекту з переданого об'єкту
-      // Якщо фронтенд надіслав налаштування — використовуємо їх, інакше undefined (буде зчитано з файлу)
-      const overrideSettings = projectSettings && projectSettings[name] ? projectSettings[name] : undefined;
-      // Запускаємо проект, передаючи налаштування профілю з localStorage фронтенду
-      results[name] = await startProject(name, overrideSettings);
-    }
+    // Запускаємо проекти паралельно з обмеженням конкурентності через Semaphore та retry логікою
+    const launchPromises = projectNames.map(async (name) => {
+      try {
+        // Отримуємо налаштування браузера для цього проекту з переданого об'єкту
+        // Якщо фронтенд надіслав налаштування — використовуємо їх, інакше undefined (буде зчитано з файлу)
+        const overrideSettings = projectSettings && projectSettings[name] ? projectSettings[name] : undefined;
+        
+        // Запускаємо проект з retry логікою (максимум 2 спроби з затримкою 1с)
+        const result = await withRetry(
+          () => browserSemaphore.run(() => startProject(name, overrideSettings)),
+          2, // maxRetries
+          1000, // delayMs
+          `Project launch ${name}`
+        );
+        
+        results[name] = result;
+        return { name, success: result };
+      } catch (err) {
+        logger.error(`Failed to launch project ${name} in parallel run after retries`, err instanceof Error ? err : new Error(String(err)));
+        results[name] = false;
+        return { name, success: false, error: String(err) };
+      }
+    });
+    
+    // Чекаємо завершення всіх запусків
+    await Promise.all(launchPromises);
 
     // Повертаємо успішну відповідь разом із результатами запуску
     res.json({ success: true, results }); // Повертаємо зведений звіт
@@ -942,6 +1095,33 @@ app.post('/api/projects/stop-multiple', authMiddleware, csrfMiddleware, async (r
 
 // Створюємо шлях для авто-збереження глобальних змінних за замовчуванням
 const STATE_PATH = path.join(__dirname, '../state.json');
+
+// Допоміжна функція для retry логіки з обмеженням кількості спроб
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 2,
+  delayMs: number = 1000,
+  context: string = 'operation'
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      
+      if (attempt < maxRetries) {
+        logger.warn(`${context} failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delayMs}ms`, { error: lastError.message });
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      } else {
+        logger.error(`${context} failed after ${maxRetries + 1} attempts`, lastError, { attempts: attempt + 1 });
+      }
+    }
+  }
+  
+  throw lastError;
+}
 
 // Допоміжна функція для надсилання повідомлень логування у веб-сокет клієнта сесії
 const logToClient = (session: ProjectSession, message: string, type: 'info' | 'error' | 'success' | 'debug' = 'info', data?: any) => {
@@ -1682,36 +1862,175 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
       const { x, y, nodeId, pickType, isSmart } = data;
       if (isSessionBrowserAlive(session) && session.page) {
         try {
+          // Отримуємо DPR для перерахунку координат скріншоту → CSS-координати
           const dpr = await session.page.evaluate(() => window.devicePixelRatio || 1);
+          
           const info = await session.page.evaluate(({ cx, cy, nId, pType, smart }) => {
+            // Знаходимо елемент під курсором за CSS-координатами
             const el = document.elementFromPoint(cx, cy) as HTMLElement;
             if (!el) return null;
-            const genSel = (t: any) => {
-              if (t.id) return '#' + t.id;
-              let path = []; let c = t;
-              while (c && c.tagName && c.tagName !== 'BODY') {
-                let p = c.tagName.toLowerCase();
-                if (c.id) { p += '#' + c.id; path.unshift(p); break; }
-                path.unshift(p); c = c.parentElement;
+            
+            // ── Покращений генератор унікального CSS-селектора ──────────
+            const buildSelector = (target: HTMLElement): string => {
+              // 1) Пріоритет — ID елемента (унікальний)
+              if (target.id) return '#' + CSS.escape(target.id);
+              
+              // 2) Пробуємо data-атрибути (стабільні)
+              const dataAttrs = ['data-testid', 'data-id', 'data-name', 'data-type', 'data-action'];
+              for (const attr of dataAttrs) {
+                const val = target.getAttribute(attr);
+                if (val) {
+                  const sel = `${target.tagName.toLowerCase()}[${attr}="${val}"]`;
+                  // Перевіряємо унікальність селектора
+                  if (document.querySelectorAll(sel).length === 1) return sel;
+                }
               }
-              return path.join(' > ');
+              
+              // 3) Пробуємо aria-label та role
+              const ariaLabel = target.getAttribute('aria-label');
+              if (ariaLabel) {
+                const sel = `${target.tagName.toLowerCase()}[aria-label="${ariaLabel}"]`;
+                if (document.querySelectorAll(sel).length === 1) return sel;
+              }
+              
+              // 4) Пробуємо класи (фільтруємо динамічні/хеш-класи)
+              if (target.className && typeof target.className === 'string') {
+                const allClasses = target.className.trim().split(/\s+/).filter((c: string) => 
+                  c && !c.includes(':') && !c.includes('[') && c.length < 40
+                );
+                // Шукаємо комбінацію класів що дає унікальний результат
+                if (allClasses.length > 0) {
+                  // Спробуємо всі класи разом
+                  const fullSel = `${target.tagName.toLowerCase()}.${allClasses.map(c => CSS.escape(c)).join('.')}`;
+                  if (document.querySelectorAll(fullSel).length === 1) return fullSel;
+                  
+                  // Якщо не унікальний — шукаємо мінімальну комбінацію
+                  for (const cls of allClasses) {
+                    const sel = `${target.tagName.toLowerCase()}.${CSS.escape(cls)}`;
+                    if (document.querySelectorAll(sel).length === 1) return sel;
+                  }
+                }
+              }
+              
+              // 5) Для <img> використовуємо атрибут src (часткове порівняння)
+              if (target.tagName === 'IMG') {
+                const src = target.getAttribute('src');
+                if (src) {
+                  // Беремо останню частину URL як ідентифікатор
+                  const lastPart = src.split('/').pop()?.split('?')[0];
+                  if (lastPart) {
+                    const sel = `img[src*="${lastPart}"]`;
+                    if (document.querySelectorAll(sel).length === 1) return sel;
+                  }
+                }
+              }
+              
+              // 6) Будуємо повний шлях з nth-child для гарантованої унікальності
+              const parts: string[] = [];
+              let current: HTMLElement | null = target;
+              while (current && current !== document.body && current !== document.documentElement) {
+                let tag = current.tagName.toLowerCase();
+                
+                // Додаємо ID якщо є — далі вгору не йдемо
+                if (current.id) {
+                  parts.unshift(`#${CSS.escape(current.id)}`);
+                  break;
+                }
+                
+                // Додаємо значущі класи
+                const classes = (current.className && typeof current.className === 'string') 
+                  ? current.className.trim().split(/\s+/).filter((c: string) => 
+                      c && !c.includes(':') && !c.includes('[') && c.length < 40
+                    ).slice(0, 2) // Максимум 2 класи
+                  : [];
+                
+                if (classes.length > 0) {
+                  tag += '.' + classes.map(c => CSS.escape(c)).join('.');
+                }
+                
+                // Додаємо nth-child якщо є брати з тим самим тегом
+                const parent = current.parentElement;
+                if (parent) {
+                  const siblings = Array.from(parent.children).filter(
+                    s => s.tagName === current!.tagName
+                  );
+                  if (siblings.length > 1) {
+                    const idx = siblings.indexOf(current) + 1;
+                    tag += `:nth-child(${idx})`;
+                  }
+                }
+                
+                parts.unshift(tag);
+                current = current.parentElement;
+                
+                // Обмежуємо глибину — 5 рівнів достатньо
+                if (parts.length >= 5) break;
+              }
+              
+              const finalSel = parts.join(' > ');
+              // Перевіряємо що селектор знаходить саме наш елемент
+              try {
+                const found = document.querySelector(finalSel);
+                if (found === target) return finalSel;
+              } catch { /* ігноруємо помилки парсингу */ }
+              
+              // Останній варіант — повертаємо побудований шлях
+              return finalSel || target.tagName.toLowerCase();
             };
-            const genSmartSel = (t: any) => {
-              if (t.id) return '#' + t.id;
-              const attrs = ['name', 'data-testid', 'placeholder', 'aria-label', 'role'];
-              for (const attr of attrs) {
-                const val = t.getAttribute(attr);
-                if (val) return `${t.tagName.toLowerCase()}[${attr}="${val}"]`;
+
+            // ── Смарт-селектор (з атрибутами та підписами) ──────────
+            const buildSmartSelector = (target: HTMLElement): string => {
+              if (target.id) return '#' + CSS.escape(target.id);
+              
+              // Шукаємо найбільш семантичний атрибут
+              const semanticAttrs = ['name', 'data-testid', 'placeholder', 'aria-label', 'role', 'title', 'alt'];
+              for (const attr of semanticAttrs) {
+                const val = target.getAttribute(attr);
+                if (val) {
+                  const sel = `${target.tagName.toLowerCase()}[${attr}="${val}"]`;
+                  if (document.querySelectorAll(sel).length === 1) return sel;
+                }
               }
-              if (t.className && typeof t.className === 'string') {
-                 const classes = t.className.trim().split(/\s+/).filter((c: string) => c && !c.includes(':') && !c.includes('['));
-                 if (classes.length > 0) return `${t.tagName.toLowerCase()}.${classes.join('.')}`;
+              
+              // Текстовий вміст для кнопок
+              if ((target.tagName === 'BUTTON' || target.getAttribute('role') === 'button') && target.textContent) {
+                const text = target.textContent.trim().substring(0, 30);
+                if (text) {
+                  // Пошук по тексту через xpath не доступний у CSS, але клас + текст — надійно
+                  const sel = buildSelector(target);
+                  return sel;
+                }
               }
-              return genSel(t);
+              
+              return buildSelector(target);
             };
-            return { nodeId: nId, pickType: pType, selector: smart ? genSmartSel(el) : genSel(el), text: el.innerText?.substring(0, 50) };
-          }, { cx: x/dpr, cy: y/dpr, nId: nodeId, pType: pickType, smart: isSmart });
-          if (info) ws.send(JSON.stringify({ type: 'SELECTOR_INFO_PICKED', ...info }));
+            
+            // Вибираємо метод генерації
+            const selector = smart ? buildSmartSelector(el) : buildSelector(el);
+            
+            // Перевіряємо скільки елементів знаходить селектор — для відображення у логах
+            let matchCount = 0;
+            try { matchCount = document.querySelectorAll(selector).length; } catch { matchCount = -1; }
+            
+            return { 
+              nodeId: nId, 
+              pickType: pType, 
+              selector, 
+              text: el.innerText?.substring(0, 50),
+              matchCount,
+              tag: el.tagName.toLowerCase()
+            };
+          }, { cx: x / dpr, cy: y / dpr, nId: nodeId, pType: pickType, smart: isSmart });
+          
+          if (info) {
+            ws.send(JSON.stringify({ type: 'SELECTOR_INFO_PICKED', ...info }));
+            // Логуємо якість селектора так, щоб це було видно без увімкненого режиму дебагу
+            if (info.matchCount > 1) {
+              logToClient(session, `⚠️ Селектор "${info.selector}" знайшов ${info.matchCount} елементів — може бути неточним`, 'info');
+            } else {
+              logToClient(session, `✅ Вибрано: ${info.selector} (${info.tag})`, 'success');
+            }
+          }
         } catch (pickErr) {
           logger.warn(`PICK_SELECTOR_BY_COORDS error for ${projectName}`, { error: String(pickErr) });
         }

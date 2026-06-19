@@ -20,6 +20,9 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures // Визначення жестів натискання
 import androidx.compose.ui.input.pointer.pointerInput // Ввід жестів
 import androidx.compose.ui.layout.onGloballyPositioned // Розмір елементів
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement // Вирівнювання структури елементів Row/Column
 import androidx.compose.foundation.layout.Box // Контейнер для пошарового макетування
 import androidx.compose.foundation.layout.Column // Вертикальна колонка розміщення
@@ -38,6 +41,9 @@ import androidx.compose.foundation.layout.width // Фіксована ширин
 import androidx.compose.foundation.lazy.LazyColumn // Високопродуктивний прокручувальний вертикальний список
 import androidx.compose.foundation.lazy.items // Ітератор наповнення елементів для лінивого списку
 import androidx.compose.foundation.lazy.rememberLazyListState // Кешування станів прокрутки списку
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape // Круглий шаблон геометрії
 import androidx.compose.foundation.shape.RoundedCornerShape // Шаблон округлення прямокутних кутів
 import androidx.compose.material.icons.Icons // Базові матеріальні векторні значки
@@ -103,9 +109,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.tooling.preview.Preview
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import com.example.ui.theme.MyApplicationTheme
 
 /**
@@ -132,6 +135,8 @@ fun ProjectMonitorScreen(
     val isBrowserOpen by viewModel.isBrowserOpen.collectAsState() // Стейт відкритості браузера
     val inventoryItems by viewModel.inventoryItems.collectAsState() // Предмети інвентаря
     val projectVariables by viewModel.projectVariables.collectAsState() // Змінні проекту
+    val screenshots by viewModel.screenshots.collectAsState() // Скріншоти проекту
+    val showGallery by viewModel.showGallery.collectAsState() // Стейт відображення галереї скріншотів
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val inventoryPrefs = remember { InventoryPreferences(context) }
@@ -162,6 +167,8 @@ fun ProjectMonitorScreen(
         inventoryItems = inventoryItems,
         projectVariables = projectVariables,
         inventoryOrder = inventoryOrder,
+        screenshots = screenshots,
+        showGallery = showGallery,
         onBackClick = onBackClick,
         onNavigateToEditor = onNavigateToEditor,
         onRefreshStats = { viewModel.fetchRestStats() },
@@ -174,6 +181,8 @@ fun ProjectMonitorScreen(
         onClearLogs = { viewModel.clearConsole() },
         onLoadHistory = { viewModel.fetchHistoricLogs() },
         onNavigateToInventory = onNavigateToInventory,
+        onDeleteScreenshot = { viewModel.deleteScreenshot(it) },
+        onToggleGallery = { viewModel.toggleGallery() },
         onSendMouseClick = { x, y, w, h -> viewModel.sendMouseClick(x, y, w, h) },
         onSendScroll = { dx, dy -> viewModel.sendScroll(dx, dy) }
     )
@@ -193,6 +202,8 @@ fun ProjectMonitorContent(
     inventoryItems: List<InventoryItem>,
     projectVariables: Map<String, Any>,
     inventoryOrder: List<String>,
+    screenshots: List<String>,
+    showGallery: Boolean,
     onBackClick: () -> Unit,
     onNavigateToEditor: (String) -> Unit,
     onRefreshStats: () -> Unit,
@@ -205,11 +216,15 @@ fun ProjectMonitorContent(
     onClearLogs: () -> Unit,
     onLoadHistory: () -> Unit,
     onNavigateToInventory: (String) -> Unit,
+    onDeleteScreenshot: (String) -> Unit,
+    onToggleGallery: () -> Unit,
     onSendMouseClick: (Float, Float, Int, Int) -> Unit,
     onSendScroll: (Float, Float) -> Unit
 ) {
     // Локальні змінні тригерів для активації нових діалогових вікон
     var isFullScreenStream by remember { mutableStateOf(false) } // Діалог на весь екран
+
+    val scrollState = androidx.compose.foundation.rememberScrollState()
 
     Scaffold(
         topBar = {
@@ -281,12 +296,13 @@ fun ProjectMonitorContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .then(if (showGallery) Modifier.verticalScroll(scrollState) else Modifier),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Верхня частина - трансляція браузера
             LiveStreamComponent(
-                modifier = Modifier.fillMaxWidth().weight(1.5f),
+                modifier = if (showGallery) Modifier.fillMaxWidth().height(280.dp) else Modifier.fillMaxWidth().weight(1.5f),
                 isStreamingActive = isStreaming,
                 frameBitmap = latestFrame,
                 isBotRunning = isRunning,
@@ -296,9 +312,7 @@ fun ProjectMonitorContent(
 
             // Середня частина
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                modifier = if (showGallery) Modifier.fillMaxWidth().height(130.dp) else Modifier.fillMaxWidth().weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Середина зліва - Інвентар
@@ -325,13 +339,25 @@ fun ProjectMonitorContent(
                 )
             }
 
-            // Нижня частина - Консоль
-            LogConsoleComponent(
-                modifier = Modifier.weight(1f),
-                logs = logs,
-                onClearClick = onClearLogs,
-                onLoadHistoryClick = onLoadHistory
-            )
+            // Нижня частина - Консоль або Галерея
+            if (!showGallery) {
+                LogConsoleComponent(
+                    modifier = Modifier.weight(1f),
+                    logs = logs,
+                    onClearClick = onClearLogs,
+                    onLoadHistoryClick = onLoadHistory,
+                    onToggleGallery = onToggleGallery
+                )
+            } else {
+                ScreenshotGalleryComponent(
+                    modifier = Modifier.fillMaxWidth().height(500.dp),
+                    projectName = projectName,
+                    screenshots = screenshots,
+                    onDeleteScreenshot = onDeleteScreenshot,
+                    onToggleConsole = onToggleGallery
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
 
         if (isFullScreenStream) {
@@ -355,7 +381,7 @@ fun ConnectionBadge(connectionState: ConnectionState) {
         ConnectionState.CONNECTED -> Color(0xFF10B981) to "ПІДКЛЮЧЕНО" // Перекладено
         ConnectionState.CONNECTING -> Color(0xFFF59E0B) to "З'ЄДНАННЯ" // Перекладено
         ConnectionState.DISCONNECTED -> Color(0xFF64748B) to "ОФЛАЙН" // Перекладено
-        ConnectionState.ERROR -> Color(0xFFEF4444) to "РџРћРњРР›РљРђ" // РџРµСЂРµРєР»Р°РґРµРЅРѕ
+        ConnectionState.ERROR -> Color(0xFFEF4444) to "ПОМИЛКА" // Перекладено
     }
 
     Row(
@@ -887,7 +913,8 @@ fun LogConsoleComponent(
     modifier: Modifier = Modifier,
     logs: List<LogEntry>,
     onClearClick: () -> Unit,
-    onLoadHistoryClick: () -> Unit
+    onLoadHistoryClick: () -> Unit,
+    onToggleGallery: () -> Unit
 ) {
     val listState = rememberLazyListState()
 
@@ -932,6 +959,18 @@ fun LogConsoleComponent(
                         color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = onToggleGallery,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tv, // Використовуємо Tv як іконку галереї/скрінів
+                            contentDescription = "Показати скріншоти",
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
 
                 Row {
@@ -1005,6 +1044,138 @@ fun LogConsoleComponent(
     }
 }
 
+@Composable
+fun ScreenshotGalleryComponent(
+    modifier: Modifier = Modifier,
+    projectName: String,
+    screenshots: List<String>,
+    onDeleteScreenshot: (String) -> Unit,
+    onToggleConsole: () -> Unit
+) {
+    val context = LocalContext.current
+    val baseUrl = remember { ConnectionConfigManager(context).getHttpUrl().removeSuffix("/") }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF1C1F26)
+        ),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Tv,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Скріншоти",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = onToggleConsole,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Показати консоль",
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF050505))
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.05f)), RoundedCornerShape(16.dp))
+            ) {
+                if (screenshots.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Скріншоти відсутні",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.3f),
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(screenshots) { filename ->
+                            val imageUrl = "$baseUrl/api/screenshots/${projectName}_screenshots/$filename"
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF1C1F26))
+                                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.05f)), RoundedCornerShape(12.dp))
+                            ) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(imageUrl)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = filename,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+
+                                IconButton(
+                                    onClick = { onDeleteScreenshot(filename) },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .size(28.dp)
+                                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Видалити",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /**
  * Візуальне відображення рядка логування з вибором кольору згідно рівня події.
  */
@@ -1012,7 +1183,7 @@ fun LogConsoleComponent(
 fun LogConsoleLineItem(log: LogEntry) {
     val (textColor, bgColor, labelText) = when (log.type.lowercase().trim()) {
         "success" -> Triple(Color(0xFF10B981), Color(0xFF10B981).copy(alpha = 0.08f), "[УСПІХ]") // Перекладено
-        "error" -> Triple(Color(0xFFEF4444), Color(0xFFEF4444).copy(alpha = 0.08f), "[РџРћРњРР›РљРђ]") // РџРµСЂРµРєР»Р°РґРµРЅРѕ
+        "error" -> Triple(Color(0xFFEF4444), Color(0xFFEF4444).copy(alpha = 0.08f), "[ПОМИЛКА]") // Перекладено
         "debug" -> Triple(Color(0xFF94A3B8), Color(0xFF94A3B8).copy(alpha = 0.08f), "[ВІДЛАДКА]") // Перекладено
         else -> Triple(Color(0xFF38BDF8), Color(0xFF38BDF8).copy(alpha = 0.08f), "[ІНФО]") // Перекладено
     }
@@ -1085,7 +1256,7 @@ fun StatsDetailsDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Р”Р•РўРђР›Р¬РќРђ РЎРўРђРўРРЎРўРРљРђ", // Р—Р°РіРѕР»РѕРІРѕРє РІ СѓРєСЂР°С—РЅСЃСЊРєС–Р№ Р»РѕРєР°Р»С–Р·Р°С†С–С—
+                    text = "ДЕТАЛЬНА СТАТИСТИКА", // Заголовок в українській локалізації
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF10B981),
@@ -1340,6 +1511,8 @@ fun ProjectMonitorPreview() {
         "Золото" to 1250,
         "FLOWER" to "320"
     )
+    
+    val sampleScreenshots = listOf("shot1", "shot2", "shot3", "shot4")
 
     MyApplicationTheme {
         ProjectMonitorContent(
@@ -1354,6 +1527,8 @@ fun ProjectMonitorPreview() {
             inventoryItems = sampleInventory,
             projectVariables = sampleVariables,
             inventoryOrder = emptyList(),
+            screenshots = sampleScreenshots,
+            showGallery = false,
             onBackClick = {},
             onNavigateToEditor = {},
             onRefreshStats = {},
@@ -1366,8 +1541,30 @@ fun ProjectMonitorPreview() {
             onClearLogs = {},
             onLoadHistory = {},
             onNavigateToInventory = {},
+            onDeleteScreenshot = {},
+            onToggleGallery = {},
             onSendMouseClick = { _, _, _, _ -> },
             onSendScroll = { _, _ -> }
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF14161B)
+@Composable
+fun StatsDetailsDialogPreview() {
+    val sampleStats = ProjectStats(
+        projectName = "Project Alpha",
+        totalRuns = 150,
+        successfulRuns = 120,
+        failedRuns = 30,
+        lastRunTime = "2023-10-27 14:30"
+    )
+    
+    MyApplicationTheme {
+        StatsDetailsDialog(
+            projectName = "Project Alpha",
+            stats = sampleStats,
+            onDismiss = {}
         )
     }
 }
