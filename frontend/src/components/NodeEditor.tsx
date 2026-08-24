@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+﻿import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Globe // Імпортуємо лише іконку Globe, інші іконки використовуються через LucideIcons
 } from 'lucide-react';
@@ -55,8 +55,22 @@ import NotifyNode from './CustomNodes/NotifyNode';
 import CropAnalyzerNode from './CustomNodes/CropAnalyzerNode';
 import FirePitNode from './CustomNodes/FirePitNode';
 import KitchenNode from './CustomNodes/KitchenNode';
+import DeliNode from './CustomNodes/DeliNode';
+import SmoothieShackNode from './CustomNodes/SmoothieShackNode';
+import BakeryNode from './CustomNodes/BakeryNode';
 import InventoryScannerNode from './CustomNodes/InventoryScannerNode';
 import ScreenshotNode from './CustomNodes/ScreenshotNode';
+import MemoryGameNode from './CustomNodes/MemoryGameNode'; // Нода Гра Пам'ять
+import WhackAMoleNode from './CustomNodes/WhackAMoleNode'; // Нода Вдарь Крота
+// Імпортуємо новий компонент для введення тексту та кліку
+import SearchAndClickNode from './CustomNodes/SearchAndClickNode';
+import ConfigNode from './CustomNodes/ConfigNode';
+import IslandArrangerNode from './CustomNodes/IslandArrangerNode';
+import TextInputNode from './CustomNodes/TextInputNode';
+import FlowerPlanterNode from './CustomNodes/FlowerPlanterNode';
+import DeliveryNode from './CustomNodes/DeliveryNode';
+import FoodNode from './CustomNodes/FoodNode';
+import { RoninWalletNode } from './CustomNodes/RoninWalletNode';
 import DelayEdge from './DelayEdge';
 import GlobalSettings from './GlobalSettings';
 import Sidebar from './Sidebar';
@@ -67,7 +81,12 @@ import { NODE_CONFIG } from '../nodeConfig';
 import { ConsolePane } from './ConsolePane';
 import { NodeContextMenu } from './ui/NodeContextMenu';
 import ProjectManagerModal from './ProjectManagerModal'; // Менеджер проектів
-import ScheduleManager from './ScheduleManager'; // Менеджер розкладу
+import ScheduleManager from './ScheduleManager';
+import { IslandMapModal } from './Map/IslandMapModal'; // Менеджер розкладу
+import { DeliveriesModal } from './Modals/DeliveriesModal';
+import { AllDeliveriesModal } from './Modals/AllDeliveriesModal';
+import { AllScreenshotsModal } from './Modals/AllScreenshotsModal';
+import { AllInventoriesModal } from './Modals/AllInventoriesModal';
 import { InventoryModal } from './InventoryModal'; // Модалка інвентаря
 import ScreenshotSidebar from './ScreenshotSidebar'; // Панель скріншотів
 
@@ -116,8 +135,21 @@ const nodeTypes = {
   cropAnalyzerNode: CropAnalyzerNode,
   firePitNode: FirePitNode,
   kitchenNode: KitchenNode,
+  deliNode: DeliNode,
+  smoothieShackNode: SmoothieShackNode,
+  bakeryNode: BakeryNode,
   inventoryScannerNode: InventoryScannerNode,
   screenshotNode: ScreenshotNode,
+  memoryGameNode: MemoryGameNode,  // Гра Пам'ять
+  whackAMoleNode: WhackAMoleNode,  // Гра Вдарь Крота
+  searchAndClickNode: SearchAndClickNode,
+  configNode: ConfigNode,
+  islandArrangerNode: IslandArrangerNode,
+  textInputNode: TextInputNode,
+  flowerPlanterNode: FlowerPlanterNode,
+  deliveryNode: DeliveryNode,
+  foodNode: FoodNode,
+  roninWalletNode: RoninWalletNode,
 };
 
 const edgeTypes = {
@@ -143,7 +175,12 @@ const API_HOST = getApiHost();
 // Масив ID системних нод, які не можна видаляти
 const PROTECTED_IDS = ['start_node'];
 
-const NodeEditor = () => {
+interface NodeEditorProps {
+  currentView: string;
+  setCurrentView: (view: any) => void;
+}
+
+const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -212,7 +249,7 @@ const NodeEditor = () => {
   const subNodeCallbacksRef = useRef<Map<string, (data: any) => void>>(new Map());
   const [showSettings, setShowSettings] = useState(false);
   const [showGlobalStats, setShowGlobalStats] = useState(false);
-  const [pickerConfig, setPickerConfig] = useState<{ nodeId: string, pickType: string } | null>(null);
+  const [pickerConfig, setPickerConfig] = useState<{ nodeId: string, pickType: string, wsUrl?: string } | null>(null);
   const [selectedNodes, setSelectedNodes] = useState<any[]>([]);
   useEffect(() => { selectedNodesRef.current = selectedNodes; }, [selectedNodes]);
   const [globalSettings, setGlobalSettings] = useState(() => {
@@ -232,6 +269,12 @@ const NodeEditor = () => {
   const [isScheduleManagerOpen, setIsScheduleManagerOpen] = useState(false);
   // Стан відображення модалки інвентаря
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const [isDeliveriesOpen, setIsDeliveriesOpen] = useState(false);
+  const [isAllDeliveriesOpen, setIsAllDeliveriesOpen] = useState(false);
+  const [isAllScreenshotsOpen, setIsAllScreenshotsOpen] = useState(false);
+  const [isAllInventoriesOpen, setIsAllInventoriesOpen] = useState(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState(true);
   // Стан відображення панелі скріншотів
   const [isScreenshotSidebarCollapsed, setIsScreenshotSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sfl_screenshot_sidebar_collapsed');
@@ -748,74 +791,129 @@ const NodeEditor = () => {
         <ReactFlowProvider>
           <div className="absolute inset-0 overflow-hidden" ref={reactFlowWrapper}>
             
-            {/* ── Кнопка Старт/Стоп та Інвентар (Верхній правий кут) ── */}
-            <div className="fixed top-6 right-6 z-[120] flex items-center gap-3">
-              {/* Кнопка Скріншоти */}
-              <button
-                onClick={() => setIsScreenshotSidebarCollapsed(!isScreenshotSidebarCollapsed)}
-                disabled={!currentProject}
-                className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl transition-all duration-500 hover:scale-105 active:scale-95 border-2 ${
-                  currentProject
-                    ? 'bg-pink-500/20 text-pink-400 border-pink-500/40 hover:bg-pink-500/30 shadow-pink-500/20'
-                    : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'
-                }`}
-                title={currentProject ? 'Відкрити скріншоти' : 'Завантажте проект'}
-              >
-                <LucideIcons.Camera size={16} />
-                <span>Скріншоти</span>
-              </button>
-
-              {/* Кнопка Інвентар */}
-              <button
-                onClick={() => setIsInventoryOpen(true)}
-                disabled={!currentProject}
-                className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl transition-all duration-500 hover:scale-105 active:scale-95 border-2 ${
-                  currentProject
-                    ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40 hover:bg-indigo-500/30 shadow-indigo-500/20'
-                    : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'
-                }`}
-                title={currentProject ? 'Відкрити інвентар' : 'Завантажте проект'}
-              >
-                <LucideIcons.Package size={16} />
-                <span>Інвентар</span>
-              </button>
-
-              {/* Кнопка Старт/Стоп */}
-              <button
-                onClick={isBotRunning ? stopBot : runBot}
-                className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl transition-all duration-500 hover:scale-105 active:scale-95 border-2 ${
-                  isBotRunning 
-                    ? 'bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30 shadow-red-500/20' 
-                    : 'bg-green-500/20 text-green-400 border-green-500/40 hover:bg-green-500/30 shadow-green-500/20'
-                }`}
-              >
-                {isBotRunning ? (
-                  <>
-                    <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-                    <LucideIcons.Square size={16} fill="currentColor" />
-                    <span>Зупинити бота</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />
-                    <LucideIcons.Play size={16} fill="currentColor" />
-                    <span>Запустити бота</span>
-                  </>
+            {/* ── Кнопка Старт/Стоп та Інструменти (Верхній правий кут) ── */}
+            <div className="fixed top-6 right-6 z-[var(--z-canvas-button)] flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                {/* Згорнуті кнопки локального проекту */}
+                {isToolbarExpanded && (
+                  <div className="flex items-center gap-2 mr-1 animate-in slide-in-from-right-4 fade-in duration-300">
+                    <button
+                      onClick={() => setIsMapOpen(true)}
+                      disabled={!currentProject}
+                      className={`p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-emerald)]/20 text-[var(--accent-emerald)] border-[var(--accent-emerald)]/40 hover:bg-[var(--accent-emerald)]/30 shadow-[var(--accent-emerald)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
+                      title={currentProject ? 'Карта Острова' : 'Завантажте проект'}
+                    >
+                      <LucideIcons.Map size={18} />
+                    </button>
+                    <button
+                      onClick={() => setIsInventoryOpen(true)}
+                      disabled={!currentProject}
+                      className={`p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-indigo)]/20 text-[var(--accent-indigo)] border-[var(--accent-indigo)]/40 hover:bg-[var(--accent-indigo)]/30 shadow-[var(--accent-indigo)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
+                      title={currentProject ? 'Інвентар' : 'Завантажте проект'}
+                    >
+                      <LucideIcons.Package size={18} />
+                    </button>
+                    <button
+                      onClick={() => setIsScreenshotSidebarCollapsed(!isScreenshotSidebarCollapsed)}
+                      disabled={!currentProject}
+                      className={`p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-pink)]/20 text-[var(--accent-pink)] border-[var(--accent-pink)]/40 hover:bg-[var(--accent-pink)]/30 shadow-[var(--accent-pink)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
+                      title={currentProject ? 'Скріншоти' : 'Завантажте проект'}
+                    >
+                      <LucideIcons.Camera size={18} />
+                    </button>
+                    <button
+                      onClick={() => setIsDeliveriesOpen(true)}
+                      disabled={!currentProject}
+                      className={`p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-teal)]/20 text-[var(--accent-teal)] border-[var(--accent-teal)]/40 hover:bg-[var(--accent-teal)]/30 shadow-[var(--accent-teal)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
+                      title={currentProject ? 'Доставки' : 'Завантажте проект'}
+                    >
+                      <LucideIcons.Truck size={18} />
+                      </button>
+                      <button
+                        onClick={() => setCurrentView('scheduler')}
+                        className="p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-orange)]/20 text-[var(--accent-orange)] border-[var(--accent-orange)]/40 hover:bg-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/20"
+                        title="Масовий Планувальник"
+                      >
+                        <LucideIcons.CalendarClock size={18} />
+                      </button>
+                      <button
+                        onClick={() => setCurrentView('inventory')}
+                        className="p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-blue-600/20 text-blue-400 border-blue-500/40 hover:bg-blue-600/30 shadow-blue-500/20"
+                        title="Загальний Інвентар (Overview)"
+                      >
+                        <LucideIcons.LayoutGrid size={18} />
+                      </button>
+                  </div>
                 )}
-              </button>
+                
+                {/* Кнопка розгортання */}
+                <button 
+                  onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
+                  className="p-2 text-gray-400 hover:text-white transition-colors bg-[#0f172a]/50 rounded-xl border border-white/5 backdrop-blur-md shadow-xl"
+                  title={isToolbarExpanded ? 'Згорнути інструменти' : 'Розгорнути інструменти'}
+                >
+                  {isToolbarExpanded ? <LucideIcons.ChevronRight size={16} /> : <LucideIcons.ChevronLeft size={16} />}
+                </button>
+
+                {/* Кнопка Старт/Стоп бота (тільки іконка) */}
+                <button
+                  onClick={isBotRunning ? stopBot : runBot}
+                  className={`p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${
+                    isBotRunning 
+                      ? 'bg-[var(--button-danger-bg)]/20 text-[var(--button-danger-bg)] border-[var(--button-danger-bg)]/40 hover:bg-[var(--button-danger-bg)]/30 shadow-[var(--button-danger-bg)]/20' 
+                      : 'bg-[var(--button-success-bg)]/20 text-[var(--button-success-bg)] border-[var(--button-success-bg)]/40 hover:bg-[var(--button-success-bg)]/30 shadow-[var(--button-success-bg)]/20'
+                  }`}
+                  title={isBotRunning ? 'Зупинити бота' : 'Запустити бота'}
+                >
+                  {isBotRunning ? (
+                    <LucideIcons.Square size={18} fill="currentColor" />
+                  ) : (
+                    <LucideIcons.Play size={18} fill="currentColor" />
+                  )}
+                </button>
+              </div>
+
+              {/* Нижні кнопки (глобальні) */}
+              {isToolbarExpanded && (
+                <div className="flex items-center gap-2 mr-[82px] animate-in slide-in-from-right-4 fade-in duration-300 delay-75">
+                  <button
+                    onClick={() => setIsAllInventoriesOpen(true)}
+                    className="p-2 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-indigo)]/10 text-[var(--accent-indigo)] border-[var(--accent-indigo)]/30 hover:bg-[var(--accent-indigo)]/20"
+                    title="Всі Інвентарі"
+                  >
+                    <LucideIcons.Boxes size={16} />
+                  </button>
+                  <button
+                    onClick={() => setIsAllScreenshotsOpen(true)}
+                    className="p-2 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-pink)]/10 text-[var(--accent-pink)] border-[var(--accent-pink)]/30 hover:bg-[var(--accent-pink)]/20"
+                    title="Всі Скріншоти"
+                  >
+                    <LucideIcons.Images size={16} />
+                  </button>
+                  <button
+                    onClick={() => setIsAllDeliveriesOpen(true)}
+                    className="p-2 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-teal)]/10 text-[var(--accent-teal)] border-[var(--accent-teal)]/30 hover:bg-[var(--accent-teal)]/20"
+                    title="Всі Доставки"
+                  >
+                    <LucideIcons.Globe size={16} />
+                  </button>
+                </div>
+              )}
             </div>
 
             <GlobalSettings forceOpen={showSettings} onOpenChange={setShowSettings} />
             {pickerConfig && (
-              <StreamPicker ws={wsRef.current} nodeId={pickerConfig.nodeId} pickType={pickerConfig.pickType} onClose={() => setPickerConfig(null)} />
+              <StreamPicker ws={wsRef.current} wsUrl={pickerConfig.wsUrl} nodeId={pickerConfig.nodeId} pickType={pickerConfig.pickType} onClose={() => setPickerConfig(null)} />
             )}
             <button
               onClick={() => setPickerConfig({ nodeId: 'remote_browser', pickType: 'default' })}
-              className="fixed bottom-20 right-6 z-[100] w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-indigo-700 hover:scale-110 active:scale-95 transition-all group border-2 border-white/20 backdrop-blur-sm"
+              className={`fixed right-6 z-[var(--z-panel)] w-14 h-14 bg-[var(--accent-indigo)] text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-[var(--accent-indigo)]/80 hover:scale-110 active:scale-95 transition-all duration-300 group border-2 border-white/20 backdrop-blur-sm ${isConsoleOpen && !isManagerOpen ? 'bottom-[370px]' : 'bottom-20'}`}
               title="Відкрити віддалене керування"
             >
               <Globe size={26} className="group-hover:rotate-12 transition-transform" />
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse" />
+              {isBotRunning && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--button-success-bg)] rounded-full border-2 border-white animate-pulse" />
+              )}
               <span className="absolute right-full mr-3 px-2 py-1 bg-black/80 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none uppercase tracking-widest">
                 Браузер
               </span>
@@ -845,6 +943,11 @@ const NodeEditor = () => {
               onLoad={handleManagerLoad}
               onSettingsToggle={() => { setShowSettings(true); setIsManagerOpen(false); }}
               onGlobalStatsToggle={() => { setShowGlobalStats(true); setIsManagerOpen(false); }}
+              onOpenBrowser={(projName) => {
+                const wsUrl = projName && projName !== currentProject ? getWsHost(projName) : undefined;
+                setPickerConfig({ nodeId: 'remote_browser', pickType: 'default', wsUrl });
+                setIsManagerOpen(false);
+              }}
             />
 
             <GlobalStatisticsModal
@@ -861,7 +964,14 @@ const NodeEditor = () => {
             <InventoryModal
               isOpen={isInventoryOpen}
               onClose={() => setIsInventoryOpen(false)}
-              projectName={currentProject}
+              projectName={currentProject || ''}
+            />
+
+            {/* Модалка Карти Острова */}
+            <IslandMapModal
+              isOpen={isMapOpen}
+              onClose={() => setIsMapOpen(false)}
+              projectName={currentProject || ''}
             />
 
             {/* Панель скріншотів */}
@@ -874,6 +984,7 @@ const NodeEditor = () => {
             <ReactFlow
               nodes={nodes}
               edges={edges}
+              onlyRenderVisibleElements={true}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
@@ -917,7 +1028,12 @@ const NodeEditor = () => {
               <NodeContextMenu 
                 menu={menu}
                 onCopy={onCopy}
-                onPaste={(pos) => onPaste(pos)}
+                onPaste={(pos) => {
+                  // Перетворюємо екранні координати контекстного меню у внутрішні координати полотна React Flow
+                  const flowPos = reactFlowInstance ? reactFlowInstance.screenToFlowPosition({ x: pos.x, y: pos.y }) : pos;
+                  // Викликаємо функцію вставки з правильними спроектованими координатами
+                  onPaste(flowPos);
+                }}
                 onDeleteSelected={onDeleteSelected}
                 onSetCustomIcon={handleSetCustomIcon}
                 onClickOutside={() => setMenu(null)}
@@ -927,6 +1043,10 @@ const NodeEditor = () => {
           </div>
         </ReactFlowProvider>
       </div>
+      <DeliveriesModal isOpen={isDeliveriesOpen} onClose={() => setIsDeliveriesOpen(false)} projectName={currentProject || ''} />
+      <AllDeliveriesModal isOpen={isAllDeliveriesOpen} onClose={() => setIsAllDeliveriesOpen(false)} />
+      <AllScreenshotsModal isOpen={isAllScreenshotsOpen} onClose={() => setIsAllScreenshotsOpen(false)} />
+      <AllInventoriesModal isOpen={isAllInventoriesOpen} onClose={() => setIsAllInventoriesOpen(false)} />
     </div>
   );
 };

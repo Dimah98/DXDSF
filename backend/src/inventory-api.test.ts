@@ -17,8 +17,6 @@ import request from 'supertest';
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { authMiddleware } from './auth/AuthMiddleware';
-import { apiRateLimiter } from './auth/RateLimiter';
 import { inputValidator } from './validation/InputValidator';
 
 // Mock data
@@ -81,6 +79,7 @@ describe('GET /api/inventory/:projectName', () => {
             timestamp: inventoryData.timestamp || null,
             projectName: inventoryData.projectName || projectName
           });
+          return;
         } catch (fileErr: any) {
           if (fileErr.code === 'ENOENT') {
             return res.json({
@@ -96,7 +95,7 @@ describe('GET /api/inventory/:projectName', () => {
           });
         }
       } catch (err) {
-        res.status(500).json({
+        return res.status(500).json({
           success: false,
           error: 'Failed to load inventory data. Please try again later.'
         });
@@ -183,7 +182,7 @@ describe('GET /api/inventory/:projectName', () => {
 
   // Requirement 2.7: Returns 400 for empty project name
   it('should return 400 for empty project name', async () => {
-    const response = await request(app)
+    await request(app)
       .get('/api/inventory/')
       .expect(404); // Express returns 404 for missing route parameter
 

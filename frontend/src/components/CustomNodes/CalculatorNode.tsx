@@ -1,7 +1,7 @@
 // Нода Калькулятор — математичні операції з числами та змінними
 import React, { memo, useEffect, useState } from 'react';
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react';
-import { Calculator, Plus, Trash2, ArrowRight, Play, ChevronDown } from 'lucide-react';
+import { Calculator, Plus, Trash2, ArrowRight, Play, ChevronDown, Zap } from 'lucide-react';
 import { Input } from '../ui/input';
 import BaseNode, { getHandleStyle } from './BaseNode';
 
@@ -183,18 +183,43 @@ const CalculatorNode = memo(({ id, data }: any) => {
           {examples.map((ex: any, exIdx: number) => (
             <div key={ex.id} className="bg-muted/30 rounded-lg border border-border/50 p-2.5 relative group/ex">
               
-              {/* Заголовок блоку */}
+              {/* Заголовок блоку з кнопкою видалення */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5 text-[9px] font-bold text-emerald-400 uppercase">
                   <Play size={10} className="fill-emerald-500/20" /> RUN #{exIdx + 1}
                 </div>
-                <button onClick={() => {
-                  const next = [...examples];
-                  next.splice(exIdx, 1);
-                  data.onDataChange(id, { examples: next });
-                }} className="text-muted-foreground hover:text-rose-400 opacity-0 group-hover/ex:opacity-100 transition-opacity">
-                  <Trash2 size={12} />
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Прапорець: запуск при отриманні даних через синій вхід */}
+                  <label
+                    className="flex items-center gap-1 cursor-pointer group/zap"
+                    title="Якщо увімкнено — при надходженні значення через синій порт розрахунок запускається автоматично"
+                  >
+                    {/* Чекбокс прапорця */}
+                    <input
+                      type="checkbox"
+                      checked={ex.triggerOnInput || false} // Стан чекбоксу з даних прикладу
+                      onChange={(e) => { // Оновлюємо прапорець конкретного прикладу
+                        const next = [...examples];
+                        next[exIdx] = { ...next[exIdx], triggerOnInput: e.target.checked };
+                        data.onDataChange(id, { examples: next });
+                      }}
+                      className="w-2.5 h-2.5 rounded border-none bg-cyan-500/20 text-cyan-500 focus:ring-0"
+                    />
+                    {/* Іконка блискавки — сигналізує про авто-запуск */}
+                    <Zap
+                      size={9}
+                      className={`transition-colors ${ex.triggerOnInput ? 'text-amber-400' : 'text-muted-foreground group-hover/zap:text-amber-400/50'}`}
+                    />
+                  </label>
+                  {/* Кнопка видалення блоку */}
+                  <button onClick={() => {
+                    const next = [...examples];
+                    next.splice(exIdx, 1);
+                    data.onDataChange(id, { examples: next });
+                  }} className="text-muted-foreground hover:text-rose-400 opacity-0 group-hover/ex:opacity-100 transition-opacity">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               </div>
 
               {/* Рядки з операндами */}

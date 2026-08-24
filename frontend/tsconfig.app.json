@@ -16,15 +16,24 @@
     "jsx": "react-jsx",
 
     /* Linting */
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "erasableSyntaxOnly": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
+    "erasableSyntaxOnly": true,
 
-    "ignoreDeprecations": "6.0", // Дозволяємо використання застарілих опцій у версії TypeScript 6.0 для сумісності
-    "baseUrl": ".", // Визначаємо базовий каталог для роздільної здатності неабсолютних імен модулів
-    "paths": { // Налаштовуємо псевдоніми для спрощення шляхів імпорту в проекті
-      "@/*": ["./src/*"] // Відображаємо символ @ на папку src для зручніших імпортів
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"]

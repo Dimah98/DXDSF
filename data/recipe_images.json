@@ -1,0 +1,102 @@
+{
+  "firePit": {
+    "Reindeer Carrot": "BLsCsvFg19F9b8KkAc7ywK+DY6KztCnAZ1RwA0RyWCxS2vrIAAAAASUVORK5CYII=",
+    "Furikake Sprinkle": "bWZHSw+DHakBw9MB0CVKcgJU5Vw1tLlWjcJdOeeqsfvq2yd3615Pid3FmzE3risi5AQGXZKcA8BIAQA=",
+    "Mashed Potato": "u4Q2qQ30wQCdX3w4PRYf2AYD/ADKdpm+AHVCVAAAAABJRU5ErkJggg==",
+    "Pumpkin Soup": "5HAAAAAElFTkSuQmCC",
+    "Mushroom Soup": "QzBdhzSkjs1AFIw7TESnnam0d9hu/tGsO0hNz5AaEcJRqmJXZ+wBHQBVW1QY2vrwAAAABJRU5ErkJggg==",
+    "Popcorn": "mqgAAAAASUVORK5CYII=",
+    "Bumpkin Broth": "okraalRgUG8lOlwB9tDH3Tjcnb2QAAAABJRU5ErkJggg==",
+    "Cabbers n Mash": "pgYaYAGYRhBHUpQPLAYiQAphAKwBxIFpgkngosGeBtmCrACXZgdTFUZ4cKFrQjcApBgkBgDr+1CgnVKDRgAAAABJRU5ErkJggg==",
+    "Boiled Eggs": "5gFOCoezYAKGfQAAAABJRU5ErkJggg==",
+    "Kale Stew": "ygPCAAAAKlBMVEUAAADAy9za2to+iUjXdkPkpnJjx03q1Kq4b1CFqHAmXEKClVlwfkt9gUav75hSAAAAAXRSTlMAQObYZgAAADxJREFUCNdjYGBSUjJjYGAzmeqcrMCgnFzbZdrEoGrl6R6yiUFIpeRIkyKDoJCSkqIgA6MgEAgwAGkgCQAzxgl9sRPy+AAAAABJRU5ErkJggg==",
+    "Kale Omelette": "UwMNMBfktGJhoEY0cEh2BYO9iTJDz5ytDGDfgzSB1MA0oqlnABkEAqWpPojgAgnANILYyACkEMYHAD8AX5QNTZZyAAAAAElFTkSuQmCC",
+    "Rapid Roast": "39KPcgKGZnulVy8cqkXRSFMMTIfpoiBgYEBALXqeSr9NvHGAAAAAElFTkSuQmCC",
+    "Fried Tofu": "ySafMAAAAAElFTkSuQmCC",
+    "Rice Bun": "AtYRZLsZAgGXvx+EkgGsoErJNz6FwEeIvofTOcIgPkDML3Sdo6YS+YP5nV+pdE8mEvPp4anLcE8hB34tyWEDgA=",
+    "Antipasto": "fKVxPZG7AqEBRoAAA==",
+    "Pizza Margherita": "wHA34tYni1UiQRWkW21uTNvEPCKgsQAVUDqdxcA8a+CiIjov5CAIDEFSIkAJJZA8JO1NUB3k7WSchVmGocu6fSLr8NU+g7uSNzCDbwp3Q7A+zoA",
+    "Rhubarb Tart": "BBqZmf8AYN9v7zmsxZxxUgvYBACDVNXw23lhFTTAIiAN+J1F9D8g4ivgpGXfwZgPqcx9ocqYmStzd6ouInqSJiLGdKrregZAxBQA"
+  },
+  "kitchen": {
+    "Sunflower Crunch": "7ojMtzu25Ya7AAAAAXRSTlMAQObYZgAAADVJREFUCNdjYBAUFGBgYEw3XsjAIBEWbarAIFlaZqzAIDijPckBKKnkAiZVFBgYBYWUGCDqAeUpB37bPOX0AAAAAElFTkSuQmCC",
+    "Roast Veggies": "wKIwAAAABJRU5ErkJggg==",
+    "Club Sandwich": "XTl19s0WEy3j+GGwAAAABJRU5ErkJggg==",
+    "Fruit Salad": "VAAAAAElFTkSuQmCC",
+    "Mushroom Jacket Potatoes": "v9PJ1iCNYEEQRpghoDEQfIgdQwwxSABEIaZAqJhYnDFIIeDNCBrApkKUwiTQ4QblAWTQKaRFQEAKT2erLxgiMYAAAAASUVORK5CYII",
+    "Cauliflower Burger": "GAAAAAElFTkSuQmCC",
+    "Bumpkin Salad": "UnB9QXFkXhlsP9QAAAABJRU5ErkJggg",
+    "Goblin's Treat": "mJK6tvbMF0EbRKiToRY6AAAAAElFTkSuQmCC",
+    "Bumpkin ganoush": "NpE2xajj39DQ8LkiOOACRSWNh3LAn3wAAAA5lWElmTU0AKgAAAAgAAAAAAAAA0lOTAAAAAElFTkSuQmCC",
+    "Beetroot Blaze": "AAA0F37swytGAAAAABJRU5ErkJggg"
+  },
+  "deli": {},
+  "smoothieShack": {},
+  "bakery": {},
+  "food": {
+    "Fancy Fries": {
+      "enabled": true,
+      "imageName": "qYEG2AR7E2UwjU4cPHMXLgQOJmRNcBksDAdTFUZ4uII0wdTAbITxQTRIMTKfaDYALFaCmvohPI0AAAAASUVORK5CYII"
+    },
+    "Pirate Cake": {
+      "enabled": true,
+      "imageName": "RKnVVQnd7w3JolNtzwffdSduz"
+    },
+    "Radish Cake": {
+      "enabled": true,
+      "imageName": "EpAAAAAElFTkSuQmCC"
+    },
+    "Sunflower Cake": {
+      "enabled": true,
+      "imageName": "kfDCb3xRIiUsBtWXBTojScC4A9w8H8Y9njMMAAAAABJRU5ErkJggg"
+    },
+    "Cabbage Cake": {
+      "enabled": true,
+      "imageName": "4lxun4n7mrwy9h44zwgO72M7yPy7FvYeOMzIwMDAAABpvYmrWP"
+    },
+    "Wheat Cake": {
+      "enabled": true,
+      "imageName": "Viw0sicspILnqbb8YwIo761jgJqGHBkyivOkPJOiQTUe2AaYQZGrflSeM8EgBacDlaJBCkBwAfX6IViYHUW8AAAAASUVORK5CYIIA"
+    },
+    "Beetroot Blaze": {
+      "enabled": false,
+      "imageName": "AAA0F37swytGAAAAABJRU5ErkJggg"
+    },
+    "Rapid Roast": {
+      "enabled": false,
+      "imageName": ""
+    },
+    "Kale & Mushroom Pie": {
+      "enabled": true,
+      "imageName": "p4WANMEGQIhiGGQZSAxIDawAxQAL4MEgNyHCwhh35AXATYSaj0yA1YA2g8AUxQAL4MFwxLEJAAvgwTB0AdnPjDqx8U84AAAAASUVORK5CYII"
+    },
+    "Rice Bun": {
+      "enabled": true,
+      "imageName": "pdE8mEvPp4anLcE8hB34tyWEDgA"
+    },
+    "Honey Cake": {
+      "enabled": true,
+      "imageName": "qpIsWBwZaJ5fyXDdMJzh9r3HDP55ixnBikEApAHKxAAghQwMDAwAlO9M5CYMQAYAAAAASUVORK5CYII"
+    },
+    "Apple Pie": {
+      "enabled": true,
+      "imageName": "9PrF3AGMYGiYPEQHy4yTBJEI3OhiuEhSEu62HiMHUAWUa6cMolTTcAAAAASUVORK5CYII"
+    },
+    "Caprese Salad": {
+      "enabled": true,
+      "imageName": "umKAIRZ9iVLAA"
+    },
+    "Saltbite": {
+      "enabled": false,
+      "imageName": ""
+    },
+    "Surimi Rice Bowl": {
+      "enabled": true,
+      "imageName": ""
+    },
+    "Grape Juice": {
+      "enabled": true,
+      "imageName": "pjvbyO9CbLvAg"
+    }
+  }
+}

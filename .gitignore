@@ -1,52 +1,99 @@
-# ─── Секрети та токени ────────────────────────────────────────────────────────
+# ─── Секрети, токени та ліцензії ─────────────────────────────────────────────
 # Ніколи не комітити в репозиторій!
 .env
 .env.*
 ngrok_tokens.txt
+itbrowser/proxies.txt
+itbrowser/itbrowser.license
+itbrowser/fingerprint/
+*.keystore
+*.jks
+*.base64
+debug.keystore.base64
 
-# ─── Рантайм файли (змінюються при кожному запуску) ──────────────────────────
+# ─── Бази даних та рантайм-файли ──────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+backend/data/*.db
+backend/save.json
+backend/state.json
 backend/current_url.txt
 backend/next_token.flag
+data/runs/
+backend/projects/*_save.json
+backend/projects/*_logs.json
+backend/projects/*_stats.json
 
 # ─── Бекапи та тимчасові файли ───────────────────────────────────────────────
 *.bak
-backend/save.json.bak
+*.tmp
+*.old
+scratch/
+Aged/
+sl-bot-remote/backup_com_example/
 
-# ─── Node.js ──────────────────────────────────────────────────────────────────
+# ─── Ігрові ассети та шаблони ─────────────────────────────────────────────────
+im/
+**/im/
+mine/
+**/mine/
+
+# ─── Node.js & TS збірка ──────────────────────────────────────────────────────
 node_modules/
 backend/node_modules/
 frontend/node_modules/
-
-# ─── Збірка ───────────────────────────────────────────────────────────────────
+packages/*/dist/
 dist/
 dist-ssr/
 frontend/dist/
+backend/dist/
+
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# ─── Android / Gradle ─────────────────────────────────────────────────────────
+.gradle/
+.kotlin/
+sl-bot-remote/.build-outputs/
+sl-bot-remote/build/
+sl-bot-remote/local.properties
+sl-bot-remote/.idea/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
 
 # ─── Логи ─────────────────────────────────────────────────────────────────────
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# ─── Редактори ────────────────────────────────────────────────────────────────
+# ─── Редактори та ОС ──────────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
 .idea/
 .DS_Store
+Thumbs.db
 
-# ─── Дебаг-скріншоти (рантайм, необов'язкові для git) ────────────────────────
+# ─── Дебаг-скріншоти та кастомні рантайм-папки ───────────────────────────────
 backend/images/
+itbrowser/Chrome-bin/
+itbrowser/userData/
+.kiro/
+.overlay/
+frontend/.overlay/
+.backup/
+.secrets/
+dumps/
+screenshots/
+backend/temp_*/
 
 # ─── Обсідіан та нотатки ──────────────────────────────────────────────────────
 .obsidian/
 obsidian/
 
-  
-# Custom folders  
-itbrowser/Chrome-bin/  
-itbrowser/userData/  
-scratch/  
-.kiro/  
-.overlay/  
-frontend/.overlay/ 
-
-# Ігнорування вмісту папки проектів бекенду, щоб локальні проекти не потрапляли в репозиторій
-backend/projects/

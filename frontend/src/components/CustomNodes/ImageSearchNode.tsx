@@ -53,18 +53,19 @@ const ImageSearchNode = memo(({ id, data }: any) => {
       {!mini && (
         <div className="p-3 space-y-3">
 
-          {/* Назва файлу з autocomplete */}
+          {/* Назви файлів з autocomplete (multi-line) */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2">
-              <ImageIcon size={12} /> Назва файлу
+              <ImageIcon size={12} /> Назви файлів (кожна з нового рядка)
             </label>
             <div className="relative">
-              <Input
+              <textarea
                 list={`images-${id}`}
                 value={data.imageName || ''}
                 onChange={(e) => data.onDataChange(id, { imageName: e.target.value })}
-                placeholder="resource.png"
-                className="h-7 text-[11px] bg-muted border-border focus:ring-1 ring-indigo-500"
+                placeholder="resource.png&#10;item.png&#10;icon.png"
+                rows={3}
+                className="w-full px-3 py-2 text-[11px] bg-muted border border-border rounded-md focus:ring-1 ring-indigo-500 resize-none"
               />
               <datalist id={`images-${id}`}>
                 {imageList.map(img => <option key={img} value={img} />)}

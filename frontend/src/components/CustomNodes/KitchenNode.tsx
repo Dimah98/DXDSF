@@ -40,7 +40,6 @@ interface KitchenRule {
   enabled: boolean;
   maxDish: number;
   ingMultipliers: Record<string, number>;
-  selector: string;
 }
 
 const KitchenNode = memo(({ id, data }: any) => {
@@ -201,17 +200,6 @@ const KitchenNode = memo(({ id, data }: any) => {
                               );
                             })}
                           </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1 pt-1">
-                          <span className="text-[9px] text-slate-400">CSS Селектор:</span>
-                          <Input
-                            type="text"
-                            value={rule.selector}
-                            onChange={(e) => updateRule(i, 'selector', e.target.value)}
-                            placeholder={`#kitchen-${rule.recipeName.toLowerCase().replace(/\s+/g, '-')}`}
-                            className="h-6 text-[10px] bg-slate-900 border-slate-700 px-2 font-mono"
-                          />
                         </div>
 
                       </div>

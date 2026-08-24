@@ -1,23 +1,24 @@
 import { Page } from 'playwright';
 import WebSocket from 'ws';
-import { NodeHandlerParams, NodeResult, NodeData } from '../nodes/types';
+import { NodeHandlerParams, NodeResult, NodeData, NodeHandler } from '../nodes/types';
+import { BaseNode, BaseEdge } from '@sf/shared-types';
 
 export interface EngineParams {
-  nodes: any[];
-  edges: any[];
+  nodes: BaseNode[];
+  edges: BaseEdge[];
   activePage: Page | null;
   ws: WebSocket;
-  globalVariables: Record<string, any>;
-  projectName: string; // Назва проекту для передачі в ноди
+  globalVariables: Record<string, unknown>;
+  projectName: string;
   broadcastVariables: () => void;
-  logToClient: (message: string, type?: 'info' | 'error' | 'success' | 'debug', data?: any) => void;
-  takeDebugSnapshot: (nodeId: string, nodeTitle: string, highlight?: any) => Promise<void>;
+  logToClient: (message: string, type?: 'info' | 'error' | 'success' | 'debug', data?: unknown) => void;
+  takeDebugSnapshot: (nodeId: string, nodeTitle: string, highlight?: unknown) => Promise<void>;
   smartSleep: (ms: number, ws: WebSocket) => Promise<void>;
-  nodeRuntimeState: Map<string, Record<string, any>>;
+  nodeRuntimeState: Map<string, Record<string, unknown>>;
   checkRunning: () => boolean;
-  verboseLogs?: boolean; // Детальне логування кожного кроку ноди (за замовчуванням увімкнено)
-  nodeHandlers: Record<string, any>;
-  onNodeDisplayUpdate?: (nodeId: string, data: any) => void;
+  verboseLogs?: boolean;
+  nodeHandlers: Record<string, unknown>;
+  onNodeDisplayUpdate?: (nodeId: string, data: Record<string, unknown>) => void;
   onNodeExecuting?: (nodeId: string, nodeTitle?: string) => void;
   onFinished?: () => void;
 }
@@ -41,7 +42,7 @@ export class BotEngine {
   /**
    * Запускає виконання сценарію з початкової ноди або черги
    */
-  async run(startNodeId?: string, initialContext: NodeData = {}, initialQueue?: QueueItem[]) {
+  async run(startNodeId?: string, initialContext: NodeData = {}, initialQueue?: QueueItem[]): Promise<{ context: NodeData } | undefined> {
     const { nodes, edges, ws, logToClient, smartSleep, checkRunning } = this.params;
     const verbose = this.params.verboseLogs !== false;
     
@@ -63,10 +64,10 @@ export class BotEngine {
       }
 
       // 2. Пошук ноди
-      const node = nodes.find((n: any) => n.id === nodeId);
+      const node = nodes.find((n: BaseNode) => n.id === nodeId);
       if (!node) continue;
 
-      const nodeTitle = node.data?.label || node.data?.title || node.type;
+      const nodeTitle: string = String(node.data?.label || node.data?.title || node.type || '');
 
       // 3. Спеціальна логіка для системних нод контейнера
       if (node.type === 'subExitNode') {
@@ -76,9 +77,9 @@ export class BotEngine {
 
       // 4. Повідомляємо клієнта про виконання
       if (this.params.onNodeExecuting) {
-        this.params.onNodeExecuting(node.id, nodeTitle);
+        this.params.onNodeExecuting(node.id, nodeTitle || undefined);
       } else if (ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'NODE_EXECUTING', nodeId: node.id, nodeTitle }));
+        ws.send(JSON.stringify({ type: 'NODE_EXECUTING', nodeId: node.id, nodeTitle: nodeTitle || undefined }));
       }
 
       // 4.5 Детальний лог старту ноди (що нода отримала на вхід)
@@ -95,8 +96,9 @@ export class BotEngine {
       const startedAt = Date.now();
       try {
         result = await this.executeNode(node, context, targetHandle);
-      } catch (err: any) {
-        logToClient(`❌ Помилка у ноді [${nodeTitle}]: ${err.message}`, 'error');
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        logToClient(`❌ Помилка у ноді [${nodeTitle}]: ${errorMessage}`, 'error');
         break;
       }
       const durationMs = Date.now() - startedAt;
@@ -108,19 +110,26 @@ export class BotEngine {
       }
 
       // 6. Передача сигналу наступним нодам
-      const outEdges = edges.filter((e: any) => e.source === nodeId);
+      const outEdges = edges.filter((e: BaseEdge) => e.source === nodeId);
       const routedTitles: string[] = []; // Куди пішов сигнал — для детального логу
 
       for (const edge of outEdges) {
         const sourceHandle = edge.sourceHandle;
         const nextContext = result.data || context;
-        const edgeDelay = parseInt(edge.data?.delay || 0);
+        const edgeDelay = parseInt(String(edge.data?.delay || 0), 10);
 
         const isHardStop = result.nextHandle === null;
         const activeHandles = Array.isArray(result.nextHandle) ? result.nextHandle : [result.nextHandle];
         
-        const isMatch = activeHandles.includes(sourceHandle);
-        const isNoHandle = result.nextHandle === undefined && !sourceHandle;
+        // Якщо nextHandle точно збігається з sourceHandle — сигнал іде (isMatch)
+        // Також якщо у ребра немає sourceHandle (старі з'єднання або ноди всередині контейнера),
+        // але нода віддає стандартний вихід ('out', 'next', 'success'), сигнал пропускаємо далі
+        const isMatch = result.nextHandle !== undefined && (
+          activeHandles.includes(sourceHandle) ||
+          (!sourceHandle && (activeHandles.includes('out') || activeHandles.includes('next') || activeHandles.includes('success')))
+        );
+        // Якщо nextHandle взагалі не задано (undefined) — сигнал іде по всіх вихідних ребрах
+        const isNoHandle = result.nextHandle === undefined;
 
         if (!isHardStop && (isMatch || isNoHandle)) {
           // Перевіряємо ліміт черги перед додаванням
@@ -134,8 +143,8 @@ export class BotEngine {
             context: nextContext, 
             delay: edgeDelay 
           });
-          const targetNode = nodes.find((n: any) => n.id === edge.target);
-          const targetTitle = targetNode?.data?.label || targetNode?.data?.title || targetNode?.type || edge.target;
+          const targetNode = nodes.find((n: BaseNode) => n.id === edge.target);
+          const targetTitle: string = String(targetNode?.data?.label || targetNode?.data?.title || targetNode?.type || edge.target || '');
           routedTitles.push(sourceHandle ? `${targetTitle} (${sourceHandle})` : targetTitle);
         }
       }
@@ -158,15 +167,16 @@ export class BotEngine {
     }
 
     this.params.onFinished?.();
+    return undefined;
   }
 
   /**
    * Готує компактний зріз даних ноди для консолі (лише значущі поля),
    * щоб не засмічувати лог великими об'єктами.
    */
-  private summarizeData(data?: NodeData): Record<string, any> | undefined {
+  private summarizeData(data?: NodeData): Record<string, unknown> | undefined {
     if (!data || typeof data !== 'object') return undefined;
-    const out: Record<string, any> = {};
+    const out: Record<string, unknown> = {};
     if (data.value !== undefined) out.value = data.value;
     if (data.text !== undefined) out.text = data.text;
     if (data.num !== undefined) out.num = data.num;
@@ -181,11 +191,11 @@ export class BotEngine {
   /**
    * Виконує обробник конкретної ноди
    */
-  async executeNode(node: any, context: NodeData, targetHandle?: string): Promise<NodeResult> {
+  async executeNode(node: BaseNode, context: NodeData, targetHandle?: string): Promise<NodeResult> {
     const { nodeHandlers, activePage, ws, globalVariables, broadcastVariables, logToClient, takeDebugSnapshot, smartSleep, nodeRuntimeState } = this.params;
     
-    const nodeTitle = node.data?.label || node.data?.title || node.type;
-    const handler = nodeHandlers[node.type];
+    const nodeTitle: string = String(node.data?.label || node.data?.title || node.type || '');
+    const handler = nodeHandlers[node.type] as NodeHandler | undefined;
 
     if (!handler) {
       return { data: context };
@@ -206,7 +216,8 @@ export class BotEngine {
       logToClient: (msg, type, logData) => logToClient(`[${nodeTitle}] ${msg}`, type, logData),
       takeDebugSnapshot,
       smartSleep,
-      nodeRuntimeState
+      nodeRuntimeState,
+      checkRunning: this.params.checkRunning // Передаємо функцію перевірки статусу запуску бота в параметри ноди
     };
 
     const result = await handler(handlerParams);

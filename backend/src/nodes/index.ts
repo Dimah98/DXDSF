@@ -1,4 +1,4 @@
-import { actionNodeHandler } from './ActionNode';
+﻿import { actionNodeHandler } from './ActionNode';
 import { valueLoopNodeHandler } from './ValueLoopNode';
 import { delayNodeHandler } from './DelayNode';
 import { variableNodeHandler } from './VariableNode';
@@ -18,23 +18,31 @@ import { gateNodeHandler } from './GateNode';
 import { nestedCheckNodeHandler } from './NestedCheckNode';
 import { searchInNodeHandler } from './SearchInNode';
 import { commentNodeHandler } from './CommentNode';
-import { firePitNodeHandler } from './FirePitNode';
 import { randomDelayNodeHandler } from './RandomDelayNode';
 import { eventVariationsHandler } from './EventVariationsNode';
 import { calculatorNodeHandler } from './CalculatorNode';
-import { rotatorNodeHandler } from './RotatorNode'; // Нода Чергувач
-import { groupNodeHandler } from './GroupNode'; // Нода-контейнер (підпрограма)
+import { rotatorNodeHandler } from './RotatorNode';
+import { groupNodeHandler } from './GroupNode';
 import { cooldownNodeHandler } from './CooldownNode';
 import { setNextRunNodeHandler } from './SetNextRunNode';
 import { notifyNodeHandler } from './NotifyNode';
-import { cropAnalyzerNodeHandler } from './CropAnalyzerNode';
-import { kitchenNodeHandler } from './KitchenNode';
-import { inventoryScannerNodeHandler } from './InventoryScannerNode';
 import { screenshotNodeHandler } from './ScreenshotNode';
+import { searchAndClickNodeHandler } from './SearchAndClickNode';
+import { roninWalletNodeHandler } from './RoninWalletNode';
 
-import { NodeHandler } from './types';
+import { configNodeHandler } from './ConfigNode';
+import { islandArrangerNodeHandler } from './IslandArrangerNode';
+import { textInputNodeHandler } from './TextInputNode';
+import { flowerPlanterNodeHandler } from './FlowerPlanterNode';
+import { deliveryNodeHandler } from './DeliveryNode';
 
-export const nodeHandlers: Record<string, NodeHandler> = {
+// Domain-specific plugins
+import { sunflowerLandPlugin } from '../plugins/sunflower-land';
+
+import { NodeHandler, NodeHandlerParams, NodeResult } from './types';
+
+// ─── Generic node handlers (universal, game-agnostic) ────────────────────────
+const genericHandlers: Record<string, NodeHandler> = {
   actionNode: actionNodeHandler,
   valueLoopNode: valueLoopNodeHandler,
   delayNode: delayNodeHandler,
@@ -46,7 +54,7 @@ export const nodeHandlers: Record<string, NodeHandler> = {
   keyboardNode: keyboardNodeHandler,
   escNode: keyboardNodeHandler,
   infoNode: infoNodeHandler,
-  // conditionNode видалено — замінено compareNode (зворотна сумісність)
+  // conditionNode removed — replaced by compareNode (backward compatibility)
   conditionNode: compareNodeHandler,
   imageSearchNode: visualSearchNodeHandler,
   visualSearchNode: visualSearchNodeHandler,
@@ -62,16 +70,27 @@ export const nodeHandlers: Record<string, NodeHandler> = {
   nestedCheckNode: nestedCheckNodeHandler,
   searchInNode: searchInNodeHandler,
   commentNode: commentNodeHandler,
-  firePitNode: firePitNodeHandler,
-  rotatorNode: rotatorNodeHandler, // Чергувач — по черзі або рандом
-  groupNode: groupNodeHandler,     // Контейнер — вкладена підпрограма
+  rotatorNode: rotatorNodeHandler,
+  groupNode: groupNodeHandler,
   cooldownNode: cooldownNodeHandler,
   setNextRunNode: setNextRunNodeHandler,
   notifyNode: notifyNodeHandler,
-  cropAnalyzerNode: cropAnalyzerNodeHandler,
-  kitchenNode: kitchenNodeHandler,
-  inventoryScannerNode: inventoryScannerNodeHandler,
   screenshotNode: screenshotNodeHandler,
-  subEntryNode: async ({ context }: any) => ({ nextHandle: 'out', data: context }),
-  subExitNode: async ({ context }: any) => ({ data: context }),
+  searchAndClickNode: searchAndClickNodeHandler,
+  roninWalletNode: roninWalletNodeHandler,
+  configNode: configNodeHandler,
+  islandArrangerNode: islandArrangerNodeHandler,
+  textInputNode: textInputNodeHandler,
+  flowerPlanterNode: flowerPlanterNodeHandler,
+  deliveryNode: deliveryNodeHandler,
+  subEntryNode: async ({ context }: NodeHandlerParams): Promise<NodeResult> => ({ data: context }),
+  subExitNode: async ({ context }: NodeHandlerParams): Promise<NodeResult> => ({ data: context }),
+};
+
+// ─── Merge plugin handlers ───────────────────────────────────────────────────
+// Plugin handlers take precedence for domain-specific nodes.
+// This allows plugins to override or extend generic behavior.
+export const nodeHandlers: Record<string, NodeHandler> = {
+  ...genericHandlers,
+  ...sunflowerLandPlugin.nodeHandlers,
 };

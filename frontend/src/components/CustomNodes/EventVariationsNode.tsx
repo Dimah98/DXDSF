@@ -1,7 +1,7 @@
 // Нода Диспетчер подій — перевіряє список умов по пріоритету та направляє сигнал у відповідний порт
 import React, { memo, useCallback, useEffect } from 'react';
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react';
-import { GitFork, Plus, Trash2, XCircle } from 'lucide-react';
+import { GitFork, Plus, Trash2, Zap } from 'lucide-react';
 import { Input } from '../ui/input';
 import BaseNode, { getHandleStyle } from './BaseNode';
 
@@ -87,6 +87,22 @@ const EventVariationsNode = memo(({ id, data }: any) => {
         />
       ))}
 
+      {/* Вхідні порти для підміни значень правил зівні */}
+      {rules.map((_: any, index: number) => (
+        <Handle
+          key={`in_${index}`}
+          type="target"
+          position={Position.Left}
+          id={`in_${index}`}
+          style={getHandleStyle(
+            TYPE_COLORS[rules[index]?.type] || '#f43f5e', // Колір порту відповідає типу умови
+            mini ? '50%' : `${FIRST_PORT_TOP + index * PORT_STEP}px`, // Розташування по вертикалі
+            mini
+          )}
+          className="!left-[-6px]"
+        />
+      ))}
+
       {/* Порт "Нічого не знайдено" — завжди останній */}
       <Handle
         type="source"
@@ -154,6 +170,25 @@ const EventVariationsNode = memo(({ id, data }: any) => {
                   }
                   className="h-7 text-[10px] border-border bg-muted/50 flex-1"
                 />
+
+                {/* Прапорець авто-запуску при надходженні через вхід */}
+                <label
+                  className="flex items-center gap-0.5 cursor-pointer group/zap shrink-0"
+                  title="Авто-запуск: при надходженні даних в цей вхід — запустити перевірку автоматично"
+                >
+                  {/* Чекбокс прапорця */}
+                  <input
+                    type="checkbox"
+                    checked={rule.triggerOnInput || false} // Стан авто-запуску
+                    onChange={(e) => changeRule(index, { triggerOnInput: e.target.checked })} // Оновлюємо прапорець
+                    className="w-2.5 h-2.5 rounded border-none bg-rose-500/20 text-rose-500 focus:ring-0"
+                  />
+                  {/* Іконка блискавки — візуально показує стан */}
+                  <Zap
+                    size={9}
+                    className={`transition-colors ${rule.triggerOnInput ? 'text-amber-400' : 'text-muted-foreground group-hover/zap:text-amber-400/50'}`}
+                  />
+                </label>
 
                 {/* Кнопка видалення */}
                 <button

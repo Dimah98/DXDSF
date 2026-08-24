@@ -240,19 +240,17 @@ export class SchedulerService {
     // Цикл для перебору всіх знайдених файлів у папці проектів
     for (const file of files) { // Перебір файлів
       // Пропускаємо файли, які не є файлами конфігурації проектів (ігноруємо статистику, логи, конфігурацію розкладу чи сповіщень)
-      if ( // Умова пропуску
-        // Перевіряємо чи файл НЕ закінчується на .json
-        !file.endsWith('.json') || // Перевірка розширення
-        // Перевіряємо чи є файл статистикою проекту
-        file.endsWith('_stats.json') || // Перевірка статистики
-        // Перевіряємо чи є файл логами проекту
-        file.endsWith('_logs.json') || // Перевірка логів
-        // Перевіряємо чи є файл інвентарем проекту
-        file.endsWith('_inventory.json') || // Перевірка інвентаря
-        // Перевіряємо чи є файл глобальною базою розкладу
-        file === 'schedule.json' || // Перевірка розкладу
-        // Перевіряємо чи є файл глобальною базою сповіщень
-        file === 'notifications.json' // Перевірка сповіщень
+      if (
+        !file.endsWith('.json') ||
+        file.endsWith('_stats.json') ||
+        file.endsWith('_logs.json') ||
+        file.endsWith('_inventory.json') ||
+        file.endsWith('_layout.json') ||
+        file.endsWith('_save.json') ||
+        file === 'categories.json' ||
+        file === 'global_building_types.json' ||
+        file === 'schedule.json' ||
+        file === 'notifications.json'
       ) { // Якщо умова виконується
         // Переходимо до наступного файлу в списку
         continue; // Перехід до наступної ітерації
@@ -426,17 +424,15 @@ export class SchedulerService {
     for (const file of files) {
       // Пропускаємо файли, які не є проектами (ігноруємо статистику, логи, загальний розклад та сповіщення)
       if (
-        // Перевіряємо чи файл НЕ має розширення .json
         !file.endsWith('.json') || 
-        // Перевіряємо чи це файл статистичних даних проекту
         file.endsWith('_stats.json') || 
-        // Перевіряємо чи це файл збереження логів проекту
         file.endsWith('_logs.json') || 
-        // Перевіряємо чи це файл інвентаря проекту
         file.endsWith('_inventory.json') ||
-        // Перевіряємо чи це файл розкладу
+        file.endsWith('_layout.json') ||
+        file.endsWith('_save.json') ||
+        file === 'categories.json' ||
+        file === 'global_building_types.json' ||
         file === 'schedule.json' || 
-        // Перевіряємо чи це файл сповіщень
         file === 'notifications.json'
       ) {
         // Пропускаємо ітерацію для цього файлу

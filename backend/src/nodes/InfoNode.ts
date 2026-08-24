@@ -13,8 +13,9 @@ export const infoNodeHandler = async ({
   context,
   logToClient
 }: NodeHandlerParams) => {
-  let nodeResults: Record<string, any> = { data: context };
-  const { selector, variablePrefix = 'scanned' } = currentNode.data;
+  let nodeResults: Record<string, unknown> = { data: context };
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const { selector, variablePrefix = 'scanned' } = nodeData;
 
   try {
     // Requirement 4: Validate CSS selector before Playwright operations
@@ -31,11 +32,27 @@ export const infoNodeHandler = async ({
       return { data: context, nextHandle: ['error'] };
     }
     
-    // Чекаємо на появу елемента
-    await activePage.waitForTimeout(500); // Даємо час на анімацію спливаючого вікна
+    // Чекаємо на появу елемента з швидким таймаутом (за замовчуванням 2000мс або з налаштувань ноди)
+    const scanTimeout = typeof nodeData.timeout === 'number' && nodeData.timeout > 0 
+      ? Number(nodeData.timeout) 
+      : (typeof nodeData.timeout === 'string' && !isNaN(parseFloat(nodeData.timeout)) ? parseFloat(nodeData.timeout) : 2000);
 
-    // Використовуємо нативний рушій Playwright, який підтримує :has-text, xpath тощо
-    const elementHandle = await activePage.$(selector);
+    // Шукаємо елемент у всіх фреймах сторінки (включаючи iframes)
+    let elementHandle: any = null;
+    const frames = activePage.frames();
+    const perFrameTimeout = Math.max(500, Math.floor(scanTimeout / (frames.length || 1)));
+
+    for (const frame of frames) {
+      try {
+        const handle = await frame.locator(selector).first().elementHandle({ timeout: perFrameTimeout });
+        if (handle) {
+          elementHandle = handle;
+          break;
+        }
+      } catch (e) {
+        /* елемент недоступний в цьому фреймі */
+      }
+    }
 
     if (!elementHandle) {
        logToClient(`❌ Сканер: Елемент не знайдено (${selector})`, 'error');

@@ -4,8 +4,9 @@ import { Logger } from '../logger';
 
 const logger = new Logger('SelectorCheckNode');
 
-export const selectorCheckNodeHandler = async ({ currentNode, activePage, nodeTitle, takeDebugSnapshot, ws, logToClient, context }: NodeHandlerParams) => {
-  const { selector } = currentNode.data;
+export const selectorCheckNodeHandler = async ({ currentNode, activePage, nodeTitle, takeDebugSnapshot, logToClient, context }: NodeHandlerParams) => {
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const { selector } = nodeData;
   
   // Requirement 4: Validate CSS selector before Playwright operations
   if (!selector || typeof selector !== 'string') {
@@ -22,7 +23,8 @@ export const selectorCheckNodeHandler = async ({ currentNode, activePage, nodeTi
   }
   
   logToClient(`⚙️ ПЕРЕВІРКА: Наявність ${selector}`, 'debug');
-  const isExists = await activePage.$(selector).catch(() => null);
+  const count = await activePage.locator(selector).count().catch(() => 0);
+  const isExists = count > 0;
   if (isExists) {
     await takeDebugSnapshot(currentNode.id, nodeTitle, { selector });
     logToClient(`✅ Селектор існує`, 'success');

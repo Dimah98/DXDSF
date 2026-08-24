@@ -8,7 +8,7 @@ import {
   SelectionMode,
   type Node as RFNode, type Edge as RFEdge
 } from '@xyflow/react';
-import { Package, ChevronRight, X, Download, Upload, Play } from 'lucide-react';
+import { Package, ChevronRight, X, Download, Upload, Play, Settings } from 'lucide-react';
 import { getHandleStyle } from './BaseNode';
 import { SUB_NODE_TYPES } from './subNodeTypes';
 import { NODE_CONFIG, SIDEBAR_NODE_TYPES } from '../../nodeConfig';
@@ -18,6 +18,21 @@ import { useCanvasActions } from '../../hooks/useCanvasActions';
 import { useClipboard } from '../../hooks/useClipboard';
 import { attachEdgeCallbacks } from '../../utils/flowUtils';
 import '@xyflow/react/dist/style.css';
+
+// API base URL
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
+// Fetch configs list
+async function fetchConfigs(): Promise<{ id: string; name: string }[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/configs`, { credentials: 'include' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.configs?.map((c: any) => ({ id: c.id, name: c.name })) || [];
+  } catch (e) {
+    return [];
+  }
+}
 
 // Лічильник ID для нових суб-нод
 let subIdCounter = Date.now();
@@ -364,7 +379,7 @@ const SubCanvas = ({
   // Рендеримо через createPortal щоб уникнути конфліктів з головним ReactFlow
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-auto"
+      className="fixed inset-0 z-[var(--z-special)] flex items-center justify-center pointer-events-auto"
       style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)' }}
       onClick={e => { e.stopPropagation(); setMenu(null); }}
       onWheel={e => e.stopPropagation()}
@@ -491,6 +506,7 @@ const SubCanvas = ({
               <ReactFlow
                 nodes={nodes}
                 edges={edges}
+                onlyRenderVisibleElements={true}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onSelectionChange={onSelectionChange}
@@ -530,7 +546,12 @@ const SubCanvas = ({
           <NodeContextMenu 
             menu={menu}
             onCopy={onCopy}
-            onPaste={(pos) => onPaste(pos)}
+            onPaste={(pos) => {
+              // Перетворюємо екранні координати контекстного меню у внутрішні координати під-полотна React Flow
+              const flowPos = reactFlowInstance ? reactFlowInstance.screenToFlowPosition({ x: pos.x, y: pos.y }) : pos;
+              // Викликаємо функцію вставки для підпрограми з правильними спроектованими координатами
+              onPaste(flowPos);
+            }}
             onDeleteSelected={onDeleteSelected}
             onSetCustomIcon={(nodeId, iconName) => {
               setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, customIcon: iconName } } : n));
@@ -583,7 +604,20 @@ const GroupNode = memo(({ id, data }: any) => {
     return data.getEdges?.() ?? [];
   }, [data]);
 
+  const [configs, setConfigs] = useState<{ id: string; name: string }[]>([]);
+  const [configOpen, setConfigOpen] = useState(false);
+
+  // Завантаження списку конфігурацій
+  useEffect(() => {
+    fetchConfigs().then(setConfigs);
+  }, []);
+
+  const handleConfigChange = useCallback((configId: string | null) => {
+    data.onDataChange?.(id, { configId });
+  }, [id, data]);
+
   const innerCount = subNodes.filter(n => !['subEntryNode', 'subExitNode'].includes(n.type)).length;
+  const selectedConfig = configs.find(c => c.id === data.configId);
 
   return (
     <>
@@ -591,10 +625,10 @@ const GroupNode = memo(({ id, data }: any) => {
       <div
         className="relative rounded-xl border-2 shadow-xl overflow-visible transition-colors duration-300"
         style={{
-          width: 240,
-          minHeight: 100,
+          width: 260,
+          minHeight: 120,
           background: `linear-gradient(145deg, #0f1e40, ${nodeColor})`,
-          borderColor: nodeColor,
+          borderColor: data.configId ? '#f59e0b' : nodeColor,
           backdropFilter: 'blur(8px)',
         }}
       >
@@ -640,6 +674,19 @@ const GroupNode = memo(({ id, data }: any) => {
             />
             <button
               onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); setConfigOpen(!configOpen); }}
+              className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors border ${
+                data.configId 
+                  ? 'text-amber-300 bg-amber-500/20 hover:bg-amber-500/40 border-amber-500/40' 
+                  : 'text-white/50 bg-white/10 hover:bg-white/25 border-white/20'
+              }`}
+              title={selectedConfig ? `Конфіг: ${selectedConfig.name}` : 'Вибрати конфігурацію'}
+            >
+              <Settings size={10} />
+              {selectedConfig ? '⚙️' : '⚙'}
+            </button>
+            <button
+              onMouseDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); data.onRunGroup?.(id, subNodes, subEdges); }}
               className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-green-300 bg-green-500/20 hover:bg-green-500/40 transition-colors border border-green-500/40"
               title="Запустити тільки ноди всередині контейнера"
@@ -657,6 +704,28 @@ const GroupNode = memo(({ id, data }: any) => {
             </button>
           </div>
         </div>
+
+        {/* Вибір конфігурації */}
+        {configOpen && (
+          <div className="px-3 py-2 border-b border-white/10" style={{ background: 'rgba(0,0,0,0.3)' }}>
+            <div className="text-[9px] text-white/50 mb-1">Конфігурація для перевірки:</div>
+            <select
+              value={data.configId || ''}
+              onChange={(e) => handleConfigChange(e.target.value || null)}
+              className="w-full text-[10px] bg-black/40 text-white border border-white/20 rounded px-2 py-1 outline-none focus:border-amber-500/50"
+            >
+              <option value="">— Не вибрано (завжди запускати) —</option>
+              {configs.map(cfg => (
+                <option key={cfg.id} value={cfg.id}>{cfg.name}</option>
+              ))}
+            </select>
+            {data.configId && (
+              <div className="mt-1 text-[8px] text-amber-400/70">
+                Контейнер запуститься тільки якщо конфіг = TRUE
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Вікно статусу */}
         <div className="p-3">
@@ -676,7 +745,11 @@ const GroupNode = memo(({ id, data }: any) => {
                 <span className="text-[10px] font-semibold text-white/90 truncate">{activeLabel}</span>
               </>
             ) : (
-              <span className="text-[9px] text-white/25 italic">Підпрограма не виконується...</span>
+              <span className="text-[9px] text-white/25 italic">
+                {data.configId 
+                  ? `Перевірка: ${selectedConfig?.name || '...'}` 
+                  : 'Підпрограма не виконується...'}
+              </span>
             )}
           </div>
           <div className="mt-1.5 text-[8px] text-white/50 text-right font-medium">

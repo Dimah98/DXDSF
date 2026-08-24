@@ -2,7 +2,9 @@ import { NodeHandlerParams } from './types';
 import { inputValidator } from '../validation/InputValidator';
 
 export const nestedCheckNodeHandler = async ({ currentNode, activePage, logToClient, context }: NodeHandlerParams) => {
-  const { parentSelector, childSelector } = currentNode.data;
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const parentSelector = (nodeData.parentSelector as string) || '';
+  const childSelector = (nodeData.childSelector as string) || '';
 
   // Validate parent selector
   const parentValidation = inputValidator.validateSelector(parentSelector);

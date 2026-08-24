@@ -104,6 +104,20 @@ const ScreenshotNode = memo(({ id, data }: any) => {
             </p>
           </div>
 
+          {/* Прапорець для додавання дати та часу на скріншот */}
+          <label className="flex items-center gap-3 p-2 bg-muted/50 rounded-md cursor-pointer group hover:bg-muted transition-colors">
+            <input
+              type="checkbox" // Тип - чекбокс
+              checked={data.addTimestamp || false} // Отримуємо стан
+              onChange={(e) => data.onDataChange?.(id, { addTimestamp: e.target.checked })} // Записуємо зміни
+              className="w-3.5 h-3.5 rounded border-none bg-pink-500/20 text-pink-500 focus:ring-0 cursor-pointer" // Класи оформлення
+            />
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold group-hover:text-pink-400 transition-colors">Накласти дату та час</span> {/* Заголовок */}
+              <span className="text-[9px] text-muted-foreground">Додати водяний знак із поточним часом</span> {/* Допоміжний опис */}
+            </div>
+          </label>
+
           {/* Підписи портів */}
           <div className="flex items-center justify-end gap-1.5 text-[9px] text-muted-foreground border-t border-border pt-2">
             <div className="w-2 h-2 rounded-full shrink-0 bg-slate-500" />

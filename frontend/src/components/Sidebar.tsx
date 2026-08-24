@@ -2,8 +2,17 @@
 // Використовує NODE_CONFIG як єдине джерело правди для списку нод
 import React, { useState, useEffect, useRef } from 'react';
 // Більше не використовуємо DropdownMenu — замінено на ProjectManagerModal
-import { Settings2, PanelLeftClose, PanelLeftOpen, Calendar } from 'lucide-react';
+import { Settings2, PanelLeftClose, PanelLeftOpen, Calendar, ChevronUp, ChevronDown } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { NODE_CONFIG, SIDEBAR_NODE_TYPES } from '../nodeConfig';
+
+const ICON_OPTIONS = [
+  'Play', 'Globe', 'Scan', 'Search', 'CloudDownload', 'Database',
+  'GitFork', 'MousePointerClick', 'Crosshair', 'Keyboard',
+  'Camera', 'Layers', 'Monitor', 'Repeat', 'Move',
+  'MessageSquare', 'Timer', 'XCircle', 'Calculator', 'Activity',
+  'ArrowRightLeft', 'Package', 'Clock', 'CalendarClock', 'Bell', 'Sprout', 'Flame', 'ChefHat', 'Gamepad2', 'Hammer', 'Settings'
+];
 
 // Колір за замовчуванням для кожного типу ноди
 const DEFAULT_COLORS: Record<string, string> = Object.fromEntries(
@@ -39,6 +48,21 @@ const Sidebar = ({
     return saved ? JSON.parse(saved) : DEFAULT_COLORS;
   });
 
+  const [customIcons, setCustomIcons] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem('sfl_node_icons');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [nodeOrder, setNodeOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem('sfl_node_order');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const missing = SIDEBAR_NODE_TYPES.filter(t => !parsed.includes(t));
+      return [...parsed, ...missing];
+    }
+    return [...SIDEBAR_NODE_TYPES];
+  });
+
   const [activeTypeSettings, setActiveTypeSettings] = useState<string | null>(null);
 
   const [projects, setProjects] = useState<string[]>([]);
@@ -55,7 +79,19 @@ const Sidebar = ({
       const text = await res.text();
       if (!text) return;
       const data = JSON.parse(text);
-      setProjects(data);
+      const filtered = Array.isArray(data) ? data.filter((name: string) => 
+        name !== 'categories' &&
+        name !== 'global_building_types' &&
+        name !== 'schedule' &&
+        name !== 'notifications' &&
+        !name.endsWith('_layout') &&
+        !name.endsWith('_save') &&
+        !name.endsWith('_stats') &&
+        !name.endsWith('_logs') &&
+        !name.endsWith('_inventory')
+      ) : [];
+      filtered.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+      setProjects(filtered);
     } catch (e) { console.error('Error fetching projects:', e); }
   };
 
@@ -72,6 +108,33 @@ const Sidebar = ({
     localStorage.setItem('sfl_node_colors_hex', JSON.stringify(customColors));
     window.dispatchEvent(new CustomEvent('node-colors-changed', { detail: customColors }));
   }, [customColors]);
+
+  useEffect(() => {
+    localStorage.setItem('sfl_node_icons', JSON.stringify(customIcons));
+    window.dispatchEvent(new CustomEvent('node-icons-changed', { detail: customIcons }));
+  }, [customIcons]);
+
+  useEffect(() => {
+    localStorage.setItem('sfl_node_order', JSON.stringify(nodeOrder));
+  }, [nodeOrder]);
+
+  const updateIcon = (type: string, iconName: string) => {
+    setCustomIcons(prev => ({ ...prev, [type]: iconName }));
+  };
+
+  const moveNode = (type: string, direction: 'up' | 'down') => {
+    setNodeOrder(prev => {
+      const idx = prev.indexOf(type);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      if (direction === 'up' && idx > 0) {
+        [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+      } else if (direction === 'down' && idx < next.length - 1) {
+        [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -104,10 +167,11 @@ const Sidebar = ({
 
 
   // Компонент одного елемента в сайдбарі — рендерується з NODE_CONFIG
-  const NodeItem = ({ type }: { type: string }) => {
+  const NodeItem = ({ type, isFirst, isLast }: { type: string, isFirst: boolean, isLast: boolean }) => {
     const config = NODE_CONFIG[type];
     if (!config) return null;
-    const Icon = config.icon;
+    const customIconName = customIcons[type];
+    const Icon = customIconName ? (LucideIcons as any)[customIconName] || config.icon : config.icon;
     const colorHex = customColors[type] || config.defaultColor;
     const isOpen = activeTypeSettings === type;
 
@@ -151,14 +215,20 @@ const Sidebar = ({
         {isOpen && (
           <div
             ref={settingsRef}
-            className="bg-muted/30 border-x border-b border-border rounded-b-xl p-2 z-[50] animate-in slide-in-from-top-2 duration-200"
+            className="bg-muted/30 border-x border-b border-border rounded-b-xl p-2 z-[var(--z-context-menu)] animate-in slide-in-from-top-2 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-[9px] font-bold uppercase text-muted-foreground/60 mb-2 px-1 flex justify-between items-center">
-              <span>Вибір кольору</span>
+              <span>Сортування</span>
               <button onClick={() => setActiveTypeSettings(null)} className="hover:text-foreground">✕</button>
             </div>
-            <div className="grid grid-cols-6 gap-1.5">
+            <div className="flex gap-2 mb-3">
+              <button disabled={isFirst} onClick={() => moveNode(type, 'up')} className={`p-1 rounded bg-white/5 border border-white/10 flex-1 flex justify-center items-center transition-colors ${!isFirst ? 'hover:bg-white/10 text-white' : 'text-white/20'}`}><ChevronUp size={16}/></button>
+              <button disabled={isLast} onClick={() => moveNode(type, 'down')} className={`p-1 rounded bg-white/5 border border-white/10 flex-1 flex justify-center items-center transition-colors ${!isLast ? 'hover:bg-white/10 text-white' : 'text-white/20'}`}><ChevronDown size={16}/></button>
+            </div>
+
+            <div className="text-[9px] font-bold uppercase text-muted-foreground/60 mb-2 px-1">Вибір кольору</div>
+            <div className="grid grid-cols-6 gap-1.5 mb-3">
               {COLOR_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -169,6 +239,25 @@ const Sidebar = ({
                 />
               ))}
             </div>
+
+            <div className="text-[9px] font-bold uppercase text-muted-foreground/60 mb-2 px-1">Вибір іконки</div>
+            <div className="grid grid-cols-6 gap-1 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+              {ICON_OPTIONS.map((iconName) => {
+                const IconComponent = (LucideIcons as any)[iconName];
+                if (!IconComponent) return null;
+                const isSelected = customIconName === iconName || (!customIconName && config.icon.name === iconName);
+                return (
+                  <button
+                    key={iconName}
+                    className={`flex items-center justify-center p-1 rounded-md border ${isSelected ? 'bg-primary/20 border-primary text-primary' : 'bg-transparent border-transparent hover:bg-white/5 hover:border-white/10 text-muted-foreground'} transition-all`}
+                    onClick={() => updateIcon(type, iconName)}
+                    title={iconName}
+                  >
+                    <IconComponent size={14} />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -177,7 +266,7 @@ const Sidebar = ({
 
   return (
     <aside
-      className={`absolute left-0 top-0 z-[40] border-r text-foreground flex flex-col h-full transition-all duration-300 ${isCollapsed ? 'w-14' : 'w-60'} backdrop-blur-sm bg-[var(--interface-bg)] border-[var(--interface-border)]`}
+      className={`absolute left-0 top-0 z-[var(--z-sidebar)] border-r text-foreground flex flex-col h-full transition-all duration-300 ${isCollapsed ? 'w-14' : 'w-60'} backdrop-blur-sm bg-[var(--interface-bg)] border-[var(--interface-border)]`}
     >
       <div className={`flex flex-col shrink-0 ${isCollapsed ? 'p-1 items-center' : 'p-3 items-start'}`}>
         <div className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'justify-between'} mb-4`}>
@@ -221,11 +310,11 @@ const Sidebar = ({
         {!isCollapsed && <h3 className="font-black text-[9px] uppercase text-muted-foreground/50 tracking-widest px-1 mb-2">Доступні Ноди</h3>}
       </div>
 
-      {/* Список нод — генерується автоматично з SIDEBAR_NODE_TYPES */}
+      {/* Список нод — генерується з nodeOrder */}
       <div className="flex-1 overflow-y-auto custom-scrollbar pb-6">
         <div className="flex flex-col gap-1">
-          {SIDEBAR_NODE_TYPES.map(type => (
-            <NodeItem key={type} type={type} />
+          {nodeOrder.map((type, index) => (
+            <NodeItem key={type} type={type} isFirst={index === 0} isLast={index === nodeOrder.length - 1} />
           ))}
         </div>
       </div>

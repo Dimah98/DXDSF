@@ -1,0 +1,1052 @@
+{
+  "categories": [
+    "ресурси",
+    "рослини",
+    "насіння",
+    "інструменти",
+    "будівлі",
+    "декор",
+    "ціності",
+    "рибалка",
+    "риба",
+    "їжа",
+    "квіти",
+    "хз",
+    "без категорії",
+    "різне",
+    "скарби",
+    "соління",
+    "тварини",
+    "верстак",
+    "В насіння",
+    "Л насіння",
+    "О насіння",
+    "З насіння",
+    "насіння дерев",
+    "насіння квітів"
+  ],
+  "itemToCategories": {
+    "stone_Rock": [],
+    "wood_Tree": [],
+    "Wardrobe": [
+      "декор"
+    ],
+    "gold Rock": [
+      "будівлі"
+    ],
+    "Rod": [
+      "рибалка",
+      "інструменти"
+    ],
+    "market": [
+      "будівлі"
+    ],
+    "workbench": [
+      "будівлі"
+    ],
+    "Basic Land": [
+      "будівлі"
+    ],
+    "Tree": [
+      "будівлі"
+    ],
+    "stone Rock": [
+      "будівлі"
+    ],
+    "gem": [
+      "ціності",
+      "ресурси"
+    ],
+    "Rug": [
+      "декор"
+    ],
+    "Aging Shed": [
+      "будівлі"
+    ],
+    "Gold": [
+      "ресурси"
+    ],
+    "Iron": [
+      "ресурси"
+    ],
+    "Artichoke": [
+      "рослини"
+    ],
+    "Artichoke Seed": [
+      "насіння",
+      "О насіння"
+    ],
+    "Beetroot": [
+      "рослини"
+    ],
+    "Beetroot Seed": [
+      "насіння",
+      "Л насіння",
+      "З насіння"
+    ],
+    "Blueberry": [
+      "рослини"
+    ],
+    "Broccoli": [
+      "рослини"
+    ],
+    "Cabbage": [
+      "рослини"
+    ],
+    "Carrot Seed": [
+      "насіння",
+      "В насіння",
+      "О насіння"
+    ],
+    "Carrot": [
+      "рослини"
+    ],
+    "Cauliflower Seed": [
+      "насіння",
+      "З насіння",
+      "Л насіння"
+    ],
+    "Corn": [
+      "рослини"
+    ],
+    "Kale ": [
+      "рослини"
+    ],
+    "Kale Seed": [
+      "насіння",
+      "В насіння",
+      "З насіння"
+    ],
+    "Lemon": [
+      "рослини"
+    ],
+    "Stone": [
+      "ресурси"
+    ],
+    "Wood": [
+      "ресурси"
+    ],
+    "Axe": [
+      "інструменти"
+    ],
+    "Apple Seed": [
+      "насіння",
+      "З насіння",
+      "О насіння",
+      "насіння дерев"
+    ],
+    "Beehive": [
+      "будівлі"
+    ],
+    "Blowfish": [
+      "риба"
+    ],
+    "Blueberry Seed": [
+      "насіння",
+      "В насіння",
+      "З насіння",
+      "насіння дерев"
+    ],
+    "Barley Seed": [
+      "насіння",
+      "В насіння",
+      "О насіння"
+    ],
+    "Basic Bear": [
+      "декор"
+    ],
+    "Basic Scarecrow": [
+      "будівлі"
+    ],
+    "Bumpkin Broth": [
+      "їжа"
+    ],
+    "Cabbage Seed": [
+      "насіння",
+      "В насіння",
+      "З насіння"
+    ],
+    "Cabbers n Mash": [
+      "їжа"
+    ],
+    "Cauliflower": [
+      "рослини"
+    ],
+    "Club Sandwich": [
+      "їжа"
+    ],
+    "Compost Bin": [
+      "будівлі"
+    ],
+    "Corn Seed": [
+      "насіння",
+      "В насіння"
+    ],
+    "Crop Plot": [
+      "будівлі"
+    ],
+    "Earthworm": [
+      "рибалка"
+    ],
+    "Fancy Fries": [
+      "їжа"
+    ],
+    "Fishing Lure": [
+      "рибалка"
+    ],
+    "Flower Bed": [
+      "будівлі"
+    ],
+    "Fried Tofu": [
+      "їжа"
+    ],
+    "Grape Juice": [
+      "їжа"
+    ],
+    "Halibut": [
+      "риба"
+    ],
+    "Honey": [
+      "ресурси"
+    ],
+    "Lemon Seed": [
+      "насіння",
+      "Л насіння",
+      "З насіння",
+      "насіння дерев"
+    ],
+    "Mashed Potato": [
+      "їжа"
+    ],
+    "Oarfish": [
+      "риба"
+    ],
+    "Mushroom Soup": [
+      "їжа"
+    ],
+    "Olive Flounder": [
+      "риба"
+    ],
+    "Onion Seed": [
+      "насіння",
+      "З насіння"
+    ],
+    "Parsnip Seed": [
+      "насіння",
+      "З насіння"
+    ],
+    "Parsnip": [
+      "рослини"
+    ],
+    "Pickaxe": [
+      "інструменти"
+    ],
+    "Pirate Cake": [
+      "їжа"
+    ],
+    "Popcorn": [
+      "їжа"
+    ],
+    "Potato Seed": [
+      "насіння",
+      "Л насіння",
+      "О насіння",
+      "З насіння"
+    ],
+    "Potato": [
+      "рослини"
+    ],
+    "Pumpkin Seed": [
+      "насіння",
+      "О насіння"
+    ],
+    "Pumpkin Soup": [
+      "їжа"
+    ],
+    "Pumpkin": [
+      "рослини"
+    ],
+    "Radish Cake": [
+      "їжа"
+    ],
+    "Red Snapper": [
+      "риба"
+    ],
+    "Reindeer Carrot": [
+      "їжа"
+    ],
+    "Rhubarb Seed": [
+      "насіння",
+      "В насіння"
+    ],
+    "Rhubarb Tart": [
+      "їжа"
+    ],
+    "Rhubarb": [
+      "рослини"
+    ],
+    "Ripped Salt Bag": [
+      "декор"
+    ],
+    "Salt": [
+      "соління"
+    ],
+    "Sand Shovel": [
+      "інструменти"
+    ],
+    "Sauerkraut": [
+      "їжа"
+    ],
+    "Soybean Seed": [
+      "насіння",
+      "В насіння",
+      "О насіння"
+    ],
+    "Soybean": [
+      "рослини"
+    ],
+    "Stone Beetle": [
+      "декор"
+    ],
+    "Stone Pickaxe": [
+      "інструменти"
+    ],
+    "Sunflower Cake": [
+      "їжа"
+    ],
+    "Sunflower Crunch": [
+      "їжа"
+    ],
+    "Sunflower": [
+      "рослини"
+    ],
+    "Sunpetal Seed": [
+      "насіння",
+      "насіння квітів"
+    ],
+    "Time Warp Totem": [
+      "декор"
+    ],
+    "Tomato Seed": [
+      "насіння",
+      "рослини",
+      "В насіння",
+      "О насіння",
+      "насіння дерев"
+    ],
+    "Tomato": [
+      "рослини"
+    ],
+    "Treasure Key": [
+      "ціності"
+    ],
+    "Mark": [
+      "ціності"
+    ],
+    "Love Charm": [
+      "ціності"
+    ],
+    "Tuna": [
+      "риба"
+    ],
+    "Turnip Seed": [
+      "насіння",
+      "З насіння"
+    ],
+    "Water Well": [
+      "будівлі"
+    ],
+    "Wheat Seed": [
+      "насіння",
+      "З насіння",
+      "О насіння",
+      "Л насіння",
+      "В насіння"
+    ],
+    "Wheat": [
+      "рослини"
+    ],
+    "Wild Mushroom": [
+      "ціності"
+    ],
+    "Magic Mushroom": [
+      "ціності"
+    ],
+    "Yam Seed": [
+      "насіння",
+      "О насіння"
+    ],
+    "Zebra Turkeyfish": [
+      "риба"
+    ],
+    "fire pit": [
+      "будівлі"
+    ],
+    "house": [
+      "будівлі"
+    ],
+    "iron Rock": [
+      "будівлі"
+    ],
+    "kitchen": [
+      "будівлі"
+    ],
+    "Grub": [
+      "рибалка"
+    ],
+    "Cheer": [
+      "ціності"
+    ],
+    "Town Center": [
+      "будівлі"
+    ],
+    "Blue Pansy": [
+      "квіти"
+    ],
+    "Big Orange": [
+      "декор"
+    ],
+    "Crimstone Rock": [
+      "будівлі"
+    ],
+    "fruit Patch": [
+      "будівлі"
+    ],
+    "Potion Ticket": [
+      "ціності"
+    ],
+    "Blossombeard": [
+      "декор"
+    ],
+    "Blue Marlin": [
+      "риба"
+    ],
+    "Farmer Bear": [
+      "декор"
+    ],
+    "Anchovy": [
+      "риба"
+    ],
+    "Football fish": [
+      "риба"
+    ],
+    "Parrotfish": [
+      "риба"
+    ],
+    "Porgy": [
+      "риба"
+    ],
+    "Saw Shark": [
+      "риба",
+      "їжа"
+    ],
+    "Sea Bass": [
+      "риба"
+    ],
+    "Sea Horse": [
+      "риба"
+    ],
+    "Gold Pickaxe": [
+      "інструменти"
+    ],
+    "Iron Pickaxe": [
+      "інструменти"
+    ],
+    "Orange": [
+      "рослини"
+    ],
+    "Roast Veggies": [
+      "їжа"
+    ],
+    "Salt Lamp": [
+      "декор"
+    ],
+    "Cabbage Cake": [
+      "їжа"
+    ],
+    "Yam": [
+      "рослини"
+    ],
+    "Yellow Pansy": [
+      "квіти"
+    ],
+    "Purple Cosmos": [
+      "квіти"
+    ],
+    "Apple": [
+      "рослини"
+    ],
+    "Sunflower Seed": [
+      "насіння",
+      "В насіння",
+      "Л насіння"
+    ],
+    "Wheat Cake": [
+      "їжа"
+    ],
+    "Floater": [
+      "різне"
+    ],
+    "Petting Hand": [
+      "різне"
+    ],
+    "Kale Stew": [
+      "їжа"
+    ],
+    "Cauliflower Burger": [
+      "їжа"
+    ],
+    "Mushroom Jacket Potatoes": [
+      "їжа"
+    ],
+    "Fruit Salad": [
+      "їжа"
+    ],
+    "Beetroot Blaze": [
+      "їжа"
+    ],
+    "Rapid Roast": [
+      "їжа"
+    ],
+    "Barley": [
+      "рослини"
+    ],
+    "Salt Dino Egg": [
+      "декор"
+    ],
+    "Salt Rake": [
+      "інструменти"
+    ],
+    "Kale & Mushroom Pie": [
+      "їжа"
+    ],
+    "Yellow Cosmos": [
+      "квіти"
+    ],
+    "Blue Cosmos": [
+      "квіти"
+    ],
+    "Sea Cucumber": [
+      "скарби"
+    ],
+    "Hieroglyph": [
+      "скарби"
+    ],
+    "Pipi": [
+      "скарби"
+    ],
+    "Weed": [
+      "ціності"
+    ],
+    "Wooden Compass": [
+      "скарби"
+    ],
+    "Old Bottle": [
+      "скарби"
+    ],
+    "Vase": [
+      "скарби"
+    ],
+    "Camel Bone": [
+      "скарби"
+    ],
+    "Sand": [
+      "скарби"
+    ],
+    "Crab": [
+      "скарби"
+    ],
+    "Kale": [
+      "рослини"
+    ],
+    "Dung": [
+      "різне"
+    ],
+    "Sprout Mix": [
+      "різне"
+    ],
+    "Seaweed": [
+      "скарби"
+    ],
+    "Starfish": [
+      "скарби"
+    ],
+    "Salt Awakening Raffle Ticket": [
+      "ціності"
+    ],
+    "Iron Compass": [
+      "скарби"
+    ],
+    "Rapid Root": [
+      "різне"
+    ],
+    "Honey Cake": [
+      "їжа"
+    ],
+    "Rice Bun": [
+      "їжа"
+    ],
+    "Pickled Broccoli": [
+      "різне",
+      "соління"
+    ],
+    "Caprese Salad": [
+      "їжа"
+    ],
+    "Squirrel": [
+      "декор"
+    ],
+    "Yellow Paint Bucket": [
+      "декор"
+    ],
+    "Market": [
+      "будівлі"
+    ],
+    "Workbench": [
+      "будівлі"
+    ],
+    "Stone Rock": [
+      "будівлі"
+    ],
+    "Shovel": [
+      "хз"
+    ],
+    "Gem": [
+      "ціності"
+    ],
+    "Iron Rock": [
+      "будівлі"
+    ],
+    "Fire Pit": [
+      "будівлі"
+    ],
+    "Gold Rock": [
+      "будівлі"
+    ],
+    "Kitchen": [
+      "будівлі"
+    ],
+    "Fruit Patch": [
+      "будівлі"
+    ],
+    "House": [
+      "будівлі"
+    ],
+    "Broccoli Seed": [
+      "насіння",
+      "О насіння"
+    ],
+    "Butterflyfish": [
+      "риба"
+    ],
+    "Moray Eel": [
+      "риба"
+    ],
+    "Giant Orange": [
+      "декор",
+      "ціності"
+    ],
+    "Banana": [
+      "рослини"
+    ],
+    "Radish": [
+      "рослини"
+    ],
+    "Apple Pie": [
+      "їжа"
+    ],
+    "Zucchini Seed": [
+      "насіння",
+      "Л насіння"
+    ],
+    "Brilliant Bear": [
+      "декор"
+    ],
+    "Bumpkin Salad": [
+      "їжа"
+    ],
+    "Pepper Seed": [
+      "насіння",
+      "Л насіння"
+    ],
+    "Eggplant Seed": [
+      "насіння",
+      "Л насіння"
+    ],
+    "Orange Seed": [
+      "насіння",
+      "В насіння",
+      "Л насіння",
+      "насіння дерев"
+    ],
+    "Radish Seed": [
+      "насіння",
+      "Л насіння"
+    ],
+    "Sunflorian Faction Banner": [
+      "декор"
+    ],
+    "Aged Olive Flounder": [
+      "соління"
+    ],
+    "Aged Anchovy": [
+      "соління"
+    ],
+    "Aged Halibut": [
+      "соління"
+    ],
+    "Aged Sea Horse": [
+      "соління"
+    ],
+    "Refined Salt": [
+      "соління"
+    ],
+    "Scary Mike": [
+      "декор"
+    ],
+    "Rock Blackfish": [
+      "риба"
+    ],
+    "Crimstone": [
+      "ресурси"
+    ],
+    "Muskellunge": [
+      "риба"
+    ],
+    "Red Pansy": [
+      "квіти"
+    ],
+    "Clownfish": [
+      "риба"
+    ],
+    "Saltwort Seed": [
+      "насіння"
+    ],
+    "Saltbite": [
+      "ціності",
+      "їжа"
+    ],
+    "Saltwort": [
+      "рослини"
+    ],
+    "Goblin's Treat": [
+      "їжа"
+    ],
+    "Bloom Seed": [
+      "насіння",
+      "насіння квітів"
+    ],
+    "Banana Plant": [
+      "насіння",
+      "Л насіння",
+      "О насіння",
+      "насіння дерев"
+    ],
+    "Construction Bear": [
+      "декор"
+    ],
+    "Coral": [
+      "ціності",
+      "скарби"
+    ],
+    "Potted Pumpkin": [
+      "декор"
+    ],
+    "Zucchini": [
+      "рослини"
+    ],
+    "Doll": [
+      "декор",
+      "ціності"
+    ],
+    "Pepper": [
+      "рослини"
+    ],
+    "Sunstone": [
+      "ресурси"
+    ],
+    "Eggplant": [
+      "рослини"
+    ],
+    "Red Daffodil": [
+      "квіти"
+    ],
+    "Crab Pot": [
+      "інструменти"
+    ],
+    "Mariner Pot": [
+      "інструменти"
+    ],
+    "Fermented Carrots": [
+      "їжа"
+    ],
+    "Blue Balloon Flower": [
+      "квіти"
+    ],
+    "Walleye": [
+      "риба"
+    ],
+    "Turnip": [
+      "рослини"
+    ],
+    "Onion": [
+      "рослини"
+    ],
+    "Purple Daffodil": [
+      "квіти"
+    ],
+    "Red Balloon Flower": [
+      "квіти"
+    ],
+    "Bumpkin Detox": [
+      "їжа"
+    ],
+    "Sour Shake": [
+      "їжа"
+    ],
+    "Apple Juice": [
+      "їжа"
+    ],
+    "Immortal Pear": [
+      "декор"
+    ],
+    "Quick Juice": [
+      "їжа"
+    ],
+    "Fish Flake": [
+      "рибалка"
+    ],
+    "Carrot Juice": [
+      "їжа"
+    ],
+    "Purple Smoothie": [
+      "їжа"
+    ],
+    "Power Smoothie": [
+      "їжа"
+    ],
+    "Blueberry Jam": [
+      "їжа"
+    ],
+    "Orange Juice": [
+      "їжа"
+    ],
+    "Celestine": [
+      "рослини"
+    ],
+    "Pet Cookie": [
+      "різне"
+    ],
+    "Morty": [
+      "декор"
+    ],
+    "Crafting Box": [
+      "будівлі"
+    ],
+    "Paw Prints Banner": [
+      "декор"
+    ],
+    "Hen House": [
+      "будівлі"
+    ],
+    "Egg": [
+      "тварини"
+    ],
+    "Merino Wool": [
+      "тварини"
+    ],
+    "Wool": [
+      "тварини"
+    ],
+    "Merino Cushion": [
+      "верстак"
+    ],
+    "Feather": [
+      "тварини"
+    ],
+    "Basic Bed": [
+      "декор"
+    ],
+    "Cushion": [
+      "верстак"
+    ],
+    "Turbo Composter": [
+      "будівлі"
+    ],
+    "Petnip Plant": [
+      "декор"
+    ],
+    "Fruitful Blend": [
+      "різне"
+    ],
+    "Farmer's Monument": [
+      "декор"
+    ],
+    "Trade Point": [
+      "різне"
+    ],
+    "Leather": [
+      "тварини"
+    ],
+    "Nightshade Faction Banner": [
+      "декор"
+    ],
+    "Bakery": [
+      "будівлі"
+    ],
+    "Festive Tree": [
+      "декор"
+    ],
+    "Deli": [
+      "будівлі"
+    ],
+    "Sunstone Rock": [
+      "будівлі"
+    ],
+    "Smoothie Shack": [
+      "будівлі"
+    ],
+    "Holiday Token 2025": [
+      "різне"
+    ],
+    "Kelp Fibre": [
+      "верстак"
+    ],
+    "Nightshade Emblem": [
+      "різне"
+    ],
+    "Tiki Totem": [
+      "декор"
+    ],
+    "Lily Seed": [
+      "насіння",
+      "насіння квітів"
+    ],
+    "Fish Market": [
+      "будівлі"
+    ],
+    "Isopod": [
+      "риба"
+    ],
+    "Big Apple": [
+      "декор"
+    ],
+    "Harvest Doll": [
+      "декор"
+    ],
+    "Barnacle": [
+      "риба"
+    ],
+    "Celestine Seed": [
+      "насіння"
+    ],
+    "Duskberry Seed": [
+      "насіння"
+    ],
+    "Lunara Seed": [
+      "насіння"
+    ],
+    "Red Tile": [
+      "верстак"
+    ],
+    "Lunara": [
+      "рослини"
+    ],
+    "Duskberry": [
+      "рослини"
+    ],
+    "Purple Carnation": [
+      "квіти"
+    ],
+    "White Lotus": [
+      "квіти"
+    ],
+    "Squid": [
+      "риба"
+    ],
+    "Horse Mackerel": [
+      "риба"
+    ],
+    "Brush": [
+      "тварини"
+    ],
+    "Barn Delight": [
+      "тварини"
+    ],
+    "Hay": [
+      "тварини"
+    ],
+    "Kernel Blend": [
+      "тварини"
+    ],
+    "Mixed Grain": [
+      "тварини"
+    ],
+    "NutriBarley": [
+      "тварини"
+    ],
+    "Omnifeed": [
+      "тварини"
+    ],
+    "Salt Rock": [
+      "різне"
+    ],
+    "Surgeonfish": [
+      "риба"
+    ],
+    "Tilapia": [
+      "риба"
+    ],
+    "Sunfish": [
+      "риба"
+    ],
+    "Surimi Rice Bowl": [
+      "їжа"
+    ],
+    "Napoleanfish": [
+      "риба"
+    ],
+    "Barn": [
+      "будівлі"
+    ],
+    "brush": [
+      "тварини"
+    ],
+    "salt dino egg": [
+      "різне"
+    ],
+    "mixed grain sm": [
+      "тварини"
+    ],
+    "hay": [
+      "тварини"
+    ],
+    "White Pansy": [
+      "квіти"
+    ],
+    "Purple Pansy": [
+      "квіти"
+    ],
+    "Milk": [
+      "тварини"
+    ],
+    "ascension age raffle ticket": [
+      "ціності"
+    ],
+    "Edelweiss Seed": [
+      "насіння квітів"
+    ],
+    "Macaw": [
+      "декор"
+    ],
+    "Aged Moray Eel": [
+      "соління"
+    ],
+    "Prime Aged Olive Flounder": [
+      "соління"
+    ],
+    "Ascension Age Raffle Ticket": [
+      "ціності"
+    ]
+  }
+}

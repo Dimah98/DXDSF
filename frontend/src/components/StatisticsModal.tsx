@@ -130,19 +130,19 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-[var(--z-modal-high)] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
       <div 
         className="w-full max-w-5xl h-[85vh] flex flex-col bg-[var(--interface-bg)] border border-[var(--interface-border)] backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0 bg-white/5">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400 border border-blue-500/30 shadow-inner">
+            <div className="w-8 h-8 rounded-xl bg-[var(--accent-blue)]/20 flex items-center justify-center text-[var(--accent-blue)] border border-[var(--accent-blue)]/30 shadow-inner">
               <TrendingUp size={16} />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Статистика проекту</p>
-              <h2 className="text-[14px] font-bold text-slate-200 mt-0.5">{projectName}</h2>
+              <p className="text-[10px] font-black uppercase text-[var(--accent-blue)] tracking-widest">Статистика проекту</p>
+              <h2 className="text-[14px] font-bold text-[var(--interface-text-primary)] mt-0.5">{projectName}</h2>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -159,7 +159,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                     {Object.keys(groups).length > 0 && (
                       <optgroup label="Групи">
                         {Object.keys(groups).map(g => (
-                          <option key={`group:${g}`} value={`group:${g}`} className="bg-slate-800 text-purple-300">
+                          <option key={`group:${g}`} value={`group:${g}`} className="bg-slate-800 text-[var(--accent-purple)]">
                             {g}
                           </option>
                         ))}
@@ -173,7 +173,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                   </select>
                   <button 
                     onClick={() => setShowGroupManager(!showGroupManager)}
-                    className={`p-1 rounded transition-colors ml-1 ${showGroupManager ? 'bg-purple-500/30 text-purple-400' : 'hover:bg-white/10 text-slate-500 hover:text-slate-300'}`}
+                    className={`p-1 rounded transition-colors ml-1 ${showGroupManager ? 'bg-[var(--accent-purple)]/30 text-[var(--accent-purple)]' : 'hover:bg-white/10 text-slate-500 hover:text-slate-300'}`}
                     title="Управління групами"
                   >
                     <Settings size={14} />

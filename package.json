@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "generate-farm-map": "node scripts/farm_map/generate_farm_map.js",
+    "generate-all-farm-maps": "node scripts/farm_map/generate_all_farm_maps.js"
   },
   "repository": {
     "type": "git",
@@ -18,8 +20,16 @@
     "url": "https://github.com/Dimah98/DXDSF/issues"
   },
   "homepage": "https://github.com/Dimah98/DXDSF#readme",
+  "workspaces": [
+    "packages/*"
+  ],
   "devDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.60.4",
     "rollup": "^4.60.4"
+  },
+  "dependencies": {
+    "@sf/shared-types": "^1.0.0",
+    "canvas": "^3.2.3",
+    "cheerio": "^1.2.0"
   }
 }

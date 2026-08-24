@@ -161,19 +161,19 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-[var(--z-modal-high)] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
       <div 
         className="w-full max-w-5xl h-[85vh] flex flex-col bg-[var(--interface-bg)] border border-[var(--interface-border)] backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0 bg-white/5">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 border border-purple-500/30 shadow-inner">
+            <div className="w-8 h-8 rounded-xl bg-[var(--accent-purple)]/20 flex items-center justify-center text-[var(--accent-purple)] border border-[var(--accent-purple)]/30 shadow-inner">
               <Globe size={16} />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase text-purple-400 tracking-widest">Загальна Статистика</p>
-              <h2 className="text-[14px] font-bold text-slate-200 mt-0.5">Всі проекти</h2>
+              <p className="text-[10px] font-black uppercase text-[var(--accent-purple)] tracking-widest">Загальна Статистика</p>
+              <h2 className="text-[14px] font-bold text-[var(--interface-text-primary)] mt-0.5">Всі проекти</h2>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -209,7 +209,7 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
             <button onClick={loadStats} className="p-2 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors" title="Оновити">
               <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors bg-red-500/10 hover:bg-red-500/30 text-red-400">
+            <button onClick={onClose} className="p-2 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors bg-[var(--button-danger-bg)]/10 hover:bg-[var(--button-danger-bg)]/30 text-[var(--button-danger-bg)]">
               <X size={16} />
             </button>
           </div>

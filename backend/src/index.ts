@@ -24,7 +24,7 @@ import { csrfMiddleware, CSRFMiddleware } from './auth/CSRFMiddleware';
 import { inputValidator } from './validation/InputValidator';
 import { internalConfig } from './internalConfig';
 // Імпортуємо класи для роботи з інвентарем
-import { InventoryReader } from './inventory-overview/InventoryReader';
+import { InventoryReader, getImageUrl } from './inventory-overview/InventoryReader';
 import { ResourceAggregator } from './inventory-overview/ResourceAggregator';
 // Імпортуємо обробники нод з папки nodes
 import { nodeHandlers } from './nodes';
@@ -55,6 +55,11 @@ import { browserSemaphore } from './concurrency/Semaphore';
 // Імпортуємо нові сервіси розкладу та сповіщень
 import { SchedulerService } from './scheduler/SchedulerService';
 import { NotificationService } from './notifications/NotificationService';
+import { ConfigStore } from './configs/ConfigStore';
+import { evaluateConfig, loadConfigFiles, resolvePath } from './configs/ConfigEvaluator';
+import { MassLaunchStore } from './scheduler/MassLaunchStore';
+
+export const RONIN_EXTENSION_ID = 'fnjhmkhhmkbjkkabndcnnogagogbneec';
 
 // Створюємо логер для основного модуля
 const logger = new Logger('Server');
@@ -94,6 +99,9 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Налаштовуємо роздачу статичних зображень з папки images
 app.use('/api/images', express.static(path.join(__dirname, '../images')));
+// Налаштовуємо роздачу оригінальних зображень предметів гри з папки im
+app.use('/api/im', express.static(path.resolve(__dirname, '../../im')));
+app.use('/im', express.static(path.resolve(__dirname, '../../im')));
 // Налаштовуємо роздачу скріншотів з папки projects
 app.use('/api/screenshots', express.static(path.join(__dirname, '../projects')));
 
@@ -291,16 +299,19 @@ app.get('/api/projects', authMiddleware, async (req, res) => {
   try {
     // Читаємо файли в папці проектів і фільтруємо лише файли .json
     const files = await fs.promises.readdir(PROJECTS_DIR);
-    const projectFiles = files.filter(f => 
-      f.endsWith('.json') && 
-      !f.endsWith('_stats.json') &&
-      !f.includes('schedule') &&
-      !f.includes('notifications') &&
-      !f.includes('_inventory') &&
-      !f.includes('_logs')
-    );
-    // Повертаємо список імен проектів без розширення .json
-    res.json(projectFiles.map(f => f.replace('.json', '')));
+    const projectFiles = files.filter(f => {
+      if (!f.endsWith('.json')) return false;
+      const name = f.replace('.json', '');
+      if (name === 'categories' || name === 'global_building_types') return false;
+      if (name.endsWith('_layout') || name.endsWith('_save')) return false;
+      if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
+      if (name.includes('schedule') || name.includes('notifications')) return false;
+      return true;
+    });
+    // Повертаємо список імен проектів без розширення .json, відсортований природним порядком (SF, SF1, SF2... SF10)
+    const projectNames = projectFiles.map(f => f.replace('.json', ''));
+    projectNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    res.json(projectNames);
   } catch (err: any) { 
     // У разі помилки відправляємо статус 500 та повідомлення
     logger.error('Failed to read projects directory', err instanceof Error ? err : new Error(String(err)), { path: PROJECTS_DIR });
@@ -397,11 +408,701 @@ app.put('/api/config', authMiddleware, csrfMiddleware, (req, res) => {
         internalConfig.set(key, value); // Зберігаємо кожен ключ-значення
       }
     }
+    // Сповіщаємо менеджер черги про зміну налаштувань
+    projectQueueManager.processNext();
     // Повертаємо оновлений конфіг
     res.status(200).json({ success: true, config: internalConfig.getAll() });
   } catch (error: any) {
     logger.error('Failed to update config', error instanceof Error ? error : new Error(String(error)));
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/configs - Отримати список усіх збережених конфігурацій правил
+app.get('/api/configs', authMiddleware, (_req, res) => {
+  try {
+    const configs = ConfigStore.getAll();
+    return res.json({ success: true, configs });
+  } catch (error) {
+    logger.error('Failed to get configs', error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({ success: false, error: 'Failed to load configs' });
+  }
+});
+
+// GET /api/configs/:id - Отримати конкретну конфігурацію за ID
+app.get('/api/configs/:id', authMiddleware, (req, res) => {
+  try {
+    const config = ConfigStore.getById(req.params.id);
+    if (!config) {
+      return res.status(404).json({ success: false, error: 'Config not found' });
+    }
+    return res.json({ success: true, config });
+  } catch (error) {
+    logger.error('Failed to get config by id', error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({ success: false, error: 'Failed to load config' });
+  }
+});
+
+// POST /api/configs - Створити нову конфігурацію правил
+app.post('/api/configs', authMiddleware, (req, res) => {
+  try {
+    const newConfig = ConfigStore.create(req.body);
+    return res.json({ success: true, config: newConfig });
+  } catch (error: any) {
+    logger.error('Failed to create config', error instanceof Error ? error : new Error(String(error)));
+    return res.status(400).json({ success: false, error: error.message || 'Failed to create config' });
+  }
+});
+
+// PUT /api/configs/:id - Оновити існуючу конфігурацію правил
+app.put('/api/configs/:id', authMiddleware, (req, res) => {
+  try {
+    const updated = ConfigStore.update(req.params.id, req.body);
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Config not found' });
+    }
+    return res.json({ success: true, config: updated });
+  } catch (error: any) {
+    logger.error('Failed to update config', error instanceof Error ? error : new Error(String(error)));
+    return res.status(400).json({ success: false, error: error.message || 'Failed to update config' });
+  }
+});
+
+// DELETE /api/configs/:id - Видалити конфігурацію правил
+app.delete('/api/configs/:id', authMiddleware, (req, res) => {
+  try {
+    const deleted = ConfigStore.delete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: 'Config not found' });
+    }
+    return res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to delete config', error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({ success: false, error: 'Failed to delete config' });
+  }
+});
+
+// GET /api/configs/:id/matching-projects - Знайти проекти, які відповідають умовам конфігурації
+app.get('/api/configs/:id/matching-projects', authMiddleware, async (req, res) => {
+  try {
+    const configId = req.params.id;
+    const files = await fs.promises.readdir(PROJECTS_DIR);
+    const projectNames = files.filter(f => {
+      if (!f.endsWith('.json')) return false;
+      const name = f.replace('.json', '');
+      if (name === 'categories' || name === 'global_building_types') return false;
+      if (name.endsWith('_layout') || name.endsWith('_save')) return false;
+      if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
+      if (name.includes('schedule') || name.includes('notifications')) return false;
+      return true;
+    }).map(f => f.replace('.json', ''));
+
+    if (configId === 'all') {
+      return res.json({ success: true, projects: projectNames });
+    }
+
+    const config = ConfigStore.getById(configId);
+    if (!config) {
+      return res.json({ success: true, projects: projectNames });
+    }
+
+    const matching: string[] = [];
+    for (const p of projectNames) {
+      try {
+        const fileCache = loadConfigFiles(config, p, () => {});
+        const passed = evaluateConfig(config, p, fileCache, new Set(), {}, {}, () => {});
+        if (passed) {
+          matching.push(p);
+        }
+      } catch (e) {}
+    }
+    return res.json({ success: true, projects: matching });
+  } catch (err) {
+    logger.error('Failed to get matching projects', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Failed to find matching projects' });
+  }
+});
+
+// GET /api/projects/:projectName/containers - Отримати список імен контейнерів/груп проекту
+app.get('/api/projects/:projectName/containers', authMiddleware, async (req, res) => {
+  try {
+    const { projectName } = req.params;
+    const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+    if (!fs.existsSync(projectPath)) {
+      return res.status(404).json({ success: false, error: 'Project not found' });
+    }
+    const content = await fs.promises.readFile(projectPath, 'utf-8');
+    const projectData = JSON.parse(content);
+    const nodes = Array.isArray(projectData.nodes) ? projectData.nodes : [];
+    const containers: string[] = [];
+    for (const node of nodes) {
+      if (node.type === 'containerNode' || node.type === 'groupNode') {
+        const name = node.data?.title || node.data?.label || node.id;
+        if (name && !containers.includes(name)) {
+          containers.push(name);
+        }
+      }
+    }
+    return res.json({ success: true, containers });
+  } catch (err) {
+    logger.error('Failed to get containers', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Failed to load containers' });
+  }
+});
+
+// GET /api/projects/status - Отримати статус роботи та браузера для всіх проектів
+app.get('/api/projects/status', authMiddleware, (_req, res) => {
+  try {
+    const statusMap: Record<string, { isRunning: boolean; activeNodeTitle: string | null; isBrowserOpen: boolean }> = {};
+    sessions.forEach((session, projectName) => {
+      statusMap[projectName] = {
+        isRunning: session.isBotRunning,
+        activeNodeTitle: session.lastActiveNodeTitle,
+        isBrowserOpen: isSessionBrowserAlive(session)
+      };
+    });
+    res.json(statusMap);
+  } catch (err: any) {
+    logger.error('Projects status endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to retrieve project status. Please try again later.' });
+  }
+});
+
+// GET /api/projects/:name - Отримати структуру проекту за назвою (для мобільного застосунку)
+app.get('/api/projects/:name', authMiddleware, async (req, res, next) => {
+  try {
+    const name = req.params.name;
+    if (name === 'status') {
+      return next();
+    }
+    const validation = inputValidator.validateProjectName(name);
+    if (!validation.isValid) {
+      return res.status(400).json({ success: false, error: validation.error });
+    }
+
+    const projectPath = path.join(PROJECTS_DIR, `${name}.json`);
+    if (!fs.existsSync(projectPath)) {
+      return res.status(404).json({ success: false, error: 'Project not found' });
+    }
+
+    const fileContent = await fs.promises.readFile(projectPath, 'utf-8');
+    const projectData = JSON.parse(fileContent);
+
+    return res.json({
+      success: true,
+      data: {
+        nodes: Array.isArray(projectData.nodes) ? projectData.nodes : [],
+        edges: Array.isArray(projectData.edges) ? projectData.edges : [],
+        variables: projectData.variables || {}
+      },
+      error: null
+    });
+  } catch (err: any) {
+    logger.error('Failed to get project by name', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Failed to load project' });
+  }
+});
+
+// GET /api/deliveries/:projectName - Отримати список замовлень доставок для проекту
+app.get('/api/deliveries/:projectName', authMiddleware, async (req, res) => {
+  try {
+    const { projectName } = req.params;
+    const validation = inputValidator.validateProjectName(projectName);
+    if (!validation.isValid) {
+      return res.status(400).json({ success: false, error: validation.error });
+    }
+
+    const savePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
+    let orders: any[] = [];
+    let timestamp: number = Date.now();
+
+    if (fs.existsSync(savePath)) {
+      try {
+        const fileContent = await fs.promises.readFile(savePath, 'utf-8');
+        const saveData = JSON.parse(fileContent);
+        const rawOrders =
+          saveData.visitedFarmState?.delivery?.orders ||
+          saveData.visitorFarmState?.delivery?.orders ||
+          saveData.delivery?.orders ||
+          [];
+
+        if (Array.isArray(rawOrders)) {
+          orders = rawOrders.map((order: any) => ({
+            id: String(order.id || ''),
+            from: String(order.from || ''),
+            items: order.items || {},
+            readyAt: typeof order.readyAt === 'number' ? order.readyAt : (typeof order.createdAt === 'number' ? order.createdAt : 0),
+            createdAt: typeof order.createdAt === 'number' ? order.createdAt : 0,
+            completedAt: typeof order.completedAt === 'number' ? order.completedAt : null,
+            reward: {
+              coins: order.reward?.coins ?? null,
+              sfl: order.reward?.sfl ?? null,
+              items: order.reward?.items ?? {}
+            }
+          }));
+        }
+
+        const stat = await fs.promises.stat(savePath);
+        timestamp = Math.round(stat.mtimeMs);
+      } catch (err) {
+        logger.warn(`Failed to parse delivery from save for ${projectName}`, { path: savePath, error: String(err) });
+      }
+    }
+
+    return res.json({
+      data: orders,
+      timestamp,
+      projectName
+    });
+  } catch (err: any) {
+    logger.error('Failed to get deliveries for project', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Failed to load deliveries' });
+  }
+});
+
+// Допоміжна функція для додавання розрахованого часу запусків для масових розкладів
+async function enrichMassLaunches(launches: any[]) {
+  try {
+    const files = await fs.promises.readdir(PROJECTS_DIR);
+    const projectNames = files.filter(f => {
+      if (!f.endsWith('.json')) return false;
+      const name = f.replace('.json', '');
+      if (name === 'categories' || name === 'global_building_types') return false;
+      if (name.endsWith('_layout') || name.endsWith('_save')) return false;
+      if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
+      if (name.includes('schedule') || name.includes('notifications')) return false;
+      return true;
+    }).map(f => f.replace('.json', ''));
+
+    return launches.map(launch => {
+      if (launch.mode !== 'json_time' || !launch.jsonPath) {
+        return launch;
+      }
+      let jsonPath = String(launch.jsonPath).trim();
+      if (!jsonPath.startsWith('$.')) jsonPath = '$.' + jsonPath;
+
+      let targetProjects = projectNames;
+      if (launch.configId && launch.configId !== 'all') {
+        const config = ConfigStore.getById(launch.configId);
+        if (config) {
+          targetProjects = [];
+          for (const p of projectNames) {
+            try {
+              const fileCache = loadConfigFiles(config, p, () => {});
+              const passed = evaluateConfig(config, p, fileCache, new Set(), {}, {}, () => {});
+              if (passed) targetProjects.push(p);
+            } catch (e) {}
+          }
+        }
+      }
+
+      const times: Array<{ project: string; timestamp: number; timeStr: string; fullDateTime: string; relative: string; isPast: boolean }> = [];
+      for (const p of targetProjects) {
+        const savePath = path.join(PROJECTS_DIR, `${p}_save.json`);
+        if (fs.existsSync(savePath)) {
+          try {
+            const content = fs.readFileSync(savePath, 'utf-8');
+            const data = JSON.parse(content);
+            const resolved = resolvePath(data, jsonPath);
+            if (resolved.exists && resolved.value !== undefined && resolved.value !== null && resolved.value !== '') {
+              const info = parseTimeInfo(resolved.value);
+              if (info && info.timestamp) {
+                times.push({
+                  project: p,
+                  timestamp: info.timestamp,
+                  timeStr: info.time,
+                  fullDateTime: info.fullDateTime,
+                  relative: info.relative,
+                  isPast: info.isPast
+                });
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      times.sort((a, b) => a.timestamp - b.timestamp);
+      const futureTimes = times.filter(t => !t.isPast);
+      const nextLaunch = futureTimes.length > 0 ? futureTimes[0] : (times.length > 0 ? times[0] : null);
+
+      return {
+        ...launch,
+        calculatedTimes: times,
+        nextLaunchSummary: nextLaunch ? {
+          time: nextLaunch.timeStr,
+          fullDateTime: nextLaunch.fullDateTime,
+          project: nextLaunch.project,
+          relative: nextLaunch.relative,
+          isPast: nextLaunch.isPast,
+          totalWithTime: times.length,
+          totalProjects: targetProjects.length
+        } : null
+      };
+    });
+  } catch (err) {
+    return launches;
+  }
+}
+
+app.get('/api/mass-launches', authMiddleware, async (_req, res) => {
+  try {
+    const rawLaunches = MassLaunchStore.getAll();
+    const launches = await enrichMassLaunches(rawLaunches);
+    return res.json(launches);
+  } catch (err) {
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/mass-launches', authMiddleware, (req, res) => {
+  try {
+    const item = MassLaunchStore.create(req.body);
+    return res.json({ success: true, item });
+  } catch (err) {
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+app.put('/api/mass-launches/:id', authMiddleware, (req, res) => {
+  try {
+    const updated = MassLaunchStore.update(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Not found' });
+    return res.json({ success: true, item: updated });
+  } catch (err) {
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+app.delete('/api/mass-launches/:id', authMiddleware, (req, res) => {
+  try {
+    const deleted = MassLaunchStore.delete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Not found' });
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Допоміжна функція парсингу та форматування міток часу з файлів збереження
+function parseTimeInfo(val: unknown) {
+  if (val === undefined || val === null || val === '') return null;
+  let ts: number | null = null;
+  
+  if (typeof val === 'number') {
+    if (val > 1e11 && val < 1e14) ts = val;
+    else if (val > 1e8 && val < 1e11) ts = val * 1000;
+  } else if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (/^\d{12,14}$/.test(trimmed)) {
+      ts = parseInt(trimmed, 10);
+    } else if (/^\d{9,11}$/.test(trimmed)) {
+      ts = parseInt(trimmed, 10) * 1000;
+    } else if (trimmed.includes(':') && !trimmed.includes('T')) {
+      const parts = trimmed.split(':');
+      if (parts.length >= 2) {
+        const d = new Date();
+        d.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2] || '0', 10), 0);
+        ts = d.getTime();
+      }
+    } else {
+      const parsed = Date.parse(trimmed);
+      if (!isNaN(parsed) && parsed > 1e11) ts = parsed;
+    }
+  }
+
+  if (!ts || isNaN(ts)) return null;
+
+  const now = Date.now();
+  const diffMs = ts - now;
+  const isPast = diffMs < 0;
+  const absDiff = Math.abs(diffMs);
+  const diffMins = Math.floor(absDiff / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const remMins = diffMins % 60;
+  const diffDays = Math.floor(diffHours / 24);
+
+  let relative = '';
+  if (diffMins < 1) {
+    relative = isPast ? 'щойно минуло' : 'зараз';
+  } else if (diffHours < 1) {
+    relative = isPast ? `${diffMins} хв тому` : `через ${diffMins} хв`;
+  } else if (diffDays < 1) {
+    relative = isPast 
+      ? `${diffHours} год ${remMins > 0 ? `${remMins} хв ` : ''}тому` 
+      : `через ${diffHours} год ${remMins > 0 ? `${remMins} хв` : ''}`;
+  } else {
+    relative = isPast ? `${diffDays} дн тому` : `через ${diffDays} дн`;
+  }
+
+  const d = new Date(ts);
+  const timeStr = d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateStr = d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  return {
+    timestamp: ts,
+    time: timeStr,
+    date: dateStr,
+    fullDateTime: `${dateStr} ${timeStr}`,
+    relative,
+    isPast
+  };
+}
+
+// GET /api/mass-launches/preview-time - Розрахувати та показати час запуску для проектів за jsonPath
+app.get('/api/mass-launches/preview-time', authMiddleware, async (req, res) => {
+  try {
+    const configId = req.query.configId as string;
+    let jsonPath = (req.query.jsonPath as string || '').trim();
+    if (!jsonPath) {
+      return res.json({ success: true, projectTimes: [], summary: null });
+    }
+    if (!jsonPath.startsWith('$.')) {
+      jsonPath = '$.' + jsonPath;
+    }
+
+    const files = await fs.promises.readdir(PROJECTS_DIR);
+    const projectNames = files.filter(f => {
+      if (!f.endsWith('.json')) return false;
+      const name = f.replace('.json', '');
+      if (name === 'categories' || name === 'global_building_types') return false;
+      if (name.endsWith('_layout') || name.endsWith('_save')) return false;
+      if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
+      if (name.includes('schedule') || name.includes('notifications')) return false;
+      return true;
+    }).map(f => f.replace('.json', ''));
+
+    // Фільтруємо проекти, якщо вказано configId
+    let targetProjects = projectNames;
+    if (configId && configId !== 'all') {
+      const config = ConfigStore.getById(configId);
+      if (config) {
+        targetProjects = [];
+        for (const p of projectNames) {
+          try {
+            const fileCache = loadConfigFiles(config, p, () => {});
+            const passed = evaluateConfig(config, p, fileCache, new Set(), {}, {}, () => {});
+            if (passed) targetProjects.push(p);
+          } catch (e) {}
+        }
+      }
+    }
+
+    const projectTimes: Array<{
+      projectName: string;
+      rawVal: unknown;
+      timestamp: number | null;
+      timeStr: string | null;
+      dateStr: string | null;
+      fullDateTime: string | null;
+      relative: string | null;
+      isPast: boolean;
+      status: 'future' | 'due' | 'not_found' | 'invalid';
+    }> = [];
+
+    for (const p of targetProjects) {
+      const savePath = path.join(PROJECTS_DIR, `${p}_save.json`);
+      if (!fs.existsSync(savePath)) {
+        projectTimes.push({
+          projectName: p,
+          rawVal: null,
+          timestamp: null,
+          timeStr: null,
+          dateStr: null,
+          fullDateTime: null,
+          relative: null,
+          isPast: false,
+          status: 'not_found'
+        });
+        continue;
+      }
+
+      try {
+        const fileContent = await fs.promises.readFile(savePath, 'utf-8');
+        const saveData = JSON.parse(fileContent);
+        const resolved = resolvePath(saveData, jsonPath);
+
+        if (!resolved.exists || resolved.value === undefined || resolved.value === null || resolved.value === '') {
+          projectTimes.push({
+            projectName: p,
+            rawVal: null,
+            timestamp: null,
+            timeStr: null,
+            dateStr: null,
+            fullDateTime: null,
+            relative: null,
+            isPast: false,
+            status: 'not_found'
+          });
+          continue;
+        }
+
+        const info = parseTimeInfo(resolved.value);
+        if (!info) {
+          projectTimes.push({
+            projectName: p,
+            rawVal: resolved.value,
+            timestamp: null,
+            timeStr: String(resolved.value),
+            dateStr: null,
+            fullDateTime: String(resolved.value),
+            relative: 'некоректний формат часу',
+            isPast: false,
+            status: 'invalid'
+          });
+          continue;
+        }
+
+        projectTimes.push({
+          projectName: p,
+          rawVal: resolved.value,
+          timestamp: info.timestamp,
+          timeStr: info.time,
+          dateStr: info.date,
+          fullDateTime: info.fullDateTime,
+          relative: info.relative,
+          isPast: info.isPast,
+          status: info.isPast ? 'due' : 'future'
+        });
+      } catch (e) {
+        projectTimes.push({
+          projectName: p,
+          rawVal: null,
+          timestamp: null,
+          timeStr: null,
+          dateStr: null,
+          fullDateTime: null,
+          relative: 'помилка читання',
+          isPast: false,
+          status: 'not_found'
+        });
+      }
+    }
+
+    const validWithTs = projectTimes.filter(pt => pt.timestamp !== null);
+    validWithTs.sort((a, b) => (a.timestamp! - b.timestamp!));
+
+    let summary = null;
+    if (validWithTs.length > 0) {
+      const futureRuns = validWithTs.filter(pt => !pt.isPast);
+      const nextRun = futureRuns.length > 0 ? futureRuns[0] : validWithTs[0];
+      summary = {
+        nextProject: nextRun.projectName,
+        nextTime: nextRun.timeStr,
+        nextDateTime: nextRun.fullDateTime,
+        nextRelative: nextRun.relative,
+        isPast: nextRun.isPast,
+        totalWithTime: validWithTs.length,
+        totalProjects: targetProjects.length
+      };
+    }
+
+    return res.json({
+      success: true,
+      jsonPath,
+      projectTimes,
+      summary
+    });
+  } catch (err) {
+    logger.error('Failed to preview mass launch time', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Failed to calculate time preview' });
+  }
+});
+
+// ============================================================================
+// Island Map Endpoints
+// ============================================================================
+
+// GET /api/project-save/:projectName - Отримати стан збереження проекту (для карти острова)
+app.get('/api/project-save/:projectName', authMiddleware, async (req, res) => {
+  try {
+    const { projectName } = req.params;
+    const savePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
+    
+    if (fs.existsSync(savePath)) {
+      const content = await fs.promises.readFile(savePath, 'utf-8');
+      const data = JSON.parse(content);
+      return res.json({ success: true, data });
+    }
+
+    // Fallback: якщо _save.json немає, перевіряємо основний файл проекту
+    const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+    if (fs.existsSync(projectPath)) {
+      const content = await fs.promises.readFile(projectPath, 'utf-8');
+      const data = JSON.parse(content);
+      return res.json({ success: true, data });
+    }
+
+    return res.status(404).json({ success: false, error: 'Файл збереження не знайдено' });
+  } catch (err) {
+    logger.error('Failed to get project save', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Помилка завантаження збереження' });
+  }
+});
+
+// GET /api/project-map/:projectName - Отримати макет розташування острова проекту (_layout.json)
+app.get('/api/project-map/:projectName', authMiddleware, async (req, res) => {
+  try {
+    const { projectName } = req.params;
+    const layoutPath = path.join(PROJECTS_DIR, `${projectName}_layout.json`);
+    const globalTypesPath = path.join(PROJECTS_DIR, 'global_building_types.json');
+    let globalBuildingTypes = {};
+    if (fs.existsSync(globalTypesPath)) {
+      try {
+        globalBuildingTypes = JSON.parse(await fs.promises.readFile(globalTypesPath, 'utf-8'));
+      } catch (e) {}
+    }
+
+    if (!fs.existsSync(layoutPath)) {
+      return res.json({
+        success: true,
+        data: { items: [], buildingTypes: globalBuildingTypes }
+      });
+    }
+
+    const content = await fs.promises.readFile(layoutPath, 'utf-8');
+    const data = JSON.parse(content);
+    
+    // Якщо buildingTypes не задані в layout, додаємо глобальні типи
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      if (!data.buildingTypes || Object.keys(data.buildingTypes).length === 0) {
+        data.buildingTypes = globalBuildingTypes;
+      }
+    }
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    logger.error('Failed to get project map layout', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Помилка завантаження карти острова' });
+  }
+});
+
+// POST /api/project-map/:projectName - Зберегти макет розташування острова проекту (_layout.json)
+app.post('/api/project-map/:projectName', authMiddleware, async (req, res) => {
+  try {
+    const { projectName } = req.params;
+    const layoutPath = path.join(PROJECTS_DIR, `${projectName}_layout.json`);
+    await fs.promises.writeFile(layoutPath, JSON.stringify(req.body, null, 2), 'utf-8');
+    logger.info(`Saved island layout for project ${projectName}`);
+    return res.json({ success: true });
+  } catch (err) {
+    logger.error('Failed to save project map layout', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Помилка збереження карти острова' });
+  }
+});
+
+// DELETE /api/project-map/:projectName - Скинути макет розташування острова проекту
+app.delete('/api/project-map/:projectName', authMiddleware, async (req, res) => {
+  try {
+    const { projectName } = req.params;
+    const layoutPath = path.join(PROJECTS_DIR, `${projectName}_layout.json`);
+    if (fs.existsSync(layoutPath)) {
+      await fs.promises.unlink(layoutPath);
+      logger.info(`Deleted island layout for project ${projectName}`);
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    logger.error('Failed to delete project map layout', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Помилка видалення карти острова' });
   }
 });
 
@@ -428,6 +1129,46 @@ app.get('/api/inventory/overview', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/inventory/categories - Отримати список категорій та мапінг предметів
+app.get('/api/inventory/categories', authMiddleware, async (_req, res) => {
+  try {
+    const categoriesPath = path.join(PROJECTS_DIR, 'categories.json');
+    if (!fs.existsSync(categoriesPath)) {
+      return res.json({ categories: [], itemToCategories: {} });
+    }
+    const content = await fs.promises.readFile(categoriesPath, 'utf-8');
+    const data = JSON.parse(content);
+    return res.json({
+      categories: Array.isArray(data.categories) ? data.categories : [],
+      itemToCategories: (data.itemToCategories && typeof data.itemToCategories === 'object') ? data.itemToCategories : {}
+    });
+  } catch (err) {
+    logger.error('Failed to read categories.json', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Failed to load categories' });
+  }
+});
+
+// POST /api/inventory/categories - Зберегти список категорій та мапінг предметів
+app.post('/api/inventory/categories', authMiddleware, async (req, res) => {
+  try {
+    const { categories, itemToCategories } = req.body;
+    if (!Array.isArray(categories) || typeof itemToCategories !== 'object') {
+      return res.status(400).json({ success: false, error: 'Invalid categories data format' });
+    }
+    const categoriesPath = path.join(PROJECTS_DIR, 'categories.json');
+    await fs.promises.writeFile(
+      categoriesPath,
+      JSON.stringify({ categories, itemToCategories }, null, 2),
+      'utf-8'
+    );
+    logger.info('Saved categories configuration to categories.json');
+    return res.json({ success: true });
+  } catch (err) {
+    logger.error('Failed to save categories.json', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Failed to save categories' });
+  }
+});
+
 // GET /api/inventory/:projectName - Отримати дані інвентаря проекту
 app.get('/api/inventory/:projectName', authMiddleware, async (req, res) => {
   try {
@@ -442,61 +1183,87 @@ app.get('/api/inventory/:projectName', authMiddleware, async (req, res) => {
       });
     }
 
-    // Read inventory file
-    const inventoryPath = path.join(PROJECTS_DIR, `${projectName}_inventory.json`);
+    const source = (req.query.source as string) === 'stock' ? 'stock' : 'inventory';
 
-    try {
-      await fs.promises.access(inventoryPath);
-      const fileContent = await fs.promises.readFile(inventoryPath, 'utf-8');
-      const inventoryData = JSON.parse(fileContent);
+    // 1. Спробуємо прочитати {projectName}_save.json (новий основний формат з visitedFarmState.inventory)
+    const savePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
+    let items: Array<{ image: string; number: number; selector: string; coords: { x: number; y: number } }> = [];
+    let timestamp: number | null = null;
+    let loadedFromSave = false;
 
-      let variables = {};
+    if (fs.existsSync(savePath)) {
       try {
-        const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
-        if (fs.existsSync(projectPath)) {
-          const projectContent = await fs.promises.readFile(projectPath, 'utf-8');
-          const projectData = JSON.parse(projectContent);
-          variables = projectData.variables || projectData;
-        }
-      } catch (e) {}
+        const fileContent = await fs.promises.readFile(savePath, 'utf-8');
+        const saveData = JSON.parse(fileContent);
+        const rawInventory: Record<string, any> = 
+          (saveData.visitedFarmState && saveData.visitedFarmState[source]) ||
+          (saveData.visitorFarmState && saveData.visitorFarmState[source]) ||
+          (saveData.visitedFarmState && saveData.visitedFarmState.inventory) ||
+          saveData.inventory || 
+          {};
 
-      res.json({
-        data: inventoryData.data || [],
-        timestamp: inventoryData.timestamp || null,
-        projectName: inventoryData.projectName || projectName,
-        variables: variables
-      });
-    } catch (fileErr: any) {
-      if (fileErr.code === 'ENOENT') {
-        let variables = {};
-        try {
-          const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
-          if (fs.existsSync(projectPath)) {
-            const projectContent = await fs.promises.readFile(projectPath, 'utf-8');
-            const projectData = JSON.parse(projectContent);
-            variables = projectData.variables || projectData;
+        if (Object.keys(rawInventory).length > 0) {
+          items = Object.entries(rawInventory)
+            .map(([key, val]) => ({
+              image: getImageUrl(key),
+              number: typeof val === 'number' ? val : parseFloat(String(val)) || 0,
+              selector: '',
+              coords: { x: 0, y: 0 }
+            }))
+            .filter(item => item.number > 0);
+
+          try {
+            const stat = await fs.promises.stat(savePath);
+            timestamp = Math.round(stat.mtimeMs);
+          } catch (e) {
+            timestamp = Date.now();
           }
-        } catch (e) {}
-        
-        return res.json({
-          data: [],
-          timestamp: null,
-          projectName,
-          variables: variables
-        });
+          loadedFromSave = true;
+        }
+      } catch (err) {
+        logger.warn(`Failed to parse save file for ${projectName}`, { path: savePath, error: String(err) });
       }
-
-      logger.error('Failed to read inventory file', fileErr);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to load inventory data. Please try again later.'
-      });
     }
+
+    // 2. Якщо _save.json немає або він порожній — fallback на {projectName}_inventory.json
+    if (!loadedFromSave) {
+      const inventoryPath = path.join(PROJECTS_DIR, `${projectName}_inventory.json`);
+      if (fs.existsSync(inventoryPath)) {
+        try {
+          const fileContent = await fs.promises.readFile(inventoryPath, 'utf-8');
+          const inventoryData = JSON.parse(fileContent);
+          if (Array.isArray(inventoryData.data)) {
+            items = inventoryData.data;
+            timestamp = inventoryData.timestamp || null;
+          }
+        } catch (err) {
+          logger.warn(`Failed to parse legacy inventory file for ${projectName}`, { path: inventoryPath, error: String(err) });
+        }
+      }
+    }
+
+    // Зчитуємо глобальні змінні з {projectName}.json
+    let variables = {};
+    try {
+      const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+      if (fs.existsSync(projectPath)) {
+        const projectContent = await fs.promises.readFile(projectPath, 'utf-8');
+        const projectData = JSON.parse(projectContent);
+        variables = projectData.variables || projectData;
+      }
+    } catch (e) {}
+
+    return res.json({
+      data: items,
+      timestamp: timestamp,
+      projectName: projectName,
+      variables: variables
+    });
   } catch (err) {
     logger.error('Inventory endpoint error', err instanceof Error ? err : new Error(String(err)));
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: 'Failed to load inventory data. Please try again later.'
+      error: 'Failed to process inventory request. Please try again later.'
     });
   }
 });
@@ -891,6 +1658,14 @@ app.get('/api/global-stats', authMiddleware, async (req, res) => {
     for (const file of files) {
       if (file.endsWith('_stats.json')) {
         const projectName = file.replace('_stats.json', '');
+        if (
+          projectName === 'categories' ||
+          projectName === 'global_building_types' ||
+          projectName.endsWith('_layout') ||
+          projectName.endsWith('_save')
+        ) {
+          continue;
+        }
         const statPath = path.join(PROJECTS_DIR, file);
         try {
           const fileContent = await fs.promises.readFile(statPath, 'utf-8');
@@ -959,31 +1734,6 @@ app.get('/api/stats/:name', authMiddleware, async (req, res) => {
     // Відправляємо помилку 500 у разі збою
     logger.error('Stats endpoint error', err instanceof Error ? err : new Error(String(err)));
     res.status(500).json({ success: false, error: 'Failed to process statistics request.' }); 
-  }
-});
-
-// Роут для отримання поточного статусу роботи та активних нод усіх сесій проектів
-// Requirement 1: JWT authentication for /api/projects/*
-// Requirement 7: Rate limiting already applied globally to /api/*
-app.get('/api/projects/status', authMiddleware, (req, res) => {
-  try {
-    // Створюємо об'єкт для зведення статусів
-    const statusMap: Record<string, { isRunning: boolean; activeNodeTitle: string | null }> = {}; // Збереження пар: Назва проекту -> Стан роботи
-    
-    // Обходимо всі сесії в нашій карті сесій
-    sessions.forEach((session, projectName) => {
-      statusMap[projectName] = {
-        isRunning: session.isBotRunning, // Прапорець чи запущений бот
-        activeNodeTitle: session.lastActiveNodeTitle // Назва останньої активної ноди
-      };
-    });
-    
-    // Відправляємо сформовану карту статусів клієнту
-    res.json(statusMap); // Повертаємо JSON відповідь
-  } catch (err: any) {
-    // У разі помилки відправляємо статус 500
-    logger.error('Projects status endpoint error', err instanceof Error ? err : new Error(String(err)));
-    res.status(500).json({ success: false, error: 'Failed to retrieve project status. Please try again later.' }); // Повертаємо опис помилки
   }
 });
 
@@ -1089,6 +1839,106 @@ app.post('/api/projects/stop-multiple', authMiddleware, csrfMiddleware, async (r
     // У разі помилки відправляємо статус 500
     logger.error('Stop-multiple endpoint error', err instanceof Error ? err : new Error(String(err)));
     res.status(500).json({ success: false, error: 'Failed to stop multiple projects. Please try again later.' }); // Повертаємо опис помилки
+  }
+});
+
+// POST /api/projects/copy-nodes - Копіювання нод і ребер між проектами із збереженням локальних змінних
+app.post('/api/projects/copy-nodes', authMiddleware, async (req, res) => {
+  try {
+    const { sourceProject, targetProjects } = req.body;
+    if (!sourceProject || typeof sourceProject !== 'string') {
+      return res.status(400).json({ success: false, error: 'Потрібно вказати джерельний проект (sourceProject)' });
+    }
+    if (!targetProjects || !Array.isArray(targetProjects) || targetProjects.length === 0) {
+      return res.status(400).json({ success: false, error: 'Потрібно вказати масив цільових проектів (targetProjects)' });
+    }
+
+    const sourcePath = path.join(PROJECTS_DIR, `${sourceProject}.json`);
+    if (!fs.existsSync(sourcePath)) {
+      return res.status(404).json({ success: false, error: `Джерельний проект «${sourceProject}» не знайдено` });
+    }
+
+    const sourceContent = await fs.promises.readFile(sourcePath, 'utf-8');
+    const sourceData = JSON.parse(sourceContent);
+    const nodes = sourceData.nodes || [];
+    const edges = sourceData.edges || [];
+
+    let updated = 0;
+    const errors: string[] = [];
+
+    for (const target of targetProjects) {
+      if (target === sourceProject) continue;
+      try {
+        const targetPath = path.join(PROJECTS_DIR, `${target}.json`);
+        let targetData: any = {};
+        if (fs.existsSync(targetPath)) {
+          const targetContent = await fs.promises.readFile(targetPath, 'utf-8');
+          targetData = JSON.parse(targetContent);
+        }
+
+        // Копіюємо ноди та ребра сценарію, зберігаючи змінні, налаштування та розклад проекту
+        targetData.nodes = nodes;
+        targetData.edges = edges;
+        targetData.updatedAt = new Date().toISOString();
+
+        await fs.promises.writeFile(targetPath, JSON.stringify(targetData, null, 2), 'utf-8');
+        updated++;
+        logger.info(`Successfully copied nodes from ${sourceProject} to ${target}`);
+      } catch (err: any) {
+        logger.error(`Failed to copy nodes to project ${target}`, err);
+        errors.push(target);
+      }
+    }
+
+    return res.json({
+      success: true,
+      updated,
+      errors
+    });
+  } catch (err: any) {
+    logger.error('Copy-nodes endpoint error', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Не вдалося скопіювати ноди. Спробуйте пізніше.' });
+  }
+});
+
+// POST /api/projects/run-sequential - Послідовний запуск вибраних проектів у черзі
+app.post('/api/projects/run-sequential', authMiddleware, async (req, res) => {
+  try {
+    const { projectNames, projectSettings } = req.body;
+    if (!projectNames || !Array.isArray(projectNames) || projectNames.length === 0) {
+      return res.status(400).json({ success: false, error: 'Потрібно вказати масив projectNames' });
+    }
+
+    // Запускаємо послідовну чергу у фоновому процесі
+    (async () => {
+      for (const name of projectNames) {
+        try {
+          const overrideSettings = projectSettings && projectSettings[name] ? projectSettings[name] : undefined;
+          logger.info(`Sequential queue: starting project ${name}`);
+          const started = await startProject(name, overrideSettings);
+          if (!started) {
+            logger.warn(`Sequential queue: failed to start project ${name}, skipping to next`);
+            continue;
+          }
+
+          // Очікуємо поки бот завершить роботу
+          const session = getOrCreateSession(name);
+          while (session.isBotRunning) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          logger.info(`Sequential queue: project ${name} finished`);
+          // Пауза 2 секунди перед стартом наступного проекту
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (err) {
+          logger.error(`Sequential queue error for project ${name}`, err instanceof Error ? err : new Error(String(err)));
+        }
+      }
+    })().catch(e => logger.error('Sequential runner background error', e));
+
+    return res.json({ success: true, message: 'Послідовний запуск розпочато' });
+  } catch (err: any) {
+    logger.error('Run-sequential endpoint error', err instanceof Error ? err : new Error(String(err)));
+    return res.status(500).json({ success: false, error: 'Не вдалося запустити проекти послідовно' });
   }
 });
 
@@ -1254,9 +2104,129 @@ async function smartSleep(ms: number, ws: WebSocket) {
   }
 }
 
-// Універсальна функція для запуску бот-сценарію проекту за його назвою (використовується в планувальнику та масових діях)
-// overrideBrowserSettings — необов'язкові налаштування браузера від фронтенду (з localStorage), які мають пріоритет над даними з файлу
-async function startProject(projectName: string, overrideBrowserSettings?: Record<string, any>): Promise<boolean> {
+// --- Менеджер Черги Проектів (ProjectQueueManager) ---
+class ProjectQueueManager {
+  private queue: Array<{
+    projectName: string;
+    overrideBrowserSettings?: Record<string, any>;
+    targetContainers?: string[];
+    resolve: (val: boolean) => void;
+  }> = [];
+
+  public isQueueModeActive(): boolean {
+    return internalConfig.get('queueMode') === 1;
+  }
+
+  public getMaxParallel(): number {
+    const val = internalConfig.get('maxParallelProjects');
+    return val && val > 0 ? val : 1;
+  }
+
+  public getActiveRunningCount(): number {
+    let count = 0;
+    for (const session of sessions.values()) {
+      if (session.isBotRunning) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  public async startOrQueue(
+    projectName: string,
+    overrideBrowserSettings?: Record<string, any>,
+    targetContainers?: string[]
+  ): Promise<boolean> {
+    // Якщо режим черги вимкнено — запускаємо одразу без обмежень черги
+    if (!this.isQueueModeActive()) {
+      return executeProjectInternal(projectName, overrideBrowserSettings, targetContainers);
+    }
+
+    const maxParallel = this.getMaxParallel();
+    const activeCount = this.getActiveRunningCount();
+
+    // Якщо проект вже працює — виходимо
+    const session = getOrCreateSession(projectName);
+    if (session.isBotRunning) {
+      logToClient(session, '❌ Бот вже працює в цій сесії! Спочатку зупиніть його.', 'error');
+      return false;
+    }
+
+    // Якщо є вільний слот серед паралельних — запускаємо одразу
+    if (activeCount < maxParallel) {
+      return executeProjectInternal(projectName, overrideBrowserSettings, targetContainers);
+    }
+
+    // Якщо проект уже стоїть у черзі — не дублюємо
+    const isAlreadyQueued = this.queue.some(item => item.projectName === projectName);
+    if (isAlreadyQueued) {
+      logToClient(session, '⚠️ Проект вже знаходиться в черзі очікування', 'info');
+      return true;
+    }
+
+    const pos = this.queue.length + 1;
+    logger.info(`[Queue] Project ${projectName} placed in queue at position ${pos} (active: ${activeCount}/${maxParallel})`);
+    logToClient(session, `🚦 [Режим черги] Проект додано в чергу (позиція: ${pos}). Очікує завершення активних проектів...`, 'info');
+
+    return new Promise<boolean>((resolve) => {
+      this.queue.push({
+        projectName,
+        overrideBrowserSettings,
+        targetContainers,
+        resolve
+      });
+    });
+  }
+
+  public processNext() {
+    if (!this.isQueueModeActive()) {
+      while (this.queue.length > 0) {
+        const item = this.queue.shift();
+        if (item) {
+          executeProjectInternal(item.projectName, item.overrideBrowserSettings, item.targetContainers)
+            .then(res => item.resolve(res));
+        }
+      }
+      return;
+    }
+
+    const maxParallel = this.getMaxParallel();
+    while (this.queue.length > 0 && this.getActiveRunningCount() < maxParallel) {
+      const item = this.queue.shift();
+      if (!item) break;
+
+      const session = getOrCreateSession(item.projectName);
+      if (session.isBotRunning) {
+        item.resolve(false);
+        continue;
+      }
+
+      logger.info(`[Queue] Starting queued project ${item.projectName} (active: ${this.getActiveRunningCount() + 1}/${maxParallel})`);
+      logToClient(session, `🚦 [Режим черги] Черга підійшла! Запуск проекту ${item.projectName}...`, 'success');
+
+      executeProjectInternal(item.projectName, item.overrideBrowserSettings, item.targetContainers)
+        .then(res => item.resolve(res));
+    }
+  }
+}
+
+export const projectQueueManager = new ProjectQueueManager();
+
+// Універсальна функція для запуску бот-сценарію проекту за його назвою (використовує менеджер черги)
+async function startProject(
+  projectName: string, 
+  overrideBrowserSettings?: Record<string, any>,
+  targetContainers?: string[]
+): Promise<boolean> {
+  return projectQueueManager.startOrQueue(projectName, overrideBrowserSettings, targetContainers);
+}
+
+// Внутрішня функція безпосереднього запуску сесії проекту
+async function executeProjectInternal(
+  projectName: string, 
+  overrideBrowserSettings?: Record<string, any>,
+  targetContainers?: string[]
+): Promise<boolean> {
   // Отримуємо або створюємо сесію для цього проекту
   const session = getOrCreateSession(projectName);
   
@@ -1305,16 +2275,32 @@ async function startProject(projectName: string, overrideBrowserSettings?: Recor
       ? overrideBrowserSettings  // Використовуємо налаштування з localStorage (мають profileDir, profile, proxy)
       : fileBrowserSettings;     // Якщо немає override — беремо з файлу проекту
 
+    // Перевіряємо чи вказано запуск конкретних контейнерів
+    const matchingContainers: any[] = [];
+    if (targetContainers && targetContainers.length > 0) {
+      for (const name of targetContainers) {
+        const found = nodes.find((n: any) =>
+          (n.type === 'groupNode' || n.type === 'containerNode') &&
+          (n.data?.title === name || n.data?.label === name || n.id === name)
+        );
+        if (found && !matchingContainers.includes(found)) {
+          matchingContainers.push(found);
+        }
+      }
+    }
+
+    // Якщо вказано контейнери, але жодного не знайдено, перевіряємо стартову ноду
+    let startNode: any = null;
+    if (matchingContainers.length === 0) {
+      startNode = nodes.find((n: any) => n.type === 'startNode');
+      if (!startNode) {
+        logToClient(session, '❌ Помилка: У сценарії проекту не знайдено стартової ноди (startNode) або вказаних контейнерів!', 'error');
+        return false;
+      }
+    }
+
     // Логуємо джерело налаштувань для зручності відлагодження
     console.log(`📋 Проект ${projectName}: профіль = "${browserSettings?.profileDir || 'дефолт'}" (джерело: ${overrideBrowserSettings ? 'localStorage фронтенду' : 'файл проекту'})`);
-
-    // Шукаємо стартову ноду у сценарії
-    const startNode = nodes.find((n: any) => n.type === 'startNode'); // Намагаємось знайти початкову ноду
-    // Якщо стартову ноду не знайдено, скасовуємо запуск
-    if (!startNode) {
-      logToClient(session, '❌ Помилка: У сценарії проекту не знайдено стартової ноди (startNode)!', 'error'); // Відправляємо лог
-      return false; // Повертаємо помилку
-    }
 
     // Встановлюємо прапорець запуску бота в сесії
     session.isBotRunning = true; // Активуємо режим виконання сценарію
@@ -1337,7 +2323,11 @@ async function startProject(projectName: string, overrideBrowserSettings?: Recor
     // Встановлюємо змінну _projectName для доступу з нод
     session.globalVariables._projectName = projectName;
 
-    logToClient(session, '🚀 Запуск фонового сценарію...', 'success'); // Логуємо запуск
+    if (matchingContainers.length > 0) {
+      logToClient(session, `🚀 Запуск вибраних контейнерів (${matchingContainers.length}): ${targetContainers!.join(', ')}...`, 'success');
+    } else {
+      logToClient(session, '🚀 Запуск повного фонового сценарію...', 'success');
+    }
 
     // Requirement 19: Apply Semaphore to browser launch operations
     const page = await browserSemaphore.run(async () => {
@@ -1364,7 +2354,79 @@ async function startProject(projectName: string, overrideBrowserSettings?: Recor
     // Фіктивний або реальний веб-сокет для відправки статусів
     const wsSender = session.activeWs || ({ send: () => {}, projectName } as any); // Використовуємо реальний сокет або пусту заглушку
 
-    // Створюємо двигун BotEngine для сесії
+    // Якщо запуск обмежений конкретними контейнерами
+    if (matchingContainers.length > 0) {
+      (async () => {
+        try {
+          for (const containerNode of matchingContainers) {
+            if (!session.isBotRunning) break;
+            const containerLabel = containerNode.data?.title || containerNode.data?.label || containerNode.id;
+            logToClient(session, `▶️ [Контейнер] Запуск: «${containerLabel}»`, 'info');
+
+            const groupHandler = (nodeHandlers as any).groupNode || (nodeHandlers as any).containerNode;
+            if (groupHandler) {
+              await groupHandler({
+                currentNode: containerNode,
+                activePage: page,
+                ws: wsSender,
+                context: {},
+                globalVariables: session.globalVariables,
+                projectName,
+                broadcastVariables: () => broadcastVariables(session),
+                logToClient: (msg: string, type?: any) => logToClient(session, msg, type),
+                takeDebugSnapshot: (nodeId: string, nodeTitle: string, highlight?: any) => takeDebugSnapshot(session, nodeId, nodeTitle, highlight),
+                smartSleep,
+                nodeRuntimeState: session.nodeRuntimeState,
+                nodeHandlers
+              });
+            }
+          }
+          logToClient(session, `✅ Виконання вибраних контейнерів завершено`, 'success');
+        } catch (err: any) {
+          logger.error(`Container execution error for ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+          logToClient(session, `❌ Помилка виконання контейнера: ${err.message || err}`, 'error');
+        } finally {
+          session.isBotRunning = false;
+          session.lastActiveNodeId = null;
+          session.lastActiveNodeTitle = null;
+
+          try {
+            const statPath = path.join(PROJECTS_DIR, `${projectName}_stats.json`);
+            let stats = [];
+            try {
+              if (fs.existsSync(statPath)) {
+                stats = JSON.parse(fs.readFileSync(statPath, 'utf-8'));
+              }
+            } catch (e) {
+              stats = [];
+            }
+            stats.push({ timestamp: Date.now(), snapshot: JSON.parse(JSON.stringify(session.globalVariables)) });
+            try {
+              fs.writeFileSync(statPath, JSON.stringify(stats, null, 2));
+            } catch (e) {}
+          } catch (err) {}
+
+          await browserLifecycle.closeBrowser(session).catch(closeErr => {
+            logger.error(`Failed to close browser after container run for ${projectName}`, closeErr instanceof Error ? closeErr : new Error(String(closeErr)));
+          });
+
+          if (session.activeWs && session.activeWs.readyState === 1) {
+            session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED' }));
+            session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false }));
+          }
+
+          // Запускаємо наступний проект з черги, якщо є
+          projectQueueManager.processNext();
+        }
+      })().catch(err => {
+        logger.error(`Error in container execution runner for ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+        projectQueueManager.processNext();
+      });
+
+      return true;
+    }
+
+    // Створюємо двигун BotEngine для сесії при повному запуску
     const engine = new BotEngine({
       nodes, 
       edges, 
@@ -1434,6 +2496,9 @@ async function startProject(projectName: string, overrideBrowserSettings?: Recor
           session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED' })); // Відправляємо подію завершення
           session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false })); // Скидаємо статус виконання в UI
         }
+
+        // Запускаємо наступний проект з черги
+        projectQueueManager.processNext();
       }
     });
 
@@ -1451,6 +2516,7 @@ async function startProject(projectName: string, overrideBrowserSettings?: Recor
       if (session.activeWs && session.activeWs.readyState === 1) {
         session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false })); // Скидаємо статус в UI
       }
+      projectQueueManager.processNext();
     });
 
     return true; // Повертаємо успішний запуск
@@ -1467,6 +2533,7 @@ async function startProject(projectName: string, overrideBrowserSettings?: Recor
     if (session.activeWs && session.activeWs.readyState === 1) {
       session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false })); // Оновлюємо UI
     }
+    projectQueueManager.processNext();
     return false; // Повертаємо невдачу
   }
 }
@@ -1491,9 +2558,11 @@ async function stopProject(projectName: string): Promise<boolean> {
     // Requirement 9.2: Close browser using lifecycle manager
     await browserLifecycle.closeBrowser(session);
     logToClient(session, '🛑 Бот сценарій успішно зупинено користувачем', 'info'); // Відправляємо інфо-лог
+    projectQueueManager.processNext();
     return true; // Успішно зупинено
   } catch (err: any) {
     logger.error(`Error stopping project ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+    projectQueueManager.processNext();
     return false; // Повертаємо невдачу
   }
 }
@@ -2250,13 +3319,149 @@ wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   });
 });
 
+// --- Логіка виконання Масового Планувальника (Mass Scheduler) ---
+async function checkAndRunMassLaunches() {
+  try {
+    const rawLaunches = MassLaunchStore.getAll();
+    const activeLaunches = rawLaunches.filter(l => l.enabled !== false);
+    if (activeLaunches.length === 0) return;
+
+    const files = await fs.promises.readdir(PROJECTS_DIR);
+    const allProjectNames = files
+      .filter(f => f.endsWith('.json'))
+      .map(f => f.replace('.json', ''))
+      .filter(name =>
+        name !== 'categories' &&
+        name !== 'global_building_types' &&
+        name !== 'schedule' &&
+        name !== 'notifications' &&
+        !name.endsWith('_layout') &&
+        !name.endsWith('_save') &&
+        !name.endsWith('_stats') &&
+        !name.endsWith('_logs') &&
+        !name.endsWith('_inventory')
+      );
+
+    const now = new Date();
+    const nowMs = now.getTime();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+
+    for (const launch of activeLaunches) {
+      let matchingProjects = allProjectNames;
+      if (launch.configId) {
+        const config = ConfigStore.getById(launch.configId);
+        if (config && config.enabled !== false) {
+          const matching: string[] = [];
+          for (const p of allProjectNames) {
+            try {
+              const fileCache = loadConfigFiles(config, p, () => {});
+              const passed = evaluateConfig(config, p, fileCache, new Set(), {}, {}, () => {});
+              if (passed) matching.push(p);
+            } catch (e) {}
+          }
+          matchingProjects = matching;
+        }
+      }
+
+      if (matchingProjects.length === 0) continue;
+
+      if (launch.mode === 'manual_time') {
+        if (!launch.time) continue;
+        const [targetHours, targetMinutes] = launch.time.split(':').map(Number);
+        if (isNaN(targetHours) || isNaN(targetMinutes)) continue;
+
+        // Перевіряємо чи поточна година і хвилина збігаються з часом запуску
+        if (currentHours === targetHours && currentMinutes === targetMinutes) {
+          // Якщо вже запускався у ці останні 70 секунд — пропускаємо
+          if (launch.lastRunTime && (nowMs - launch.lastRunTime) < 70000) {
+            continue;
+          }
+
+          logger.info(`[MassScheduler] Запуск масової задачі «${launch.name}» (${launch.time}) для ${matchingProjects.length} проектів`);
+          MassLaunchStore.update(launch.id, { lastRunTime: nowMs });
+
+          for (const projectName of matchingProjects) {
+            const session = getOrCreateSession(projectName);
+            if (session.isBotRunning) {
+              logger.info(`[MassScheduler] Проект ${projectName} вже працює — пропускаємо`);
+              continue;
+            }
+            logger.info(`[MassScheduler] Старт проекту ${projectName} за масовим розкладом «${launch.name}» (контейнери: ${launch.containers && launch.containers.length > 0 ? launch.containers.join(', ') : 'всі'})`);
+            startProject(projectName, undefined, launch.containers).catch(err => {
+              logger.error(`[MassScheduler] Помилка старту проекту ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+            });
+          }
+        }
+      } else if (launch.mode === 'json_time') {
+        if (!launch.jsonPath) continue;
+
+        const projectLastRuns = { ...(launch.projectLastRuns || {}) };
+        let updatedProjectRuns = false;
+
+        for (const projectName of matchingProjects) {
+          const savePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
+          if (!fs.existsSync(savePath)) continue;
+
+          try {
+            const content = fs.readFileSync(savePath, 'utf-8');
+            const data = JSON.parse(content);
+            const resolved = resolvePath(data, launch.jsonPath);
+            if (!resolved.exists || resolved.value === undefined || resolved.value === null || resolved.value === '') {
+              continue;
+            }
+
+            const info = parseTimeInfo(resolved.value);
+            if (!info || !info.timestamp) continue;
+
+            const targetTs = info.timestamp;
+            const lastRunForProject = projectLastRuns[projectName] || 0;
+
+            // Умова запуску:
+            // 1. Час настав або щойно настав: nowMs >= targetTs
+            // 2. Час не старіший за 15 хвилин: (nowMs - targetTs) <= 15 * 60 * 1000
+            // 3. Для цієї мітки часу ще не було запуску: lastRunForProject !== targetTs
+            if (nowMs >= targetTs && (nowMs - targetTs) <= 15 * 60 * 1000 && lastRunForProject !== targetTs) {
+              const session = getOrCreateSession(projectName);
+              if (session.isBotRunning) {
+                logger.info(`[MassScheduler] Проект ${projectName} вже працює для мітки ${info.fullDateTime}`);
+                projectLastRuns[projectName] = targetTs;
+                updatedProjectRuns = true;
+                continue;
+              }
+
+              logger.info(`[MassScheduler] 🚀 Старт проекту ${projectName} за часом із save (${info.time}, ${info.fullDateTime}) для задачі «${launch.name}» (контейнери: ${launch.containers && launch.containers.length > 0 ? launch.containers.join(', ') : 'всі'})`);
+              projectLastRuns[projectName] = targetTs;
+              updatedProjectRuns = true;
+
+              startProject(projectName, undefined, launch.containers).catch(err => {
+                logger.error(`[MassScheduler] Помилка старту проекту ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+              });
+            }
+          } catch (err) {
+            logger.error(`[MassScheduler] Помилка обробки збереження для ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+          }
+        }
+
+        if (updatedProjectRuns) {
+          MassLaunchStore.update(launch.id, { lastRunTime: nowMs, projectLastRuns });
+        }
+      }
+    }
+  } catch (err) {
+    logger.error('[MassScheduler] Помилка перевірки масових розкладів', err instanceof Error ? err : new Error(String(err)));
+  }
+}
+
 // --- Фоновий Планувальник (Scheduler) ---
 // Requirement 10: Register scheduler interval with TimerManager
-// Перевіряємо проекти кожну хвилину
+let lastSchedulerServiceCheck = 0;
+
 const schedulerInterval = setInterval(async () => {
   try {
-    // Requirement 11: Periodic memory reporting with all sessions (every 30 minutes)
     const now = Date.now();
+
+    // 1. Requirement 11: Periodic memory reporting with all sessions (every 30 minutes)
     const lastMemoryReport = (schedulerInterval as any).lastMemoryReport || 0;
     if (now - lastMemoryReport >= 30 * 60 * 1000) {
       const allNodeRuntimeStates = Array.from(sessions.values()).map(s => s.nodeRuntimeState);
@@ -2264,23 +3469,27 @@ const schedulerInterval = setInterval(async () => {
       (schedulerInterval as any).lastMemoryReport = now;
     }
 
-    // Делегуємо всю логіку сервісу
-    const toRun = schedulerService.checkAndGetProjectsToRun(PROJECTS_DIR);
-    
-    for (const projectName of toRun) {
-      const session = getOrCreateSession(projectName);
-      if (session.isBotRunning) continue;
-      
-      logger.info(`Scheduler: launching project ${projectName}`);
-      
-      startProject(projectName).catch(err => {
-        logger.error(`Scheduler: background launch error for project ${projectName}`, err instanceof Error ? err : new Error(String(err)));
-      });
+    // 2. Стандартний індивідуальний планувальник проектів (кожні 30 секунд)
+    if (now - lastSchedulerServiceCheck >= 30000) {
+      lastSchedulerServiceCheck = now;
+      const toRun = schedulerService.checkAndGetProjectsToRun(PROJECTS_DIR);
+      for (const projectName of toRun) {
+        const session = getOrCreateSession(projectName);
+        if (session.isBotRunning) continue;
+        
+        logger.info(`Scheduler: launching project ${projectName}`);
+        startProject(projectName).catch(err => {
+          logger.error(`Scheduler: background launch error for project ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+        });
+      }
     }
+
+    // 3. Масовий Планувальник Задач (Mass Launch Scheduler)
+    await checkAndRunMassLaunches();
   } catch (err) {
     logger.error('Scheduler error', err instanceof Error ? err : new Error(String(err)));
   }
-}, 60000); // Інтервал перевірки кожну хвилину
+}, 10000); // Інтервал перевірки кожні 10 секунд
 
 // --- REST API для Розкладу та Сповіщень ---
 
@@ -2359,10 +3568,22 @@ app.put('/api/notifications/read-all', (req, res) => {
   }
 });
 
-// Видалити сповіщення
+// Видалити окреме сповіщення
 app.delete('/api/notifications/:id', (req, res) => {
   try {
     notificationService.delete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// Видалити всі сповіщення
+app.delete('/api/notifications', (req, res) => {
+  try {
+    const projectsParam = req.query.projects as string;
+    const projects = projectsParam ? projectsParam.split(',') : [];
+    notificationService.deleteAll(projects);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: String(error) });

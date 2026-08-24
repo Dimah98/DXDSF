@@ -3,10 +3,11 @@ import { notificationService } from '../index';
 
 // Обробник ноди "Сповіщення" — відправляє текстове сповіщення від поточного проекту
 export const notifyNodeHandler = async ({
-  currentNode, context, logToClient, globalVariables, projectName
+  currentNode, context, globalVariables, projectName
 }: NodeHandlerParams) => {
   // Отримуємо шаблон повідомлення із налаштувань ноди (або використовуємо дефолтний)
-  const messageTemplate = currentNode.data.message || '🔔 Сповіщення від проекту';
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const messageTemplate = (nodeData.message as string) || '🔔 Сповіщення від проекту';
 
   // Розпочинаємо підстановку: замінюємо {time} на поточний час
   let message = messageTemplate

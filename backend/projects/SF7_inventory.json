@@ -1,0 +1,57 @@
+{
+  "projectName": "SF7",
+  "data": [
+    {
+      "image": "/api/images/islands_lava_island.png",
+      "number": 22,
+      "selector": "div.relative:has(img)",
+      "coords": {
+        "x": 640,
+        "y": 360
+      }
+    },
+    {
+      "image": "/api/images/spring_level_9.png",
+      "number": 22,
+      "selector": "div.relative:has(img)",
+      "coords": {
+        "x": 663,
+        "y": 312
+      }
+    },
+    {
+      "image": "/api/images/resources_gold_small.png",
+      "number": 22,
+      "selector": "div.relative:has(img)",
+      "coords": {
+        "x": 306,
+        "y": -45
+      }
+    },
+    {
+      "image": "/api/images/resources_iron_small.png",
+      "number": 6,
+      "selector": "div.relative:has(img)",
+      "coords": {
+        "x": 516,
+        "y": -45
+      }
+    },
+    {
+      "image": "/api/images/resources_stone_small.png",
+      "number": 54,
+      "selector": "div.relative:has(img)",
+      "coords": {
+        "x": 348,
+        "y": 39
+      }
+    }
+  ],
+  "timestamp": 1785363228747,
+  "version": "1.0",
+  "metadata": {
+    "selector": "div.relative:has(img)",
+    "itemCount": 5,
+    "scanDuration": 87
+  }
+}

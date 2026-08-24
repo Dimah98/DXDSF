@@ -13,6 +13,7 @@
 import { Browser, BrowserContext, Page } from 'playwright';
 import WebSocket from 'ws';
 import { Request, Response, NextFunction } from 'express';
+import { BaseNode, BaseEdge, WSMessage as SharedWSMessage, WSResponse as SharedWSResponse, isWSMessage as sharedIsWSMessage } from '@sf/shared-types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // WebSocket Message Types (Discriminated Unions)
@@ -22,59 +23,19 @@ import { Request, Response, NextFunction } from 'express';
  * Discriminated union type for all WebSocket messages from client to server
  * Requirement 22: TypeScript Type Safety for WebSocket Messages
  */
-export type WSMessage =
-  | { type: 'RUN_BOT'; node: any; nodes: any[]; edges: any[] }
-  | { type: 'STOP_BOT' }
-  | { type: 'RUN_SINGLE_NODE'; nodeId: string; nodes: any[]; edges: any[] }
-  | { type: 'UPDATE_VARIABLE'; name: string; value: any }
-  | { type: 'START_STREAM' }
-  | { type: 'STOP_STREAM' }
-  | { type: 'PICK_SELECTOR'; nodeId: string; pickType?: string }
-  | { type: 'CANCEL_PICKER' };
+export type WSMessage = SharedWSMessage;
 
 /**
  * Discriminated union type for all WebSocket responses from server to client
  * Requirement 22: TypeScript Type Safety for WebSocket Messages
  */
-export type WSResponse =
-  | { type: 'BOT_RUNNING_STATE'; isRunning: boolean }
-  | { type: 'BOT_FINISHED' }
-  | { type: 'NODE_EXECUTING'; nodeId: string; nodeTitle?: string }
-  | { type: 'NODE_DATA_UPDATE'; nodeId: string; data: any }
-  | { type: 'GLOBAL_VARIABLES_UPDATE'; variables: Record<string, any> }
-  | { type: 'CONSOLE_LOG'; message: string; logType: 'info' | 'error' | 'success' | 'debug' }
-  | { type: 'STREAM_FRAME'; frame: string }
-  | { type: 'SELECTOR_INFO_PICKED'; nodeId: string; selector: string }
-  | { type: 'CSRF_TOKEN'; token: string };
+export type WSResponse = SharedWSResponse;
 
 /**
  * Type guard to validate WebSocket message structure
  * Requirement 22: Use type guards to validate WebSocket message structure
  */
-export function isWSMessage(msg: any): msg is WSMessage {
-  if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') {
-    return false;
-  }
-
-  switch (msg.type) {
-    case 'RUN_BOT':
-      return msg.node !== undefined && Array.isArray(msg.nodes) && Array.isArray(msg.edges);
-    case 'STOP_BOT':
-      return true;
-    case 'RUN_SINGLE_NODE':
-      return typeof msg.nodeId === 'string' && Array.isArray(msg.nodes) && Array.isArray(msg.edges);
-    case 'UPDATE_VARIABLE':
-      return typeof msg.name === 'string' && msg.value !== undefined;
-    case 'START_STREAM':
-    case 'STOP_STREAM':
-    case 'CANCEL_PICKER':
-      return true;
-    case 'PICK_SELECTOR':
-      return typeof msg.nodeId === 'string';
-    default:
-      return false;
-  }
-}
+export const isWSMessage = sharedIsWSMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // API Request/Response Types
@@ -107,10 +68,10 @@ export interface LoginResponse {
 export interface SaveProjectRequest {
   name: string;
   data: {
-    nodes: any[];
-    edges: any[];
-    variables?: Record<string, any>;
-    launchSettings?: any;
+    nodes: BaseNode[];
+    edges: BaseEdge[];
+    variables?: Record<string, unknown>;
+    launchSettings?: unknown;
     browserSettings?: BrowserSettings;
   };
 }
@@ -129,10 +90,10 @@ export interface SaveProjectResponse {
  * Requirement 23: TypeScript Type Safety for API Requests
  */
 export interface LoadProjectResponse {
-  nodes: any[];
-  edges: any[];
-  variables: Record<string, any>;
-  launchSettings?: any;
+  nodes: BaseNode[];
+  edges: BaseEdge[];
+  variables: Record<string, unknown>;
+  launchSettings?: unknown;
   browserSettings?: BrowserSettings;
 }
 
@@ -142,7 +103,7 @@ export interface LoadProjectResponse {
  */
 export interface RunMultipleRequest {
   projectNames: string[];
-  projectSettings?: Record<string, any>;
+  projectSettings?: Record<string, unknown>;
 }
 
 /**
@@ -208,27 +169,29 @@ export interface ApiErrorResponse {
  * Browser settings configuration
  */
 export interface BrowserSettings {
-  width?: number;
-  height?: number;
-  profile?: string;
-  profileDir?: string;
-  proxy?: string;
-  disableImages?: boolean;
+  width?: number; // Ширина вікна браузера у пікселях
+  height?: number; // Висота вікна браузера у пікселях
+  profile?: string; // Назва профілю браузера
+  profileDir?: string; // Директорія профілю браузера
+  proxy?: string; // Рядок налаштування проксі-сервера
+  disableImages?: boolean; // Прапорець вимкнення картинок
+  headless?: boolean; // Прапорець запуску браузера у невидимому режимі
 }
 
 /**
  * Bot execution settings
  */
 export interface BotSettings {
-  photoDebug: boolean;
-  disableImages?: boolean;
-  width?: number;
-  height?: number;
-  browserWidth?: number;
-  browserHeight?: number;
-  profile?: string;
-  profileDir?: string;
-  proxy?: string;
+  photoDebug: boolean; // Прапорець для збереження фото-дебагових скріншотів під час виконання
+  disableImages?: boolean; // Прапорець для вимкнення завантаження картинок (економія трафіку)
+  headless?: boolean; // Прапорець для запуску браузера у невидимому (headless) режимі
+  width?: number; // Ширина вікна браузера у пікселях
+  height?: number; // Висота вікна браузера у пікселях
+  browserWidth?: number; // Альтернативна ширина вікна браузера
+  browserHeight?: number; // Альтернативна висота вікна браузера
+  profile?: string; // Назва профілю браузера
+  profileDir?: string; // Директорія профілю браузера
+  proxy?: string; // Рядок налаштування проксі-сервера
   verboseLogs?: boolean; // Детальне логування кроків кожної ноди в консолі (за замовчуванням true)
 }
 
@@ -266,6 +229,7 @@ export interface ProjectSession {
   isBotRunning: boolean;
   lastActiveNodeId: string | null;
   lastActiveNodeTitle: string | null;
+  currentRunId?: string;
 
   // Network Interception Cache (for API Node)
   latestFarmId?: string | null;
@@ -273,8 +237,8 @@ export interface ProjectSession {
 
   // Bot Configuration
   botSettings: BotSettings;
-  globalVariables: Record<string, any>;
-  nodeRuntimeState: Map<string, Record<string, any>>;
+  globalVariables: Record<string, unknown>;
+  nodeRuntimeState: Map<string, Record<string, unknown>>;
 
   // Streaming
   isStreaming: boolean;
@@ -284,6 +248,7 @@ export interface ProjectSession {
   createdAt: number;
   lastActivity: number;
   safetyTimeout: NodeJS.Timeout | null;
+  timeout10mTimer?: NodeJS.Timeout | null;
 }
 
 /**
@@ -294,7 +259,7 @@ export interface PersistedSession {
   projectName: string;
   isBotRunning: boolean;
   lastActiveNodeId: string | null;
-  globalVariables: Record<string, any>;
+  globalVariables: Record<string, unknown>;
   timestamp: number;
 }
 
@@ -340,7 +305,7 @@ export interface CSRFMiddleware {
 export interface ValidationResult {
   isValid: boolean;
   error?: string;
-  sanitized?: any;
+  sanitized?: unknown;
 }
 
 /**
@@ -383,8 +348,8 @@ export interface SecretsManager {
   setSecret(key: string, value: string): void;
   encrypt(text: string): string;
   decrypt(encrypted: string): string;
-  encryptProjectSecrets(projectData: any): any;
-  decryptProjectSecrets(projectData: any): any;
+  encryptProjectSecrets(projectData: unknown): unknown;
+  decryptProjectSecrets(projectData: unknown): unknown;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -441,7 +406,7 @@ export interface MemoryStats {
  */
 export interface MemoryMonitor {
   checkMemoryUsage(): MemoryStats;
-  limitNodeRuntimeState(state: Map<string, any>, maxSize: number): void;
+  limitNodeRuntimeState(state: Map<string, unknown>, maxSize: number): void;
   reportMemoryStats(): void;
 }
 
@@ -476,10 +441,10 @@ export enum LogLevel {
  * Requirement 12: Structured Logging
  */
 export interface Logger {
-  debug(message: string, meta?: any): void;
-  info(message: string, meta?: any): void;
-  warn(message: string, meta?: any): void;
-  error(message: string, error?: Error, meta?: any): void;
+  debug(message: string, meta?: unknown): void;
+  info(message: string, meta?: unknown): void;
+  warn(message: string, meta?: unknown): void;
+  error(message: string, error?: Error, meta?: unknown): void;
   setContext(context: string): Logger;
 }
 

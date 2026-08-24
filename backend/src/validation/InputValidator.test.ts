@@ -366,7 +366,7 @@ describe('validateFilePath', () => {
   it('returns the normalized absolute path as sanitized value', () => {
     const result = validator.validateFilePath('subdir/file.json', baseDir);
     expect(result.isValid).toBe(true);
-    expect(path.isAbsolute(result.sanitized)).toBe(true);
+    expect(path.isAbsolute(result.sanitized as string)).toBe(true);
   });
 });
 

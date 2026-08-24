@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 // Імпортуємо іконки з бібліотеки lucide-react для нашого UI інтерфейсу
-import { Save, FilePlus, Settings, X, Search, Trash2, Play, Clock, CalendarClock, Monitor, Wifi, User, ChevronRight, TrendingUp, ExternalLink } from 'lucide-react';
+// Імпортуємо іконки з бібліотеки lucide-react для нашого UI інтерфейсу (Copy — для копіювання нод)
+import { Save, FilePlus, ScrollText, Settings, X, Search, Trash2, Play, Clock, CalendarClock, Monitor, Wifi, User, ChevronRight, TrendingUp, Copy, Sparkles, ChevronDown } from 'lucide-react';
 import { useLaunchSettings } from '../hooks/useLaunchSettings';
 import { StatisticsModal } from './StatisticsModal';
+// Імпортуємо компонент для автоматичного створення проекту з профілем ITBrowser
+import AutoCreateModal from './AutoCreateModal';
+import RunHistoryModal from './RunHistoryModal';
 
 // Імпортуємо GlobalSettings щоб відкривати через кнопку
 interface ProjectManagerModalProps {
@@ -14,24 +18,30 @@ interface ProjectManagerModalProps {
   onLoad: (name: string) => void;    // Завантажити проект
   onSettingsToggle: () => void;      // Відкрити GlobalSettings
   onGlobalStatsToggle?: () => void;  // Відкрити загальну статистику
+  onOpenBrowser?: (name: string) => void; // Відкрити браузер проекту
 }
 
 // Дні тижня для розкладу
 const DAYS = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 // Рядок одного проекту в лівому блоці
-// Рядок одного проекту в лівому блоці
 const ProjectRow = ({
-  name, isCurrent, isSelected, isChecked, isRunning, activeNodeTitle,
-  onSelect, onLoad, onOpenSettings, onToggleCheck
+  name, isCurrent, isSelected, isChecked, isRunning, activeNodeTitle, isBrowserOpen,
+  onSelect, onLoad, onOpenSettings, onToggleCheck, onOpenBrowser
 }: {
   name: string; isCurrent: boolean; isSelected: boolean; isChecked: boolean;
-  isRunning: boolean; activeNodeTitle: string | null;
-  onSelect: () => void; onLoad: () => void; onOpenSettings: (type: 'settings' | 'stats') => void;
-  onToggleCheck: () => void;
+  isRunning: boolean; activeNodeTitle: string | null; isBrowserOpen?: boolean;
+  onSelect: () => void; onLoad: () => void; onOpenSettings: (type: 'settings' | 'stats' | 'runs') => void;
+  onToggleCheck: () => void; onOpenBrowser?: () => void;
 }) => (
   <div
-    className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer group ${isSelected ? 'bg-indigo-500/20 border border-indigo-500/40' : 'hover:bg-muted/30 border border-transparent'}`}
+    className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer group ${
+      isRunning
+        ? 'bg-emerald-950/40 border border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.3)] ring-1 ring-emerald-500/40'
+        : isSelected
+          ? 'bg-indigo-500/20 border border-indigo-500/40'
+          : 'hover:bg-muted/30 border border-transparent'
+    }`}
     onClick={onSelect}
   >
     {/* Прапорець вибору проекту для групового запуску/зупинки */}
@@ -47,22 +57,43 @@ const ProjectRow = ({
 
     {/* Світлодіод-індикатор статусу роботи проекту */}
     <div 
-      className={`w-2.5 h-2.5 rounded-full shrink-0 transition-all ${isRunning ? 'bg-green-500 shadow-[0_0_6px_#22c55e]' : 'bg-red-500/40 border border-red-500/20'}`} 
-      title={isRunning ? 'Бот запущений та працює' : 'Бот зупинено'}
+      className={`w-2.5 h-2.5 rounded-full shrink-0 transition-all ${
+        isRunning
+          ? 'bg-emerald-400 shadow-[0_0_10px_#10b981] animate-pulse ring-2 ring-emerald-500/50'
+          : isBrowserOpen
+            ? 'bg-cyan-400 shadow-[0_0_8px_#06b6d4]'
+            : 'bg-red-500/40 border border-red-500/20'
+      }`} 
+      title={isRunning ? 'Бот запущений та працює' : isBrowserOpen ? 'Браузер відкритий' : 'Бот зупинено'}
     />
 
     {/* Назва проекту */}
-    <span className={`text-[12px] font-bold truncate w-24 shrink-0 ${isCurrent ? 'text-indigo-400' : 'text-slate-200'}`}>
+    <span className={`text-[12px] font-bold truncate w-24 shrink-0 ${
+      isRunning
+        ? 'text-emerald-300 drop-shadow-[0_0_6px_rgba(16,185,129,0.7)]'
+        : isCurrent
+          ? 'text-indigo-400'
+          : 'text-slate-200'
+    }`}>
       {name} {isCurrent && <span className="text-[9px] text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20 ml-1">Редактор</span>}
     </span>
 
     {/* Відображення поточної виконуваної ноди або статусу */}
-    <div className={`flex items-center gap-1 flex-1 min-w-0 rounded-lg px-2 py-0.5 ${isRunning ? 'bg-emerald-950/30 border border-emerald-500/30' : 'bg-slate-900/40 border border-slate-700/30'}`}>
-      <Search size={10} className={`${isRunning ? 'text-emerald-400' : 'text-slate-500'} shrink-0`} />
+    <div className={`flex items-center gap-1 flex-1 min-w-0 rounded-lg px-2 py-0.5 ${isRunning ? 'bg-emerald-950/50 border border-emerald-500/50' : 'bg-slate-900/40 border border-slate-700/30'}`}>
+      <Search size={10} className={`${isRunning ? 'text-emerald-400 animate-pulse' : 'text-slate-500'} shrink-0`} />
       <span className={`text-[10px] truncate font-mono ${isRunning ? 'text-emerald-300 font-bold animate-pulse' : 'text-slate-500'}`}>
         {isRunning ? (activeNodeTitle || 'Старт сценарію...') : 'Зупинено'}
       </span>
     </div>
+
+    {/* Кнопка історії запусків (синя) */}
+    <button
+      onClick={e => { e.stopPropagation(); onOpenSettings('runs'); }}
+      className="p-1.5 bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 rounded-lg transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+      title="Історія запусків"
+    >
+      <ScrollText size={12} />
+    </button>
 
     {/* Кнопка статистики (рожева) */}
     <button
@@ -82,16 +113,20 @@ const ProjectRow = ({
       <Settings size={12} />
     </button>
 
-    {/* Кнопка для відкриття проекту в окремій новій вкладці браузера */}
+    {/* Кнопка відкриття браузера проекту (смарагдова, світиться якщо запущений) */}
     <button
       onClick={e => {
-        e.stopPropagation(); // Зупиняємо спливання кліку, щоб не вибирати рядок
-        window.open(`/?project=${encodeURIComponent(name)}`, '_blank'); // Відкриваємо нову вкладку з URL параметром
+        e.stopPropagation();
+        onOpenBrowser?.();
       }}
-      className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 rounded-lg transition-colors shrink-0 opacity-0 group-hover:opacity-100"
-      title="Відкрити в новій вкладці"
+      className={`p-1.5 rounded-lg transition-all shrink-0 ${
+        isBrowserOpen
+          ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-[0_0_16px_rgba(16,185,129,1)] border border-emerald-300 ring-2 ring-emerald-400 opacity-100 animate-pulse font-bold scale-105'
+          : 'bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 opacity-0 group-hover:opacity-100'
+      }`}
+      title={isBrowserOpen ? "Браузер проекту запущений! (Клікніть для перегляду)" : "Відкрити браузер проекту"}
     >
-      <ExternalLink size={12} />
+      <Monitor size={12} className={isBrowserOpen ? "drop-shadow" : ""} />
     </button>
 
     {/* Кнопка завантаження в активний редактор (синя) */}
@@ -106,7 +141,7 @@ const ProjectRow = ({
 );
 
 const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
-  isOpen, onClose, currentProject, onNew, onSave, onLoad, onSettingsToggle, onGlobalStatsToggle
+  isOpen, onClose, currentProject, onNew, onSave, onLoad, onSettingsToggle, onGlobalStatsToggle, onOpenBrowser
 }) => {
   const [projects, setProjects] = useState<string[]>([]);
   // Який проект вибрано у списку (для правої панелі)
@@ -114,11 +149,18 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
   // Правa панель відкрита чи ні
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [statsModalOpen, setStatsModalOpen] = useState(false);
+  const [runsModalOpen, setRunsModalOpen] = useState(false);
 
   // Стейт для збереження списку назв виділених проектів (для групових дій)
   const [checkedProjects, setCheckedProjects] = useState<string[]>([]);
   // Стейт для збереження карти статусів роботи та активних нод усіх сесій проектів
-  const [projectStatuses, setProjectStatuses] = useState<Record<string, { isRunning: boolean; activeNodeTitle: string | null }>>({});
+  const [projectStatuses, setProjectStatuses] = useState<Record<string, { isRunning: boolean; activeNodeTitle: string | null; isBrowserOpen?: boolean }>>({});
+
+  // Стейт для відкриття/закриття модалки авто-створення проекту з профілем ITBrowser
+  const [autoCreateOpen, setAutoCreateOpen] = useState(false);
+
+  // Стейт для збереження списку профілів ITBrowser (завантажується з API)
+  const [itbrowserProfiles, setItbrowserProfiles] = useState<{ id: string; hasUserData: boolean; hasFingerprint: boolean }[]>([]);
 
   // Налаштування запуску зі збереженням у localStorage (per-project)
   const { settings: launch, update: updateLaunch, toggleDay } = useLaunchSettings(selectedProject);
@@ -151,6 +193,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
       // Очищаємо інтервал при демонтажі компонента або закритті модалки
       return () => clearInterval(interval);
     }
+    return undefined;
   // Перезапускаємо ефект при зміні стану відкритості або функції завантаження статусів
   }, [isOpen, fetchProjectStatuses]);
 
@@ -205,17 +248,53 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
 
       // Робимо POST запит до ендпоінту групового запуску
       const res = await fetch('/api/projects/run-multiple', {
-        // Задаємо метод POST
         method: 'POST',
-        // Встановлюємо заголовки для JSON формату даних
-        headers: { 'Content-Type': 'application/json' },
-        // Передаємо масив назв проектів та їх налаштування браузера у тілі запиту
-        // projectSettings містить профіль, проксі та інші налаштування з localStorage
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        },
         body: JSON.stringify({ projectNames: checkedProjects, projectSettings })
       });
-      // Якщо відповідь успішна
       if (res.ok) {
-        // Одразу оновлюємо статуси для миттєвого відображення змін в інтерфейсі
+        fetchProjectStatuses();
+      }
+    } catch {
+      // Опрацьовуємо помилку без виведення в інтерфейс
+    }
+  };
+
+  // Функція для послідовного запуску виділених проектів по черзі
+  const handleRunSequential = async () => {
+    // Перевіряємо чи є вибрані проекти у списку
+    if (checkedProjects.length === 0) return;
+    try {
+      // Зчитуємо глобальні налаштування браузера з localStorage
+      const savedGlobal = localStorage.getItem('sfl_global_settings_v4');
+      const globalSettings = savedGlobal ? JSON.parse(savedGlobal) : {};
+
+      // Збираємо browserSettings для кожного вибраного проекту з localStorage
+      const projectSettings: Record<string, any> = {};
+      for (const projName of checkedProjects) {
+        const storageKey = `sfl_browser_${projName}`;
+        const savedBrowser = localStorage.getItem(storageKey);
+        const parsedBrowser = savedBrowser ? JSON.parse(savedBrowser) : {};
+
+        delete parsedBrowser.photoDebug;
+        delete parsedBrowser.snapToGrid;
+
+        projectSettings[projName] = { ...globalSettings, ...parsedBrowser };
+      }
+
+      // Робимо POST запит до ендпоінту послідовного запуску
+      const res = await fetch('/api/projects/run-sequential', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify({ projectNames: checkedProjects, projectSettings })
+      });
+      if (res.ok) {
         fetchProjectStatuses();
       }
     } catch {
@@ -230,20 +309,85 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
     try {
       // Робимо POST запит до ендпоінту групової зупинки
       const res = await fetch('/api/projects/stop-multiple', {
-        // Задаємо метод POST
         method: 'POST',
-        // Встановлюємо заголовки для JSON формату даних
-        headers: { 'Content-Type': 'application/json' },
-        // Передаємо масив назв проектів у тілі запиту
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        },
         body: JSON.stringify({ projectNames: checkedProjects })
       });
-      // Якщо відповідь успішна
       if (res.ok) {
-        // Одразу оновлюємо статуси для миттєвого відображення змін в інтерфейсі
         fetchProjectStatuses();
       }
     } catch {
       // Опрацьовуємо помилку без виведення в інтерфейс
+    }
+  };
+
+  // Стан завантаження під час операції копіювання нод між проектами
+  const [isCopying, setIsCopying] = useState(false);
+
+  // Функція для копіювання нод з поточного проекту у всі виділені проекти
+  const handleCopyNodes = async () => {
+    // Перевіряємо чи є поточний проект-джерело (той що відкритий у редакторі)
+    if (!currentProject) return;
+    // Перевіряємо чи є вибрані цільові проекти
+    if (checkedProjects.length === 0) return;
+
+    // Формуємо список цільових проектів (виключаємо поточний — немає сенсу копіювати сам у себе)
+    const targets = checkedProjects.filter(p => p !== currentProject);
+    // Якщо після фільтрації список порожній — повідомляємо користувача
+    if (targets.length === 0) {
+      alert('Серед вибраних проектів немає жодного відмінного від поточного.');
+      return;
+    }
+
+    // Показуємо підтверджуючий діалог перед незворотньою операцією
+    const confirmed = window.confirm(
+      `⚠️ УВАГА! Ця дія незворотна!\n\n` +
+      `Ноди та ребра з проекту «${currentProject}» будуть скопійовані в:\n` +
+      `${targets.map(t => `• ${t}`).join('\n')}\n\n` +
+      `Змінні кожного проекту збережуться без змін.\n\n` +
+      `Продовжити?`
+    );
+    // Якщо користувач скасував — виходимо
+    if (!confirmed) return;
+
+    // Вмикаємо стан завантаження щоб заблокувати повторні кліки
+    setIsCopying(true);
+    try {
+      // Робимо POST запит до ендпоінту копіювання нод
+      const res = await fetch('/api/projects/copy-nodes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify({ sourceProject: currentProject, targetProjects: targets })
+      });
+      
+      let result: any = {};
+      try {
+        result = await res.json();
+      } catch (e) {
+        throw new Error(`Помилка сервера (${res.status})`);
+      }
+
+      // Якщо запит успішний — показуємо результат
+      if (res.ok && result.success) {
+        // Формуємо повідомлення про кількість оновлених проектів
+        const errorInfo = result.errors?.length > 0 ? `\nПомилки в: ${result.errors.join(', ')}` : '';
+        alert(`✅ Ноди скопійовано в ${result.updated} проект(ів).${errorInfo}`);
+      } else {
+        // Відображаємо помилку від сервера
+        alert(`❌ Помилка: ${result.error || 'Невідома помилка сервера'}`);
+      }
+    } catch (err: any) {
+      // Відображаємо помилку запиту
+      alert(`❌ Помилка: ${err?.message || 'Помилка з\'єднання. Перевірте чи запущений сервер.'}`);
+    } finally {
+      // Вимикаємо стан завантаження в будь-якому випадку
+      setIsCopying(false);
     }
   };
 
@@ -266,8 +410,35 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
       const res = await fetch('/api/projects');
       if (!res.ok) return;
       const data = await res.json();
-      setProjects(data);
+      const filtered = Array.isArray(data) ? data.filter((name: string) => 
+        name !== 'categories' &&
+        name !== 'global_building_types' &&
+        name !== 'schedule' &&
+        name !== 'notifications' &&
+        !name.endsWith('_layout') &&
+        !name.endsWith('_save') &&
+        !name.endsWith('_stats') &&
+        !name.endsWith('_logs') &&
+        !name.endsWith('_inventory')
+      ) : [];
+      filtered.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+      setProjects(filtered);
     } catch { }
+  }, []);
+
+  // Завантажуємо список профілів ITBrowser з API
+  const fetchITBrowserProfiles = useCallback(async () => {
+    try {
+      // Робимо запит до ендпоінту для отримання існуючих профілів ITBrowser
+      const res = await fetch('/api/itbrowser/profiles');
+      if (res.ok) {
+        const data = await res.json();
+        // Зберігаємо список профілів у стейт компонента
+        setItbrowserProfiles(data);
+      }
+    } catch {
+      // Ігноруємо помилки завантаження профілів
+    }
   }, []);
 
   // Завантажуємо проекти та дефолтні змінні профілю браузера при відкритті вікна
@@ -276,6 +447,8 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
     if (isOpen) {
       // Завантажуємо список усіх наявних проектів
       fetchProjects();
+      // Завантажуємо список профілів ITBrowser для дропдауну
+      fetchITBrowserProfiles();
       // Здійснюємо запит до сервера для отримання дефолтних налаштувань браузера з .env
       fetch('/api/browser-env')
         // Очікуємо на виконання запиту та конвертуємо його відповідь у JSON об'єкт
@@ -286,7 +459,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
         .catch(() => {});
     }
   // Перезапускаємо ефект при зміні стану відкритості або функції завантаження проектів
-  }, [isOpen, fetchProjects]);
+  }, [isOpen, fetchProjects, fetchITBrowserProfiles]);
 
   // При зміні вибраного проекту — завантажуємо його налаштування браузера
   useEffect(() => {
@@ -320,7 +493,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
   return (
     // Overlay — прозорий, клік поза вікном закриває
     <div
-      className="fixed inset-0 z-[300] flex items-center justify-center p-6 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-6 animate-in fade-in duration-200"
       onClick={onClose}
     >
       {/* Контейнер двох блоків */}
@@ -339,7 +512,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
             {/* Зберегти (зелена) */}
             <button
               onClick={() => onSave(false)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-[11px] font-black uppercase rounded-xl transition-all active:scale-95 shadow-lg shadow-green-900/40"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--button-success-bg)] hover:bg-[var(--button-success-hover)] text-white text-[11px] font-black uppercase rounded-xl transition-all active:scale-95 shadow-lg shadow-green-900/40"
             >
               <Save size={13} />
               Зберегти
@@ -348,16 +521,25 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
             {/* Новий проект (сірий) */}
             <button
               onClick={onNew}
-              className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl transition-all active:scale-95"
-              title="Новий проект"
+              className="p-2 bg-[var(--button-secondary-bg)] hover:bg-[var(--button-secondary-hover)] text-slate-200 rounded-xl transition-all active:scale-95"
+              title="Новий порожній проект"
             >
               <FilePlus size={15} />
+            </button>
+
+            {/* Кнопка авто-створення проекту з профілем ITBrowser (фіолетова з іконкою зірочки) */}
+            <button
+              onClick={() => setAutoCreateOpen(true)}
+              className="p-2 bg-gradient-to-br from-violet-600/30 to-indigo-600/30 hover:from-violet-600/50 hover:to-indigo-600/50 text-violet-300 hover:text-violet-200 rounded-xl transition-all active:scale-95 border border-violet-500/20 hover:border-violet-500/40"
+              title="Авто-створити проект із новим профілем ITBrowser та проксі"
+            >
+              <Sparkles size={15} />
             </button>
 
             {/* Налаштування запуску (фіолетовий) */}
             <button
               onClick={() => setRightPanelOpen(true)}
-              className={`p-2 rounded-xl transition-all active:scale-95 ${rightPanelOpen ? 'bg-purple-600 text-white' : 'bg-purple-500/30 hover:bg-purple-500/50 text-purple-300'}`}
+              className={`p-2 rounded-xl transition-all active:scale-95 ${rightPanelOpen ? 'bg-[var(--accent-purple)] text-white' : 'bg-[var(--accent-purple)]/30 hover:bg-[var(--accent-purple)]/50 text-[var(--accent-purple)]'}`}
               title="Налаштування запуску"
             >
               <Clock size={15} />
@@ -366,7 +548,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
             {/* Загальні налаштування (синій) */}
             <button
               onClick={() => { onSettingsToggle(); onClose(); }}
-              className="p-2 bg-blue-500/30 hover:bg-blue-500/50 text-blue-300 rounded-xl transition-all active:scale-95"
+              className="p-2 bg-[var(--accent-blue)]/30 hover:bg-[var(--accent-blue)]/50 text-[var(--accent-blue)] rounded-xl transition-all active:scale-95"
               title="Загальні налаштування"
             >
               <Settings size={15} />
@@ -375,7 +557,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
             {/* Загальна статистика (фіолетовий) */}
             <button
               onClick={() => { onGlobalStatsToggle?.(); onClose(); }}
-              className="p-2 bg-purple-500/30 hover:bg-purple-500/50 text-purple-300 rounded-xl transition-all active:scale-95"
+              className="p-2 bg-[var(--accent-purple)]/30 hover:bg-[var(--accent-purple)]/50 text-[var(--accent-purple)] rounded-xl transition-all active:scale-95"
               title="Загальна статистика"
             >
               <TrendingUp size={15} />
@@ -439,6 +621,26 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                   Запустити {checkedProjects.length > 0 ? `(${checkedProjects.length})` : ''}
                 </button>
 
+                {/* Кнопка послідовного запуску проектів по черзі */}
+                <button
+                  // Викликаємо функцію послідовного запуску при натисканні
+                  onClick={handleRunSequential}
+                  // Робимо кнопку неактивною, якщо проекти не вибрано
+                  disabled={checkedProjects.length === 0}
+                  // Класи оформлення кнопки (синьо-блакитний колір для відрізнення від паралельного запуску)
+                  className={`flex items-center gap-1 px-3 py-1.5 text-white font-bold rounded-lg transition-all active:scale-95 ${checkedProjects.length > 0 ? 'bg-sky-600 hover:bg-sky-500 shadow-md shadow-sky-950/50 cursor-pointer' : 'bg-slate-800/50 text-slate-500 border border-slate-700/20 cursor-not-allowed opacity-50'}`}
+                  // Підказка при наведенні
+                  title="Запустити вибрані проекти по черзі: наступний стартує після завершення попереднього"
+                >
+                  {/* Іконка повторного відтворення — символізує послідовність */}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <polygon points="5 4 15 12 5 20 5 4"/>
+                    <line x1="19" y1="5" x2="19" y2="19"/>
+                  </svg>
+                  {/* Текст кнопки із кількістю вибраних проектів */}
+                  По черзі {checkedProjects.length > 0 ? `(${checkedProjects.length})` : ''}
+                </button>
+
                 {/* Кнопка групової зупинки */}
                 <button
                   // Викликаємо функцію зупинки вибраних при натисканні
@@ -454,6 +656,33 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                   <span className="w-1.5 h-1.5 bg-current rounded-sm shrink-0" />
                   {/* Текст кнопки із вказанням кількості вибраних проектів */}
                   Зупинити {checkedProjects.length > 0 ? `(${checkedProjects.length})` : ''}
+                </button>
+
+                {/* Кнопка копіювання нод з поточного проекту у вибрані (активна лише коли є поточний проект та вибрані цілі) */}
+                <button
+                  // Викликаємо функцію копіювання нод при натисканні
+                  onClick={handleCopyNodes}
+                  // Блокуємо кнопку якщо немає поточного проекту, немає вибраних, або триває операція
+                  disabled={!currentProject || checkedProjects.length === 0 || isCopying}
+                  // Клас кнопки залежить від стану активності
+                  className={`flex items-center gap-1 px-3 py-1.5 text-white font-bold rounded-lg transition-all active:scale-95 ${
+                    currentProject && checkedProjects.length > 0 && !isCopying
+                      ? 'bg-violet-600 hover:bg-violet-500 shadow-md shadow-violet-950/50 cursor-pointer'  // Активний стан — фіолетовий
+                      : 'bg-slate-800/50 text-slate-500 border border-slate-700/20 cursor-not-allowed opacity-50' // Неактивний стан
+                  }`}
+                  // Підказка показує назву поточного проекту-джерела
+                  title={currentProject
+                    ? `Скопіювати ноди з «${currentProject}» у вибрані проекти (змінні збережуться)`
+                    : 'Відкрийте проект-джерело в редакторі щоб копіювати його ноди'
+                  }
+                >
+                  {/* Іконка копіювання або спіннер під час обробки */}
+                  {isCopying
+                    ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" /> // Анімований спіннер
+                    : <Copy size={10} className="shrink-0" />  // Іконка копіювання
+                  }
+                  {/* Текст кнопки — показуємо назву джерельного проекту */}
+                  {isCopying ? 'Копіюємо...' : `Копіювати ноди → (${checkedProjects.filter(p => p !== currentProject).length})`}
                 </button>
               </div>
             </div>
@@ -486,12 +715,18 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                     isRunning={projectStatuses[p]?.isRunning || false}
                     // Передаємо назву останньої активної ноди
                     activeNodeTitle={projectStatuses[p]?.activeNodeTitle || null}
+                    isBrowserOpen={projectStatuses[p]?.isBrowserOpen || false}
                     onSelect={() => setSelectedProject(p)}
                     onLoad={() => { onLoad(p); onClose(); }}
                     onOpenSettings={(type) => { 
                       setSelectedProject(p); 
                       if (type === 'settings') setRightPanelOpen(true);
                       else if (type === 'stats') setStatsModalOpen(true);
+                      else if (type === 'runs') setRunsModalOpen(true);
+                    }}
+                    onOpenBrowser={() => {
+                      onOpenBrowser?.(p);
+                      onClose();
                     }}
                     // Передаємо колбек перемикання прапорця виділення
                     onToggleCheck={() => handleToggleCheck(p)}
@@ -678,26 +913,53 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                     />
                   </div>
 
-                  {/* Директорія профілю (назва папки в userData) */}
+                  {/* Директорія профілю (назва папки в userData) — дропдаун + ручне введення */}
                   <div className="space-y-1">
-                    {/* Текстовий заголовок з іконкою користувача */}
+                    {/* Заголовок секції */}
                     <p className="text-[10px] text-slate-400 px-1 flex items-center gap-1.5">
-                      {/* Відображаємо іконку користувача */}
                       <User size={10} />
-                      {/* Текст підпису для поля папки профілю */}
-                      Папка профілю (profile-directory, наприклад: 20260521103945)
+                      Папка профілю (profile-directory)
                     </p>
-                    {/* Поле вводу для назви директорії профілю */}
+
+                    {/* Дропдаун вибору існуючого профілю ITBrowser з пулу */}
+                    {itbrowserProfiles.length > 0 && (
+                      <div className="relative">
+                        <select
+                          // При виборі профілю із списку — оновлюємо і profileDir і profile
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val) {
+                              // Записуємо ID профілю одночасно у два поля налаштувань
+                              saveBrowserSettings({ profileDir: val, profile: val });
+                            }
+                          }}
+                          // Дефолтне значення — поточна директорія профілю або порожня
+                          value={browserSettings.profileDir || ''}
+                          // Стилі дропдауну
+                          className="w-full bg-muted/40 border border-border rounded-lg px-3 py-1.5 text-xs text-foreground outline-none focus:ring-1 ring-blue-500 pr-8 appearance-none"
+                        >
+                          {/* Порожній варіант (використати дефолтний) */}
+                          <option value="">{defaultBrowserEnv.defaultProfileDir ? `Дефолт (${defaultBrowserEnv.defaultProfileDir})` : 'Виберіть профіль...'}</option>
+                          {/* Перебираємо всі профілі з ITBrowser та відображаємо як options */}
+                          {itbrowserProfiles.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.id}
+                              {p.hasFingerprint ? ' ✓FP' : ''}
+                              {p.hasUserData ? '' : ' (тільки FP)'}
+                            </option>
+                          ))}
+                        </select>
+                        {/* Іконка стрілки для дропдауну */}
+                        <ChevronDown size={10} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      </div>
+                    )}
+
+                    {/* Поле ручного введення назви директорії профілю */}
                     <input
-                      // Тип поля — звичайний текст
                       type="text"
-                      // Значення папки профілю з налаштувань
                       value={browserSettings.profileDir || ''}
-                      // Записуємо нову папку профілю при зміні
                       onChange={e => saveBrowserSettings({ profileDir: e.target.value })}
-                      // Задаємо стилі для інпуту
                       className="w-full bg-muted/40 border border-border rounded-lg px-3 py-1.5 text-xs text-foreground outline-none focus:ring-1 ring-blue-500"
-                      // Плейсхолдер з інформацією про дефолтну папку профілю з сервера
                       placeholder={defaultBrowserEnv.defaultProfileDir ? `За замовчуванням (${defaultBrowserEnv.defaultProfileDir})` : 'Наприклад: 20260521103945'}
                     />
                   </div>
@@ -763,6 +1025,24 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
         isOpen={statsModalOpen} 
         onClose={() => setStatsModalOpen(false)} 
         projectName={selectedProject || ''} 
+      />
+
+      {/* Модалка автоматичного створення проекту з профілем ITBrowser та проксі */}
+      <RunHistoryModal
+          isOpen={runsModalOpen}
+          onClose={() => setRunsModalOpen(false)}
+          projectName={selectedProject || ''}
+        />
+        <AutoCreateModal
+        isOpen={autoCreateOpen}          // Чи відкрита модалка
+        onClose={() => setAutoCreateOpen(false)}  // Закрити модалку
+        existingProjects={projects}      // Передаємо список проектів для авто-нумерації
+        onCreated={(newName) => {
+          // Після успішного створення — оновлюємо список проектів
+          fetchProjects();
+          // Також оновлюємо список профілів ITBrowser (новий профіль вже є)
+          fetchITBrowserProfiles();
+        }}
       />
     </div>
   );

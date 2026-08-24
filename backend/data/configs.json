@@ -1,0 +1,2198 @@
+[
+  {
+    "name": "початок",
+    "rules": [
+      {
+        "id": "rule_1783289135919_211",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "6bfdb8ed-9fdd-499f-9648-0943a16bd6c8",
+    "createdAt": 1783289143239,
+    "updatedAt": 1783978265560,
+    "subConfigs": []
+  },
+  {
+    "name": "поповнення",
+    "rules": [
+      {
+        "id": "rule_1787166576390_2",
+        "file": "(save)",
+        "path": "$.visitedFarmState.shipments.restockedAt",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "d700b2c4-2cfb-4ebc-8f04-ff8c9dfbbd5a",
+    "createdAt": 1783289173168,
+    "updatedAt": 1787397811275,
+    "subConfigs": []
+  },
+  {
+    "name": "збір і посадка",
+    "rules": [
+      {
+        "id": "rule_1783978399465_31",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": "",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "23af26eb-d973-410c-b4b7-70773bc7c265",
+    "createdAt": 1783289235712,
+    "updatedAt": 1787603996273,
+    "subConfigs": []
+  },
+  {
+    "name": "дерево",
+    "rules": [
+      {
+        "id": "rule_1783289283840_14",
+        "file": "(save)",
+        "path": "$.visitedFarmState.coins",
+        "operator": ">",
+        "value": "500",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1787164438686_20",
+        "file": "(save)",
+        "path": "$.visitedFarmState.stock.Axe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "c3eb531b-88a4-4391-9279-af812fc60dbd",
+    "createdAt": 1783289263982,
+    "updatedAt": 1787164464599,
+    "subConfigs": []
+  },
+  {
+    "name": "камень",
+    "rules": [
+      {
+        "id": "rule_1783982277163_495",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": "30",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1783982277949_202",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": "<=",
+        "value": "25",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1783982278248_802",
+        "file": "(save)",
+        "path": "$.visitedFarmState.coins",
+        "operator": ">",
+        "value": "500",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1787164468729_22",
+        "file": "(save)",
+        "path": "$.visitedFarmState.stock.Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "5b6ca102-b081-4841-9138-13cb7478ce86",
+    "createdAt": 1783289287162,
+    "updatedAt": 1787164493011,
+    "subConfigs": []
+  },
+  {
+    "name": "желізо",
+    "rules": [
+      {
+        "id": "rule_1783289335871_991",
+        "file": "(save)",
+        "path": "$.visitedFarmState.coins",
+        "operator": ">",
+        "value": "1000",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785067530812_459",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": ">",
+        "value": "50",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785067532797_162",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": "75",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1787164500865_24",
+        "file": "(save)",
+        "path": "$.visitedFarmState.stock.Stone Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "bb43f70f-940d-4917-8c8f-8267a6856690",
+    "createdAt": 1783289308555,
+    "updatedAt": 1787164529704,
+    "subConfigs": []
+  },
+  {
+    "name": "золото",
+    "rules": [
+      {
+        "id": "rule_1783289400396_893",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": "100",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785498180194_853",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": ">",
+        "value": "75",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785498182566_308",
+        "file": "(save)",
+        "path": "$.visitedFarmState.coins",
+        "operator": ">",
+        "value": "2000",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785498183607_524",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Iron",
+        "operator": ">",
+        "value": "20",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1787164533964_26",
+        "file": "(save)",
+        "path": "$.visitedFarmState.stock.Iron Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "537699a0-2765-48ba-8980-9f3bbd7a8765",
+    "createdAt": 1783289374554,
+    "updatedAt": 1787164555460,
+    "subConfigs": []
+  },
+  {
+    "name": "готовка",
+    "rules": [
+      {
+        "id": "rule_1783289631426_451",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "8a8a2e02-fabe-4717-b2ec-c1b7be3181c1",
+    "createdAt": 1783289612044,
+    "updatedAt": 1786656920013
+  },
+  {
+    "name": "доставка",
+    "rules": [
+      {
+        "id": "rule_1783290007474_498",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "8fe218f2-928a-407b-bdb0-6d7851ac1b57",
+    "createdAt": 1783289989103,
+    "updatedAt": 1786478310824,
+    "subConfigs": []
+  },
+  {
+    "name": "бателпас",
+    "rules": [
+      {
+        "id": "rule_1783290053096_537",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "8164a5ca-357e-407e-a880-e67d5acd0908",
+    "createdAt": 1783290031231,
+    "updatedAt": 1786657079974
+  },
+  {
+    "name": "досягнення",
+    "rules": [
+      {
+        "id": "rule_1783290083072_764",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "bd9f5fd5-05ae-41c4-b095-9ac5e512d68a",
+    "createdAt": 1783290062870,
+    "updatedAt": 1787164569156,
+    "subConfigs": []
+  },
+  {
+    "name": "достройка",
+    "rules": [
+      {
+        "id": "rule_1783290111816_863",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "fa02f5f3-eab3-44b5-8028-9470f18fcc33",
+    "createdAt": 1783290098009,
+    "updatedAt": 1787427374816
+  },
+  {
+    "name": "допомога",
+    "rules": [
+      {
+        "id": "rule_1783290200606_250",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "4e8f57d3-0479-4f4f-96ef-cdf9075661e6",
+    "createdAt": 1783290282248,
+    "updatedAt": 1785884098034
+  },
+  {
+    "name": "скан інвентаря",
+    "rules": [
+      {
+        "id": "rule_1783290334951_275",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": false,
+    "id": "2f008106-c042-4f30-b203-21e1502ab50c",
+    "createdAt": 1783290346156,
+    "updatedAt": 1783976338514,
+    "subConfigs": []
+  },
+  {
+    "name": "компостер",
+    "rules": [
+      {
+        "id": "rule_1783290398177_671",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": false,
+    "id": "3dd7db28-1e00-401b-8d67-6c7ffeb94817",
+    "createdAt": 1783290503954,
+    "updatedAt": 1785288594938
+  },
+  {
+    "name": "фото",
+    "rules": [
+      {
+        "id": "rule_1783290553806_873",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": false,
+    "id": "45fba09d-817c-4217-8b3c-85c60c862b82",
+    "createdAt": 1783290779821,
+    "updatedAt": 1785886311723
+  },
+  {
+    "name": "сіль",
+    "rules": [
+      {
+        "id": "rule_1783290828181_342",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": false,
+    "id": "1eb43652-85e6-4335-b862-96b36d257347",
+    "createdAt": 1783290803891,
+    "updatedAt": 1785023987734
+  },
+  {
+    "name": "соління",
+    "rules": [
+      {
+        "id": "rule_1783290856799_147",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": false,
+    "id": "59470c39-177d-4b36-a84f-f89e6bd83efe",
+    "createdAt": 1783290828570,
+    "updatedAt": 1785265698858
+  },
+  {
+    "name": "ключ",
+    "rules": [
+      {
+        "id": "rule_1783290888855_890",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "fd5c60ed-f02a-442f-a219-c68f3aece71e",
+    "createdAt": 1783290869081,
+    "updatedAt": 1787094889389
+  },
+  {
+    "name": "LOVE",
+    "rules": [
+      {
+        "id": "rule_1783290934774_37",
+        "file": "(save)",
+        "path": "$.visitedFarmState.floatingIsland.schedule[0].startAt",
+        "operator": "time_before",
+        "value": "",
+        "rightType": "value",
+        "rightFile": "(save)",
+        "rightPath": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783998992258_99",
+        "file": "(save)",
+        "path": "$.visitedFarmState.floatingIsland.schedule[0].endAt",
+        "operator": "time_after",
+        "value": "",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "7cf260fb-dbb9-426f-a208-6690db614bbe",
+    "createdAt": 1783290914773,
+    "updatedAt": 1787606757386,
+    "subConfigs": []
+  },
+  {
+    "name": "рибалка",
+    "rules": [
+      {
+        "id": "rule_1783290962609_673",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "f56888e0-f61f-40c2-af66-558697cf3c6e",
+    "createdAt": 1783290940914,
+    "updatedAt": 1785309992011,
+    "subConfigs": []
+  },
+  {
+    "name": "камень 1",
+    "rules": [
+      {
+        "id": "rule_1783982571085_5",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": ">=",
+        "value": "25",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783982572954_7",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": "<=",
+        "value": "50",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783982737207_14",
+        "file": "(save)",
+        "path": "$.visitedFarmState.coins",
+        "operator": ">",
+        "value": "500",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783982737802_16",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": "75",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1787164606460_28",
+        "file": "(save)",
+        "path": "$.visitedFarmState.stock.Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "1ab12652-1ef3-4266-8d11-012c817d9833",
+    "createdAt": 1783982493969,
+    "updatedAt": 1787164614917
+  },
+  {
+    "name": "камень 2",
+    "rules": [
+      {
+        "id": "rule_1783982689696_10",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": ">=",
+        "value": "50",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783982689862_12",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": "<=",
+        "value": "75",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783982869075_18",
+        "file": "(save)",
+        "path": "$.visitedFarmState.coins",
+        "operator": ">",
+        "value": "500",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783982869224_20",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": "100",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1787164618327_30",
+        "file": "(save)",
+        "path": "$.visitedFarmState.stock.Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "6da23453-0190-45a6-901b-acfbf0c6accf",
+    "createdAt": 1783982715797,
+    "updatedAt": 1787164624624
+  },
+  {
+    "name": "камень 3",
+    "rules": [
+      {
+        "id": "rule_1783982924066_23",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": ">=",
+        "value": "75",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783982924291_25",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": "<=",
+        "value": "100",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783982925310_27",
+        "file": "(save)",
+        "path": "$.visitedFarmState.coins",
+        "operator": ">",
+        "value": "500",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783982925568_29",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": "150",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1787164628943_32",
+        "file": "(save)",
+        "path": "$.visitedFarmState.stock.Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "1829c17d-72be-41c5-9f46-a5caf888455e",
+    "createdAt": 1783983015734,
+    "updatedAt": 1787164638719
+  },
+  {
+    "name": "камень 4",
+    "rules": [
+      {
+        "id": "rule_1783983079717_32",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": ">=",
+        "value": "100",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783983091835_33",
+        "file": "(save)",
+        "path": "$.visitedFarmState.coins",
+        "operator": ">",
+        "value": "500",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783983092101_36",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": "200",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1787164642031_34",
+        "file": "(save)",
+        "path": "$.visitedFarmState.stock.Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "de78e897-9cb5-4497-872e-6695b2d65c7b",
+    "createdAt": 1783983107217,
+    "updatedAt": 1787164648056
+  },
+  {
+    "name": "камень 5",
+    "rules": [
+      {
+        "id": "rule_1783983556352_3",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": "30",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783983556962_5",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone",
+        "operator": "<=",
+        "value": "25",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1783983557359_7",
+        "file": "(save)",
+        "path": "$.visitedFarmState.coins",
+        "operator": ">",
+        "value": "500",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      },
+      {
+        "id": "rule_1787164651367_36",
+        "file": "(save)",
+        "path": "$.visitedFarmState.stock.Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "dc521762-e697-4068-ae5d-8a404c9409d1",
+    "createdAt": 1783983606225,
+    "updatedAt": 1787164678828
+  },
+  {
+    "name": "їсти",
+    "rules": [
+      {
+        "id": "rule_1783999063870_5",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "2d3060b9-95e5-4ad0-99d6-ab39d462e404",
+    "createdAt": 1783999075241,
+    "updatedAt": 1787160773716
+  },
+  {
+    "name": "память",
+    "rules": [
+      {
+        "id": "rule_1785450482387_602",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": "not_exists",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": false,
+    "id": "76cd1852-baeb-481c-959f-6fe2d3f89e9b",
+    "createdAt": 1785450387144,
+    "updatedAt": 1785450397319
+  },
+  {
+    "name": "фрукти",
+    "rules": [
+      {
+        "id": "rule_1785493481344_697",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "051b3fe9-6ef1-486d-8d2e-3c201bd2d462",
+    "createdAt": 1785493483865,
+    "updatedAt": 1787095010124
+  },
+  {
+    "name": "весна",
+    "rules": [
+      {
+        "id": "rule_1785493605962_218",
+        "file": "(save)",
+        "path": "$.visitedFarmState.season.season",
+        "operator": "contains",
+        "value": "spring",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "7d65611c-3e16-4b96-8306-1aeffef75dc0",
+    "createdAt": 1785493509819,
+    "updatedAt": 1785494187498
+  },
+  {
+    "name": "літо",
+    "rules": [
+      {
+        "id": "rule_1785494231096_430",
+        "file": "(save)",
+        "path": "$.visitedFarmState.season.season",
+        "operator": "contains",
+        "value": "summer",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "bf3db711-30d5-457e-a1e1-1ad212d7cef0",
+    "createdAt": 1785494137983,
+    "updatedAt": 1785494323563
+  },
+  {
+    "name": "осінь",
+    "rules": [
+      {
+        "id": "rule_1785494300294_95",
+        "file": "(save)",
+        "path": "$.visitedFarmState.season.season",
+        "operator": "contains",
+        "value": "autumn",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "7de2aaf7-0206-4bd4-a24b-bf0d712fc344",
+    "createdAt": 1785494203966,
+    "updatedAt": 1785494314040
+  },
+  {
+    "name": "зима",
+    "rules": [
+      {
+        "id": "rule_1785494335038_267",
+        "file": "(save)",
+        "path": "$.visitedFarmState.season.season",
+        "operator": "contains",
+        "value": "winter",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "cbfbf811-f3e6-4a0e-9018-800fbe9d745b",
+    "createdAt": 1785494236863,
+    "updatedAt": 1785494301967
+  },
+  {
+    "name": "В Tomato",
+    "rules": [
+      {
+        "id": "rule_1785504759170_337",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Tomato Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785504865149_916",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Tomato",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Orange",
+        "required": true
+      },
+      {
+        "id": "rule_1785504916999_535",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Tomato",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Blueberry",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "63d261bf-e3cc-4fae-a67a-8d9e851b9ec1",
+    "createdAt": 1785504663551,
+    "updatedAt": 1785621134112,
+    "subConfigs": []
+  },
+  {
+    "name": "В Blueberry",
+    "rules": [
+      {
+        "id": "rule_1785505111193_851",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Blueberry Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785505166059_98",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Blueberry",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Tomato",
+        "required": true
+      },
+      {
+        "id": "rule_1785505167038_820",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Blueberry",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Orange",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "d941547d-f730-45e3-a0f6-6cb3efbe1bce",
+    "createdAt": 1785505030189,
+    "updatedAt": 1785505401489
+  },
+  {
+    "name": "В Orange",
+    "rules": [
+      {
+        "id": "rule_1785505522888_817",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Orange Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785505554898_135",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Orange",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Tomato",
+        "required": true
+      },
+      {
+        "id": "rule_1785505555987_292",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Orange",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Blueberry",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "f93970ea-5523-4c94-97f9-4f62a6d95360",
+    "createdAt": 1785505430904,
+    "updatedAt": 1785505503172
+  },
+  {
+    "name": "Л Banana",
+    "rules": [
+      {
+        "id": "rule_1785506086488_845",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Banana Plant",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785506134730_257",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Banana",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Orange",
+        "required": true
+      },
+      {
+        "id": "rule_1785506135942_900",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Banana",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Lemon",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "80e1ce8d-3a80-468f-a891-bd5b063cf0c9",
+    "createdAt": 1785506001646,
+    "updatedAt": 1785890950450,
+    "subConfigs": []
+  },
+  {
+    "name": "Л Orange",
+    "rules": [
+      {
+        "id": "rule_1785506377390_424",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Orange Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785506410669_380",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Orange",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Banana",
+        "required": true
+      },
+      {
+        "id": "rule_1785506411585_584",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Orange",
+        "operator": "<",
+        "value": "$.visitedFarmState.inventory.Lemon",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Lemon",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "b6b69e3b-9a30-494a-9d6c-db8416bf2cde",
+    "createdAt": 1785506280992,
+    "updatedAt": 1785506399442
+  },
+  {
+    "name": "Л Lemon",
+    "rules": [
+      {
+        "id": "rule_1785506528698_306",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Lemon Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785506560711_271",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Lemon",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Banana",
+        "required": true
+      },
+      {
+        "id": "rule_1785506561619_672",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Lemon",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Orange",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "b68e58c3-8cd7-4b7d-bfb1-35061e4f000e",
+    "createdAt": 1785506432351,
+    "updatedAt": 1785506543359
+  },
+  {
+    "name": "О Tomato",
+    "rules": [
+      {
+        "id": "rule_1785506874795_461",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Tomato Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785506945743_382",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Tomato",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Banana",
+        "required": true
+      },
+      {
+        "id": "rule_1785506946534_177",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Tomato",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Apple",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "2401373f-7eb6-40c6-83d1-0c829e3ef12b",
+    "createdAt": 1785506780216,
+    "updatedAt": 1785506881117
+  },
+  {
+    "name": "О Banana",
+    "rules": [
+      {
+        "id": "rule_1785507002539_76",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Banana Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785507155225_845",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Banana",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Tomato",
+        "required": true
+      },
+      {
+        "id": "rule_1785507156137_126",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Banana",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Apple",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "c799d560-5a2a-40c6-a93e-c0a0a240b75c",
+    "createdAt": 1785506912860,
+    "updatedAt": 1785507111383
+  },
+  {
+    "name": "О Apple",
+    "rules": [
+      {
+        "id": "rule_1785507258966_659",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Apple Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785507298655_343",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Apple",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Tomato",
+        "required": true
+      },
+      {
+        "id": "rule_1785507322164_872",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Apple",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Banana",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "46488b05-cd97-4d86-9a64-d02951a0c960",
+    "createdAt": 1785507164511,
+    "updatedAt": 1785507230051
+  },
+  {
+    "name": "З Apple",
+    "rules": [
+      {
+        "id": "rule_1785507860073_651",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Apple Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785507879774_416",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Apple",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Lemon",
+        "required": true
+      },
+      {
+        "id": "rule_1785507880613_272",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Apple",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Blueberry",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "d714f680-877f-44cb-941d-9fd720c5a421",
+    "createdAt": 1785507764260,
+    "updatedAt": 1785507868871
+  },
+  {
+    "name": "З Lemon",
+    "rules": [
+      {
+        "id": "rule_1785507986013_169",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Lemon Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785508023148_850",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Lemon",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Apple",
+        "required": true
+      },
+      {
+        "id": "rule_1785508024155_104",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Lemon",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Blueberry",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "bbc55ea5-5536-45c6-a887-8b169c2d9fe3",
+    "createdAt": 1785507889143,
+    "updatedAt": 1785507955086
+  },
+  {
+    "name": "З Blueberry",
+    "rules": [
+      {
+        "id": "rule_1785508076785_954",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Blueberry Seed",
+        "operator": ">",
+        "value": "1",
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1785508121669_574",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Blueberry",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Apple",
+        "required": true
+      },
+      {
+        "id": "rule_1785508122607_954",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Blueberry",
+        "operator": "<",
+        "value": "",
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "$.visitedFarmState.inventory.Lemon",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "id": "08f073bf-a9d0-471b-85e9-28f0f0ddebfc",
+    "createdAt": 1785507980451,
+    "updatedAt": 1785508071763
+  },
+  {
+    "name": "лотерея",
+    "rules": [
+      {
+        "id": "rule_1785714495133_1",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": 50,
+        "rightType": "path",
+        "rightFile": "(save)",
+        "rightPath": "1111",
+        "required": true
+      }
+    ],
+    "enabled": false,
+    "subConfigs": [],
+    "id": "4160379c-1af5-4628-bef2-6216be8a5c49",
+    "createdAt": 1785714509815,
+    "updatedAt": 1786642611046
+  },
+  {
+    "name": "Flower",
+    "rules": [
+      {
+        "id": "rule_1786803955775_452",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": "",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "a8c0aa37-c734-47a8-9c5c-7e868ac2ca40",
+    "createdAt": 1786142948568,
+    "updatedAt": 1786803923878
+  },
+  {
+    "name": "Карта",
+    "rules": [
+      {
+        "id": "rule_1786146023118_6",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": false,
+    "subConfigs": [],
+    "id": "c2c23f25-d958-4376-804e-5b7c041b16cd",
+    "createdAt": 1786146030865,
+    "updatedAt": 1787155606735
+  },
+  {
+    "name": "карт",
+    "rules": [
+      {
+        "id": "rule_1786146211416_11",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": false,
+    "subConfigs": [],
+    "id": "739c6907-993e-4c80-b2a7-c4dff255f95f",
+    "createdAt": 1786146217110,
+    "updatedAt": 1787155606236
+  },
+  {
+    "name": "ЛЛЛЛЛЛЛЛЛЛ",
+    "rules": [
+      {
+        "id": "rule_1787093579784_3",
+        "file": "(save)",
+        "path": "$.visitedFarmState.floatingIsland.petalPuzzleSolvedAt",
+        "operator": "time_not_today",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "6b6e7ecd-35a3-43ff-a9a5-7620471e0b4a",
+    "createdAt": 1787093608833,
+    "updatedAt": 1787159752931
+  },
+  {
+    "name": "Сокира є",
+    "rules": [
+      {
+        "id": "rule_1787163294698_3",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Axe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "30289e36-db9c-4ad0-882f-8b6becd382dd",
+    "createdAt": 1787163336354,
+    "updatedAt": 1787163352378
+  },
+  {
+    "name": "Кирка є",
+    "rules": [
+      {
+        "id": "rule_1787163403591_6",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "c94a3b83-a2a7-4457-b7d7-269cf495485f",
+    "createdAt": 1787163416789,
+    "updatedAt": 1787163416789
+  },
+  {
+    "name": "кирка кам є",
+    "rules": [
+      {
+        "id": "rule_1787163451542_9",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Stone Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "6fbf4c40-f5c4-4bec-a3bb-04e577a31a24",
+    "createdAt": 1787163463799,
+    "updatedAt": 1787163463799
+  },
+  {
+    "name": "кирка жел є",
+    "rules": [
+      {
+        "id": "rule_1787163487182_12",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Iron Pickaxe",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "12236a3d-ee94-447d-99a2-11235e99189c",
+    "createdAt": 1787163508009,
+    "updatedAt": 1787163508009
+  },
+  {
+    "name": "удочка є",
+    "rules": [
+      {
+        "id": "rule_1787163556292_15",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Rod",
+        "operator": "exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "9b31ffe0-b1cc-41d6-8134-449b9b8a208a",
+    "createdAt": 1787163573365,
+    "updatedAt": 1787163573365
+  },
+  {
+    "name": "Збір",
+    "rules": [
+      {
+        "id": "rule_1787163807938_18",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [
+      {
+        "name": "Сокира є",
+        "rules": [
+          {
+            "id": "rule_1787163294698_3",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Axe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "subConfigs": [],
+        "id": "30289e36-db9c-4ad0-882f-8b6becd382dd",
+        "createdAt": 1787163336354,
+        "updatedAt": 1787163352378
+      },
+      {
+        "name": "Кирка є",
+        "rules": [
+          {
+            "id": "rule_1787163403591_6",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "subConfigs": [],
+        "id": "c94a3b83-a2a7-4457-b7d7-269cf495485f",
+        "createdAt": 1787163416789,
+        "updatedAt": 1787163416789
+      },
+      {
+        "name": "кирка кам є",
+        "rules": [
+          {
+            "id": "rule_1787163451542_9",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "subConfigs": [],
+        "id": "6fbf4c40-f5c4-4bec-a3bb-04e577a31a24",
+        "createdAt": 1787163463799,
+        "updatedAt": 1787163463799
+      },
+      {
+        "name": "кирка жел є",
+        "rules": [
+          {
+            "id": "rule_1787163487182_12",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Iron Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "subConfigs": [],
+        "id": "12236a3d-ee94-447d-99a2-11235e99189c",
+        "createdAt": 1787163508009,
+        "updatedAt": 1787163508009
+      }
+    ],
+    "id": "52ae64c6-e540-4d37-a4d5-a1e878c20eaf",
+    "createdAt": 1787163848159,
+    "updatedAt": 1787163848159
+  },
+  {
+    "name": "Закупки",
+    "rules": [
+      {
+        "id": "rule_1787164712220_39",
+        "file": "(save)",
+        "path": "",
+        "operator": "not_exists",
+        "value": "",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [
+      {
+        "name": "дерево",
+        "rules": [
+          {
+            "id": "rule_1783289283840_14",
+            "file": "(save)",
+            "path": "$.visitedFarmState.coins",
+            "operator": ">",
+            "value": "500",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1787164438686_20",
+            "file": "(save)",
+            "path": "$.visitedFarmState.stock.Axe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "id": "c3eb531b-88a4-4391-9279-af812fc60dbd",
+        "createdAt": 1783289263982,
+        "updatedAt": 1787164464599,
+        "subConfigs": []
+      },
+      {
+        "name": "камень",
+        "rules": [
+          {
+            "id": "rule_1783982277163_495",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Wood",
+            "operator": ">",
+            "value": "30",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1783982277949_202",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": "<=",
+            "value": "25",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1783982278248_802",
+            "file": "(save)",
+            "path": "$.visitedFarmState.coins",
+            "operator": ">",
+            "value": "500",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1787164468729_22",
+            "file": "(save)",
+            "path": "$.visitedFarmState.stock.Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "id": "5b6ca102-b081-4841-9138-13cb7478ce86",
+        "createdAt": 1783289287162,
+        "updatedAt": 1787164493011,
+        "subConfigs": []
+      },
+      {
+        "name": "желізо",
+        "rules": [
+          {
+            "id": "rule_1783289335871_991",
+            "file": "(save)",
+            "path": "$.visitedFarmState.coins",
+            "operator": ">",
+            "value": "1000",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1785067530812_459",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": ">",
+            "value": "50",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1785067532797_162",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Wood",
+            "operator": ">",
+            "value": "75",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1787164500865_24",
+            "file": "(save)",
+            "path": "$.visitedFarmState.stock.Stone Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "id": "bb43f70f-940d-4917-8c8f-8267a6856690",
+        "createdAt": 1783289308555,
+        "updatedAt": 1787164529704,
+        "subConfigs": []
+      },
+      {
+        "name": "золото",
+        "rules": [
+          {
+            "id": "rule_1783289400396_893",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Wood",
+            "operator": ">",
+            "value": "100",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1785498180194_853",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": ">",
+            "value": "75",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1785498182566_308",
+            "file": "(save)",
+            "path": "$.visitedFarmState.coins",
+            "operator": ">",
+            "value": "2000",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1785498183607_524",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Iron",
+            "operator": ">",
+            "value": "20",
+            "rightType": "value",
+            "required": true
+          },
+          {
+            "id": "rule_1787164533964_26",
+            "file": "(save)",
+            "path": "$.visitedFarmState.stock.Iron Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "id": "537699a0-2765-48ba-8980-9f3bbd7a8765",
+        "createdAt": 1783289374554,
+        "updatedAt": 1787164555460,
+        "subConfigs": []
+      },
+      {
+        "name": "камень 1",
+        "rules": [
+          {
+            "id": "rule_1783982571085_5",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": ">=",
+            "value": "25",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783982572954_7",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": "<=",
+            "value": "50",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783982737207_14",
+            "file": "(save)",
+            "path": "$.visitedFarmState.coins",
+            "operator": ">",
+            "value": "500",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783982737802_16",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Wood",
+            "operator": ">",
+            "value": "75",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1787164606460_28",
+            "file": "(save)",
+            "path": "$.visitedFarmState.stock.Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "subConfigs": [],
+        "id": "1ab12652-1ef3-4266-8d11-012c817d9833",
+        "createdAt": 1783982493969,
+        "updatedAt": 1787164614917
+      },
+      {
+        "name": "камень 2",
+        "rules": [
+          {
+            "id": "rule_1783982689696_10",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": ">=",
+            "value": "50",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783982689862_12",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": "<=",
+            "value": "75",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783982869075_18",
+            "file": "(save)",
+            "path": "$.visitedFarmState.coins",
+            "operator": ">",
+            "value": "500",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783982869224_20",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Wood",
+            "operator": ">",
+            "value": "100",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1787164618327_30",
+            "file": "(save)",
+            "path": "$.visitedFarmState.stock.Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "subConfigs": [],
+        "id": "6da23453-0190-45a6-901b-acfbf0c6accf",
+        "createdAt": 1783982715797,
+        "updatedAt": 1787164624624
+      },
+      {
+        "name": "камень 3",
+        "rules": [
+          {
+            "id": "rule_1783982924066_23",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": ">=",
+            "value": "75",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783982924291_25",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": "<=",
+            "value": "100",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783982925310_27",
+            "file": "(save)",
+            "path": "$.visitedFarmState.coins",
+            "operator": ">",
+            "value": "500",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783982925568_29",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Wood",
+            "operator": ">",
+            "value": "150",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1787164628943_32",
+            "file": "(save)",
+            "path": "$.visitedFarmState.stock.Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "subConfigs": [],
+        "id": "1829c17d-72be-41c5-9f46-a5caf888455e",
+        "createdAt": 1783983015734,
+        "updatedAt": 1787164638719
+      },
+      {
+        "name": "камень 4",
+        "rules": [
+          {
+            "id": "rule_1783983079717_32",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": ">=",
+            "value": "100",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783983091835_33",
+            "file": "(save)",
+            "path": "$.visitedFarmState.coins",
+            "operator": ">",
+            "value": "500",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783983092101_36",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Wood",
+            "operator": ">",
+            "value": "200",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1787164642031_34",
+            "file": "(save)",
+            "path": "$.visitedFarmState.stock.Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "subConfigs": [],
+        "id": "de78e897-9cb5-4497-872e-6695b2d65c7b",
+        "createdAt": 1783983107217,
+        "updatedAt": 1787164648056
+      },
+      {
+        "name": "камень 5",
+        "rules": [
+          {
+            "id": "rule_1783983556352_3",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Wood",
+            "operator": ">",
+            "value": "30",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783983556962_5",
+            "file": "(save)",
+            "path": "$.visitedFarmState.inventory.Stone",
+            "operator": "<=",
+            "value": "25",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1783983557359_7",
+            "file": "(save)",
+            "path": "$.visitedFarmState.coins",
+            "operator": ">",
+            "value": "500",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          },
+          {
+            "id": "rule_1787164651367_36",
+            "file": "(save)",
+            "path": "$.visitedFarmState.stock.Pickaxe",
+            "operator": "exists",
+            "value": "",
+            "rightType": "value",
+            "outputVar": "",
+            "required": true
+          }
+        ],
+        "enabled": true,
+        "subConfigs": [],
+        "id": "dc521762-e697-4068-ae5d-8a404c9409d1",
+        "createdAt": 1783983606225,
+        "updatedAt": 1787164678828
+      }
+    ],
+    "id": "a47f2b08-9981-4e46-8d9e-bc9d67735f7c",
+    "createdAt": 1787164753124,
+    "updatedAt": 1787164753124
+  },
+  {
+    "name": "Tttttttt",
+    "rules": [
+      {
+        "id": "rule_1787383138887_2",
+        "file": "(save)",
+        "path": "$.visitedFarmState.coins",
+        "operator": "<",
+        "value": "100",
+        "rightType": "value",
+        "outputVar": "",
+        "required": true
+      }
+    ],
+    "enabled": true,
+    "subConfigs": [],
+    "id": "91538f67-bbab-4a75-aeb8-71527778b4b0",
+    "createdAt": 1787383129822,
+    "updatedAt": 1787383129822
+  }
+]

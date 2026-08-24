@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ConfigService, GlobalConfig, ConfigUpdateResult } from './ConfigService';
+import { ConfigService } from './ConfigService';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 

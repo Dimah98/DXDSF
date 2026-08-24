@@ -1,0 +1,57 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Vertical Arm -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M50,10 L50,90" />
+    <!-- Horizontal Arm -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M10,50 L90,50" />
+    <!-- Diagonal Arm 1 (60 deg) -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M15.36,30 L84.64,70" />
+    <!-- Diagonal Arm 2 (120 deg) -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M15.36,70 L84.64,30" />
+
+    <!-- Vertical Barbs (Top) -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M38,24 L50,34 L62,24 M42,16 L50,22 L58,16" />
+    <!-- Vertical Barbs (Bottom) -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M38,76 L50,66 L62,76 M42,84 L50,78 L58,84" />
+
+    <!-- Diagonal 1 Barbs -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M23,41 L34,41 L29,30 M77,59 L66,59 L71,70" />
+
+    <!-- Diagonal 2 Barbs -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M23,59 L34,59 L29,70 M77,41 L66,41 L71,30" />
+</vector>

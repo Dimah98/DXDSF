@@ -33,7 +33,7 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
 
   return (
     <div
-      className="fixed z-[50] min-w-[160px] bg-[var(--interface-bg)] backdrop-blur-md border border-[var(--interface-border)] shadow-2xl rounded-xl p-1.5 animate-in fade-in zoom-in-95 duration-150"
+      className="fixed z-[var(--z-context-menu)] min-w-[160px] bg-[var(--interface-bg)] backdrop-blur-md border border-[var(--interface-border)] shadow-2xl rounded-xl p-1.5 animate-in fade-in zoom-in-95 duration-150"
       style={{ top: menu.y, left: menu.x }}
       onClick={(e) => e.stopPropagation()}
     >

@@ -1,5 +1,6 @@
 // Обробник ноди випадкової затримки — антидетект пауза між кроками
 import { NodeHandlerParams } from './types';
+import { NodeData } from '@sf/shared-types';
 
 export const randomDelayNodeHandler = async ({
   currentNode,
@@ -7,10 +8,11 @@ export const randomDelayNodeHandler = async ({
   smartSleep,
   logToClient,
   context,
-}: NodeHandlerParams): Promise<{ data: any }> => {
+}: NodeHandlerParams): Promise<{ data: NodeData }> => {
   // Читаємо мінімальне і максимальне значення затримки з налаштувань ноди
-  const minMs: number = currentNode.data.minDelay ?? 500;
-  const maxMs: number = currentNode.data.maxDelay ?? 2000;
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const minMs: number = (nodeData.minDelay as number) ?? 500;
+  const maxMs: number = (nodeData.maxDelay as number) ?? 2000;
 
   // Генеруємо випадкову затримку у вказаному діапазоні
   const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
@@ -24,8 +26,9 @@ export const randomDelayNodeHandler = async ({
       nodeId: currentNode.id,
       data: { lastDelay: `${ms}ms` },
     }));
-  } catch (err: any) {
-    logToClient(`⚠️ Помилка відправки WebSocket повідомлення: ${err.message}`, 'error');
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    logToClient(`⚠️ Помилка відправки WebSocket повідомлення: ${errorMessage}`, 'error');
   }
 
   await smartSleep(ms, ws);

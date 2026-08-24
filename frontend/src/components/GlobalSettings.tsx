@@ -1,7 +1,8 @@
 // Панель глобальних налаштувань інтерфейсу
 import { useState, useEffect } from 'react';
-import { Settings, X, Palette, AppWindow, Layers, Type, Square, CreditCard, ClipboardList, Monitor, ImageOff, Globe, Camera, Grid3x3, Database } from 'lucide-react';
+import { Settings, X, Palette, AppWindow, Layers, Type, Square, CreditCard, ClipboardList, Monitor, ImageOff, Globe, Camera, Grid3x3, Database, EyeOff, ListOrdered, Timer, UtensilsCrossed } from 'lucide-react';
 import { ConfigSettings } from './ConfigSettings';
+import { RecipeImagesSettings } from './RecipeImagesSettings';
 
 const ColorRow = ({ label, icon: Icon, value, onChange }: any) => (
   <div className="flex items-center justify-between py-1.5 group px-1">
@@ -49,7 +50,6 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
 
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('sfl_global_settings_v4');
-    // Дефолтні значення
     return saved ? JSON.parse(saved) : {
       interfaceColor: '#0a0f1e',
       interfaceOpacity: 90,
@@ -65,10 +65,34 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
       nodeTitleColor: '#ffffff',
       inputTextColor: '#cbd5e1',
       disableImages: false,
+      headless: false,
       photoDebug: true,
+      queueMode: false,
+      maxParallelProjects: 1,
+      timeout10mMode: false,
       snapToGrid: true
     };
   });
+
+  // Завантаження актуальних значень з /api/config при відкритті
+  useEffect(() => {
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data === 'object') {
+          setSettings((prev: any) => ({
+            ...prev,
+            queueMode: data.queueMode === 1,
+            maxParallelProjects: data.maxParallelProjects || 1,
+            timeout10mMode: data.timeout10mMode === 1,
+            disableImages: data.disableImages === 1,
+            photoDebug: data.photoDebug !== 0,
+            headless: data.headless === 1
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('sfl_global_settings_v4', JSON.stringify(settings));
@@ -120,6 +144,14 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
 
   const updateSetting = (key: string, value: any) => {
     setSettings((prev: any) => ({ ...prev, [key]: value }));
+    if (['queueMode', 'timeout10mMode', 'disableImages', 'photoDebug', 'headless', 'maxParallelProjects'].includes(key)) {
+      const valToSend = key === 'maxParallelProjects' ? Number(value) : (value ? 1 : 0);
+      fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: valToSend })
+      }).catch(() => {});
+    }
   };
 
   return (
@@ -136,7 +168,7 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
 
       {isOpen && (
         <div 
-          className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[var(--z-modal-high)] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setIsOpen(false)}
         >
           <div 
@@ -159,6 +191,59 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              {/* Секція: Режими та Системні Налаштування */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-2 px-1">
+                   <ListOrdered size={14} className="text-emerald-400" />
+                   <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Режими та системні налаштування</span>
+                </div>
+
+                <div className="space-y-1">
+                    <label className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors border border-transparent">
+                      <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
+                        <ListOrdered size={13} className="text-emerald-400" />
+                        <span>Режим черги (Чекати завершення працюючих)</span>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={settings.queueMode === true} 
+                        onChange={(e) => updateSetting('queueMode', e.target.checked)} 
+                        className="rounded border-white/20 text-emerald-500 focus:ring-emerald-500 bg-black/20" 
+                      />
+                    </label>
+
+                    {settings.queueMode === true && (
+                      <div className="flex items-center justify-between pl-7 pr-2 py-1 text-[11px] text-slate-400">
+                        <span>Макс. кількість запущених проектів:</span>
+                        <input 
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={settings.maxParallelProjects || 1}
+                          onChange={(e) => {
+                            const val = Math.max(1, parseInt(e.target.value) || 1);
+                            updateSetting('maxParallelProjects', val);
+                          }}
+                          className="w-16 px-2 py-0.5 bg-slate-900 border border-emerald-500/30 rounded text-center text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    )}
+
+                    <label className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors border border-transparent">
+                      <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
+                        <Timer size={13} className="text-amber-400" />
+                        <span>Режим 10хв (Закривати браузер через 10 хвилин)</span>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={settings.timeout10mMode === true} 
+                        onChange={(e) => updateSetting('timeout10mMode', e.target.checked)} 
+                        className="rounded border-white/20 text-amber-500 focus:ring-amber-500 bg-black/20" 
+                      />
+                    </label>
+                </div>
+              </div>
+
               {/* Секція: Інтерфейс */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 mb-2 px-1">
@@ -239,14 +324,32 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
                     </label>
 
                     <label className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors border border-transparent">
+                      {/* Підпис та іконка опції фото-дебагу */}
                       <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
                         <Camera size={13} className="text-slate-500" />
                         <span>Фото-дебаг (зберігати скріншоти)</span>
                       </div>
+                      {/* Чекбокс для увімкнення/вимкнення фото-дебагу */}
                       <input 
                         type="checkbox" 
                         checked={settings.photoDebug !== false} 
                         onChange={(e) => updateSetting('photoDebug', e.target.checked)} 
+                        className="rounded border-white/20 text-blue-500 focus:ring-blue-500 bg-black/20" 
+                      />
+                    </label>
+
+                    {/* Опція невидимого режиму браузера */}
+                    <label className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors border border-transparent">
+                      {/* Підпис та іконка опції невидимого режиму */}
+                      <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
+                        <EyeOff size={13} className="text-slate-500" />
+                        <span>Невидимий режим браузера (Headless)</span>
+                      </div>
+                      {/* Чекбокс для увімкнення/вимкнення headless режиму */}
+                      <input 
+                        type="checkbox" 
+                        checked={settings.headless === true} 
+                        onChange={(e) => updateSetting('headless', e.target.checked)} 
                         className="rounded border-white/20 text-blue-500 focus:ring-blue-500 bg-black/20" 
                       />
                     </label>
@@ -285,6 +388,18 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
 
                   <div className="p-3 rounded-xl bg-black/20 border border-white/5">
                     <ConfigSettings />
+                  </div>
+                </div>
+
+                {/* Секція: Зображення Страв */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center gap-2 mb-2 px-1">
+                     <UtensilsCrossed size={14} className="text-orange-400" />
+                     <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Зображення Страв (Fire Pit / Kitchen)</span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-black/20 border border-white/5">
+                    <RecipeImagesSettings />
                   </div>
                 </div>
             </div>

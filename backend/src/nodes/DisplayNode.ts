@@ -10,7 +10,7 @@ export const displayNodeHandler = async ({ currentNode, context, ws }: NodeHandl
   if (context.text) displayVal += `📝 Текст: ${context.text}\n`;
   if (context.count !== undefined) displayVal += `🔢 Кількість: ${context.count}\n`;
   if (context.num !== undefined) displayVal += `🔢 Число: ${context.num}\n`;
-  if (context.imageNames?.length) displayVal += `🖼️ Зображення: ${context.imageNames.length}\n`;
+  if (Array.isArray(context.imageNames) && context.imageNames.length) displayVal += `🖼️ Зображення: ${context.imageNames.length}\n`;
   
   // Якщо контекст пустий або немає стандартних полів — робимо JSON
   if (!displayVal) displayVal = "Об'єкт даних отримано";

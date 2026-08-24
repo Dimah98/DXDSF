@@ -1,0 +1,22 @@
+{
+  "name": "@sf/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for Sunflower Land Bot Constructor",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "typescript",
+    "types",
+    "shared"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

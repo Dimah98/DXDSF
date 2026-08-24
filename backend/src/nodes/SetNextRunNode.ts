@@ -6,21 +6,22 @@ export const setNextRunNodeHandler = async ({
   currentNode, context, logToClient, projectName, globalVariables
 }: NodeHandlerParams) => {
   // Зчитуємо режим: 'delay' — через N часу, 'fixedTime' — у заданий час, 'absoluteTimestamp' - зі змінної
-  const mode = currentNode.data.scheduleMode || 'delay';
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const mode = (nodeData.scheduleMode as string) || 'delay';
 
   let runAt: number; // Часова мітка наступного запуску (мс)
 
   if (mode === 'delay') {
     // Режим 1: Запуск через N хвилин або годин від поточного моменту
-    const value = Number(currentNode.data.delayValue) || 1; // Кількість одиниць часу (за замовч. 1)
-    const unit = currentNode.data.delayUnit || 'hours'; // Одиниця: 'hours' або 'minutes'
+    const value = Number(nodeData.delayValue) || 1;
+    const unit = (nodeData.delayUnit as string) || 'hours';
     const delayMs = unit === 'hours' ? value * 3600000 : value * 60000; // Переводимо у мілісекунди
     runAt = Date.now() + delayMs; // Час наступного запуску = зараз + затримка
     // Логуємо запланований запуск з префіксом [Розклад] для відображення відповідного бейджа
     logToClient(`[Розклад] 📅 Наступний запуск заплановано через ${value} ${unit === 'hours' ? 'год' : 'хв'}`, 'success');
   } else if (mode === 'absoluteTimestamp') {
     // Режим 3: Запуск за абсолютною міткою часу з глобальної змінної
-    const varName = currentNode.data.timestampVariable || 'nextCropHarvest';
+    const varName = (nodeData.timestampVariable as string) || 'nextCropHarvest';
     const timestamp = globalVariables[varName];
 
     if (timestamp && typeof timestamp === 'number') {
@@ -36,7 +37,7 @@ export const setNextRunNodeHandler = async ({
     }
   } else {
     // Режим 2: Запуск у конкретний час HH:MM
-    const targetTime = currentNode.data.targetTime || '08:00'; // Час у форматі "ГГ:ХХ"
+    const targetTime = (nodeData.targetTime as string) || '08:00'; // Час у форматі "ГГ:ХХ"
     const [hours, minutes] = targetTime.split(':').map(Number); // Розбираємо час
     const now = new Date(); // Поточний момент
     const target = new Date(now); // Клонуємо для модифікації

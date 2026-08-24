@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { GitFork, Plus, X, ChevronDown } from 'lucide-react';
+import { GitFork, Plus, X, ChevronDown, Zap } from 'lucide-react';
 import { Button } from '../ui/button';
 import BaseNode, { getHandleStyle } from './BaseNode';
 
@@ -12,6 +12,8 @@ const OPERATORS = [
   { value: '<=', label: '≤' },
   { value: '==', label: '=' },
   { value: '!=', label: '≠' },
+  { value: 'time_is_today', label: '📅 = сьогодні' },
+  { value: 'time_not_today', label: '📅 ≠ сьогодні' },
 ];
 
 const LOGIC_OPS = [
@@ -135,7 +137,26 @@ const MultiLogicNode = memo(({ id, data }: any) => {
               return (
                 <div key={i} className="bg-muted p-2 rounded border border-border relative space-y-1.5 group">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold text-violet-600 uppercase">Умова #{i + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-bold text-violet-600 uppercase">Умова #{i + 1}</span>
+                      {/* Чекбокс автоматичного запуску при надходженні через val_* порт */}
+                      <label 
+                        className="flex items-center gap-0.5 cursor-pointer group/zap"
+                        title="Авто-запуск: при надходженні даних у вхід умови — запустити перевірку автоматично"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={c.triggerOnInput || false}
+                          onChange={(e) => {
+                            const newConds = JSON.parse(JSON.stringify(conditions));
+                            newConds[i].triggerOnInput = e.target.checked;
+                            data.onDataChange(id, { conditions: newConds });
+                          }}
+                          className="w-2.5 h-2.5 rounded border-none bg-violet-500/20 text-violet-500 focus:ring-0 cursor-pointer"
+                        />
+                        <Zap size={9} className={`transition-colors ${c.triggerOnInput ? 'text-amber-400' : 'text-muted-foreground group-hover/zap:text-amber-400/50'}`} />
+                      </label>
+                    </div>
                     <button onClick={() => {
                       const newConds = conditions.filter((_: any, idx: number) => idx !== i);
                       data.onDataChange(id, { conditions: newConds });

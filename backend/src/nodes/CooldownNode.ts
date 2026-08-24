@@ -1,8 +1,9 @@
 import { NodeHandlerParams } from './types';
 
 export const cooldownNodeHandler = async ({ currentNode, context, globalVariables, logToClient }: NodeHandlerParams) => {
-  const duration = currentNode.data.duration !== undefined ? Number(currentNode.data.duration) : 20;
-  const unit = currentNode.data.unit || 'minutes';
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const duration = nodeData.duration !== undefined ? Number(nodeData.duration) : 20;
+  const unit = (nodeData.unit as string) || 'minutes';
 
   let durationMs = duration;
   if (unit === 'seconds') durationMs *= 1000;
@@ -10,7 +11,7 @@ export const cooldownNodeHandler = async ({ currentNode, context, globalVariable
   else if (unit === 'hours') durationMs *= 60 * 60 * 1000;
 
   const timerKey = `_cooldown_${currentNode.id}`;
-  const lastTriggered = globalVariables[timerKey] || 0;
+  const lastTriggered = (globalVariables[timerKey] as number) || 0;
   const now = Date.now();
 
   if (now - lastTriggered >= durationMs) {

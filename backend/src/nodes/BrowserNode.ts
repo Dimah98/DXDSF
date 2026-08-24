@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 // Імпортуємо вбудований клас логера для діагностики роботи
 import { Logger } from '../logger';
 // Імпортуємо інтерфейс параметрів обробника ноди
@@ -13,71 +15,119 @@ const logger = new Logger('BrowserNode');
 // Експортуємо асинхронну функцію-обробник для ноди керування браузером
 export const browserNodeHandler = async ({ currentNode, activePage, logToClient, context, projectName }: NodeHandlerParams) => {
   // Деструктуруємо URL та конкретну дію браузера з даних ноди сценарію
-  const { url, browser_action } = currentNode.data;
+  const { url, browser_action } = currentNode.data as Record<string, unknown>;
   
-  // Додаємо блок відловлювання помилок для безпечного виконання асинхронних операцій
   try {
-    // Перевіряємо, чи вказано URL і чи починається він з префіксу http
-    if (url && url.startsWith('http')) {
-       // Валідуємо введений URL на коректність за допомогою спеціального валідатора
+    // Допоміжна функція: перезавантажити сторінку через CDP напряму
+    // (єдиний надійний спосіб для ITBrowser / Chromium — ігнорує SPA-обробники та WS-з'єднання)
+    const reloadViaCDP = async (ignoreCache: boolean = false) => {
+       const session = getOrCreateSession(projectName);
+       if (session.context) {
+         const cdp = await session.context.newCDPSession(activePage);
+         try {
+           await cdp.send('Page.reload', { ignoreCache });
+           // Чекаємо 3 секунди щоб сторінка встигла почати перезавантаження
+           await new Promise(r => setTimeout(r, 3000));
+         } finally {
+           await cdp.detach().catch(() => {});
+         }
+       } else {
+         // Фолбек: якщо context недоступний — через goto
+         const currentUrl = activePage.url();
+         await activePage.goto(currentUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
+         await new Promise(r => setTimeout(r, 1000));
+       }
+    };
+
+    // 1. Оновлення сторінки (через CDP Page.reload)
+    if (browser_action === 'refresh') {
+       logToClient(`🔄 Оновлення сторінки (CDP)...`, 'info');
+       await reloadViaCDP(false);
+    }
+    // 2. Натискання F5 (через CDP Page.reload з ignoreCache = true)
+    else if (browser_action === 'f5' || browser_action === 'press_f5') {
+       logToClient(`⌨️ F5 — оновлення з очищенням кешу (CDP)...`, 'info');
+       await reloadViaCDP(true);
+    }
+    // 3. Повернення назад
+    else if (browser_action === 'back') {
+       logToClient(`⬅️ Перехід назад у історії...`, 'debug');
+       await activePage.goBack();
+    }
+    // 3. Очікування завантаження
+    else if (browser_action === 'wait_load') {
+       logToClient(`⏳ Очікування завантаження сторінки...`, 'debug');
+       await activePage.waitForLoadState('domcontentloaded');
+    }
+    // 4. Закриття браузера
+    else if (browser_action === 'close') {
+       logToClient(`🛑 Закриття браузера...`, 'debug');
+       const session = getOrCreateSession(projectName);
+       await closeSessionBrowser(session);
+    }
+    // 5. Віддалення камери
+    else if (browser_action === 'zoom_out') {
+       logToClient(`🔍 Віддалення камери (Ctrl + Колесо вниз)...`, 'debug');
+       await activePage.keyboard.down('Control');
+       await activePage.mouse.wheel(0, 1000);
+       await new Promise(r => setTimeout(r, 200));
+       await activePage.keyboard.up('Control');
+    }
+    // 6. Рандом ПТ
+    else if (browser_action === 'random_pt') {
+       logToClient(`🎲 Пошук випадкового Bumpkin ID з файлів збережень...`, 'debug');
+       const projectsDir = path.join(__dirname, '../../projects');
+       const candidates: { projectName: string; bumpkinId: string | number }[] = [];
+
+       try {
+         if (fs.existsSync(projectsDir)) {
+           const files = fs.readdirSync(projectsDir).filter(f => f.endsWith('_save.json'));
+           for (const file of files) {
+             try {
+               const filePath = path.join(projectsDir, file);
+               const content = fs.readFileSync(filePath, 'utf-8');
+               const saveData = JSON.parse(content);
+
+               const bumpkinId = saveData?.visitedFarmState?.bumpkin?.id ??
+                                 saveData?.visitorFarmState?.bumpkin?.id ??
+                                 saveData?.bumpkin?.id ??
+                                 saveData?.farmState?.bumpkin?.id;
+
+               if (bumpkinId !== undefined && bumpkinId !== null && String(bumpkinId).trim() !== '') {
+                 const name = file.replace('_save.json', '');
+                 candidates.push({ projectName: name, bumpkinId });
+               }
+             } catch {
+               // пропускаємо пошкоджені файли збережень
+             }
+           }
+         }
+       } catch (err: any) {
+         logger.error(`Error reading projects directory for random_pt`, err instanceof Error ? err : new Error(String(err)));
+       }
+
+       if (candidates.length === 0) {
+         logToClient(`⚠️ Рандом ПТ: не знайдено жодного bumpkin.id у збережених проектах`, 'error');
+         return { data: context, nextHandle: ['error'] };
+       }
+
+       const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+       const targetUrl = `https://sunflower-land.com/play/#/visit/${chosen.bumpkinId}`;
+
+       logToClient(`🎲 Рандом ПТ: Обрано проект "${chosen.projectName}" (Bumpkin ID: ${chosen.bumpkinId}). Перехід на: ${targetUrl}`, 'info');
+       await activePage.goto(targetUrl, { waitUntil: 'load' });
+    }
+    // 7. Якщо задано URL і не вибрано жодної іншої спеціальної дії (або дія — перехід)
+    else if (url && typeof url === 'string' && url.startsWith('http')) {
        const urlValidation = inputValidator.validateURL(url);
-       // Якщо URL не пройшов валідацію, повертаємо помилку сценарію
        if (!urlValidation.isValid) {
-         // Логуємо інформацію про неуспішну перевірку URL на сервері
          logger.warn(`Browser node ${currentNode.id}: URL validation failed`, { url, error: urlValidation.error });
-         // Повідомляємо користувача в інтерфейсі про недійсний URL
          logToClient(`❌ Невалідний URL: ${urlValidation.error}`, 'error');
-         // Направляємо сценарій по гілці обробки помилок
          return { data: context, nextHandle: ['error'] };
        }
        
-       // Повідомляємо клієнта про спробу переходу за адресою
        logToClient(`🌐 Перехід на: ${url}`, 'debug');
-       // Здійснюємо перехід на вказаний URL та очікуємо завантаження сторінки
        await activePage.goto(url, { waitUntil: 'load' });
-    } else {
-       // Якщо вказана дія оновлення поточної сторінки
-       if (browser_action === 'refresh') {
-          // Відправляємо повідомлення про перезавантаження сторінки клієнту
-          logToClient(`🔄 Оновлення сторінки...`, 'debug');
-          // Виконуємо стандартне оновлення сторінки в контексті Playwright
-          await activePage.reload({ waitUntil: 'load' }).catch(async () => {
-             // У разі збою використовуємо резервне оновлення через JavaScript у вкладці
-             await activePage.evaluate(() => window.location.reload());
-          });
-       }
-       // Якщо вибрана дія переходу назад в історії браузера
-       else if (browser_action === 'back') {
-          // Викликаємо вбудований метод Playwright для кроку назад
-          await activePage.goBack();
-       }
-       // Якщо вибрана дія очікування завершення завантаження мережі
-       else if (browser_action === 'wait_load') {
-          // Очікуємо стан спокою мережі (networkidle) для стабілізації сторінки
-          await activePage.waitForLoadState('networkidle');
-       }
-       // Якщо вибрана нова дія закриття браузера проекту
-       else if (browser_action === 'close') {
-          // Повідомляємо про початок закриття браузера
-          logToClient(`🛑 Закриття браузера...`, 'debug');
-          // Отримуємо або створюємо поточну сесію проекту за його назвою
-          const session = getOrCreateSession(projectName);
-          // Викликаємо функцію для коректного закриття браузера сесії
-          await closeSessionBrowser(session);
-       }
-       // Якщо вибрана нова дія віддалення масштабу камери (Ctrl + Scroll Down)
-       else if (browser_action === 'zoom_out') {
-          // Повідомляємо про початок процесу віддалення камери
-          logToClient(`🔍 Віддалення камери (Ctrl + Колесо вниз)...`, 'debug');
-          // Емулюємо натискання та утримання клавіші Control на клавіатурі
-          await activePage.keyboard.down('Control');
-          // Прокручуємо колесо миші вертикально вниз на 1000 одиниць
-          await activePage.mouse.wheel(0, 1000);
-          // Даємо невелику затримку у 200 мілісекунд для обробки браузером
-          await new Promise(r => setTimeout(r, 200));
-          // Емулюємо відпускання клавіші Control після прокрутки
-          await activePage.keyboard.up('Control');
-       }
     }
   } catch (err: any) {
     // Фіксуємо виникнення винятку в логері сервера з детальним стеком помилки

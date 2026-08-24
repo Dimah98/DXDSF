@@ -19,7 +19,6 @@ import request from 'supertest';
 describe('Health Check Endpoint', () => {
   let app: express.Application;
   let server: http.Server;
-  let port: number;
 
   beforeAll(async () => {
     // Create a minimal Express app with just the health endpoint
@@ -38,7 +37,7 @@ describe('Health Check Endpoint', () => {
     });
 
     // Implement health check endpoint (same as in index.ts)
-    app.get('/health', (req, res) => {
+    app.get('/health', (_req, res) => {
       try {
         const memoryUsage = process.memoryUsage();
         const uptime = process.uptime();
@@ -76,10 +75,6 @@ describe('Health Check Endpoint', () => {
     // Start server on random available port
     await new Promise<void>((resolve) => {
       server = app.listen(0, () => {
-        const address = server.address();
-        if (address && typeof address === 'object') {
-          port = address.port;
-        }
         resolve();
       });
     });
@@ -177,7 +172,7 @@ describe('Health Check Endpoint', () => {
   it('should handle errors gracefully', async () => {
     // Create a new app that throws an error
     const errorApp = express();
-    errorApp.get('/health', (req, res) => {
+    errorApp.get('/health', (_req, res) => {
       try {
         throw new Error('Simulated error');
       } catch (err) {

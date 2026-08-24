@@ -1,0 +1,41 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Stem -->
+    <path
+        android:strokeColor="#10B981"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M50,90 C50,65 50,45 50,30" />
+    <!-- Right Leaf -->
+    <path
+        android:strokeColor="#10B981"
+        android:strokeWidth="4"
+        android:fillColor="#1510B981"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M50,60 C65,55 90,40 90,20 C70,20 55,35 50,55" />
+    <!-- Right Leaf Vein -->
+    <path
+        android:strokeColor="#10B981"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M50,55 C65,45 78,32 82,24" />
+    <!-- Left Leaf -->
+    <path
+        android:strokeColor="#10B981"
+        android:strokeWidth="4"
+        android:fillColor="#1510B981"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M50,70 C35,65 10,50 10,35 C30,35 45,50 50,65" />
+    <!-- Left Leaf Vein -->
+    <path
+        android:strokeColor="#10B981"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M50,65 C36,56 22,44 16,38" />
+</vector>

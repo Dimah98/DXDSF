@@ -7,11 +7,12 @@ export const rotatorNodeHandler = async ({
   currentNode,      // Дані ноди (outputCount, mode)
   context,          // Контекст від попередньої ноди
   logToClient,      // Лог у консоль інтерфейсу
-  nodeRuntimeState, // Map<string, Record<string,any>> — персистентний стан між запусками
+  nodeRuntimeState, // Map<string, Record<string,unknown>> — персистентний стан між запусками
 }: NodeHandlerParams) => {
   // Кількість виходів і режим з налаштувань ноди
-  const outputCount: number = Math.max(2, Math.min(8, currentNode.data.outputCount || 2));
-  const mode: string = currentNode.data.mode || 'sequence';
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const outputCount: number = Math.max(2, Math.min(8, (nodeData.outputCount as number) || 2));
+  const mode: string = (nodeData.mode as string) || 'sequence';
   const nodeId: string = currentNode.id;
 
   let outIndex: number;
@@ -26,10 +27,10 @@ export const rotatorNodeHandler = async ({
     if (!nodeRuntimeState.has(nodeId)) {
       nodeRuntimeState.set(nodeId, { index: 0 });
     }
-    const state = nodeRuntimeState.get(nodeId);
-    outIndex = (state?.index || 0) % outputCount;
+    const state = nodeRuntimeState.get(nodeId) as Record<string, unknown> | undefined;
+    outIndex = ((state?.index as number) || 0) % outputCount;
     // Зберігаємо наступний індекс для наступного виклику
-    if (state) state.index = (outIndex + 1) % outputCount;
+    if (state) state.index = ((outIndex + 1) % outputCount);
     logToClient(`🔄 По черзі → Вихід ${outIndex + 1} / ${outputCount}`, 'info');
   }
 

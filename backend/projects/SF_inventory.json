@@ -1,0 +1,30 @@
+{
+  "projectName": "SF",
+  "data": [
+    {
+      "image": "/api/images/F8FzcNNLtlYtFbElfgqboPmwY9B1muxIaBbE6am_KWU+RiPoAA=.png",
+      "number": 90,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 551,
+        "y": 508
+      }
+    },
+    {
+      "image": "/api/images/RNJb+P+PHK_8SjNc89becVFg7mMuy+AAA=.png",
+      "number": 10,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 553,
+        "y": 571
+      }
+    }
+  ],
+  "timestamp": 1783993303003,
+  "version": "1.0",
+  "metadata": {
+    "selector": "div.relative:has(img[alt=\"item\"])",
+    "itemCount": 2,
+    "scanDuration": 19
+  }
+}

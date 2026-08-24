@@ -1,51 +1,22 @@
 import { NodeHandlerParams } from './types';
-import { Logger } from '../logger';
-
-const logger = new Logger('KitchenNode');
-
-export const KITCHEN_RECIPES_DATA: Record<string, Record<string, number>> = {
-  "Surimi Rice Bowl": { "Fish Stick": 1, "Rice": 1, "Onion": 1 },
-  "Creamy Crab Bite": { "Crab Stick": 1, "Cheese": 3 },
-  "Crimstone Infused Fish Oil": { "Fish Oil": 1, "Crimstone": 1 },
-  "Sunflower Crunch": { "Sunflower": 300 },
-  "Mushroom Jacket Potatoes": { "Wild Mushroom": 10, "Potato": 5 },
-  "Fruit Salad": { "Apple": 1, "Orange": 1, "Blueberry": 1 },
-  "Pancakes": { "Wheat": 10, "Egg": 10, "Honey": 6 },
-  "Roast Veggies": { "Cauliflower": 15, "Carrot": 10 },
-  "Cauliflower Burger": { "Cauliflower": 15, "Wheat": 5 },
-  "Club Sandwich": { "Sunflower": 100, "Carrot": 25, "Wheat": 5 },
-  "Bumpkin Salad": { "Beetroot": 20, "Parsnip": 10 },
-  "Bumpkin ganoush": { "Eggplant": 30, "Potato": 50, "Parsnip": 10 },
-  "Goblin's Treat": { "Pumpkin": 10, "Radish": 20, "Cabbage": 10 },
-  "Chowder": { "Beetroot": 10, "Wheat": 10, "Parsnip": 5, "Anchovy": 3 },
-  "Bumpkin Roast": { "Mashed Potato": 20, "Roast Veggies": 5 },
-  "Goblin Brunch": { "Boiled Eggs": 5, "Goblin's Treat": 1 },
-  "Beetroot Blaze": { "Magic Mushroom": 2, "Beetroot": 50 },
-  "Steamed Red Rice": { "Rice": 3, "Beetroot": 50 },
-  "Tofu Scramble": { "Soybean": 20, "Egg": 20, "Cauliflower": 10 },
-  "Fried Calamari": { "Sunflower": 200, "Wheat": 15, "Squid": 1 },
-  "Fish Burger": { "Beetroot": 10, "Wheat": 10, "Horse Mackerel": 1 },
-  "Fish Omelette": { "Egg": 40, "Surgeonfish": 1, "Butterflyfish": 2 },
-  "Ocean's Olive": { "Olive Flounder": 1, "Olive": 2 },
-  "Seafood Basket": { "Blowfish": 2, "Napoleanfish": 2, "Sunfish": 2 },
-  "Fish n Chips": { "Fancy Fries": 1, "Halibut": 1 },
-  "Sushi Roll": { "Angelfish": 1, "Seaweed": 1, "Rice": 2 },
-  "Caprese Salad": { "Cheese": 1, "Tomato": 25, "Kale": 20 },
-  "Spaghetti al Limone": { "Wheat": 10, "Lemon": 15, "Cheese": 3 }
-};
+import { KITCHEN_RECIPES } from '../plugins/sunflower-land/data/recipes';
+import { recipeImagesConfig } from '../recipeImagesConfig';
 
 interface KitchenRule {
   recipeName: string;
   enabled: boolean;
   maxDish: number;
   ingMultipliers: Record<string, number>;
-  selector: string;
 }
 
+import path from 'path';
+import fs from 'fs';
+
 export const kitchenNodeHandler = async ({
-  currentNode, context, logToClient, activePage
+  currentNode, context, logToClient, activePage, projectName
 }: NodeHandlerParams) => {
-  const rules: KitchenRule[] = currentNode.data.rules || [];
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const rules: KitchenRule[] = Array.isArray(nodeData.rules) ? nodeData.rules as KitchenRule[] : [];
 
   const enabledRules = rules.filter(r => r.enabled);
 
@@ -54,19 +25,33 @@ export const kitchenNodeHandler = async ({
     return { data: context, nextHandle: ['skip'] };
   }
 
-  // Отримуємо інвентар з API
-  const apiData = context?.raw || context?.value;
-  if (!apiData || typeof apiData !== 'object') {
-    logToClient(`❌ Kitchen: В контексті немає JSON даних від API`, 'error');
-    return { data: { ...context, error: 'No API data found in context' }, nextHandle: ['skip'] };
+  // Зчитуємо інвентар з файлу _save.json
+  const saveFilePath = path.join(__dirname, '../../projects', `${projectName}_save.json`);
+  let inventory: Record<string, unknown> = {};
+
+  try {
+    if (fs.existsSync(saveFilePath)) {
+      const rawData = fs.readFileSync(saveFilePath, 'utf-8');
+      const apiDataObj = JSON.parse(rawData);
+      const visitorFarmState = apiDataObj.visitorFarmState as Record<string, unknown> | undefined;
+      const visitedFarmState = apiDataObj.visitedFarmState as Record<string, unknown> | undefined;
+      inventory = (visitorFarmState?.inventory as Record<string, unknown>) || (visitedFarmState?.inventory as Record<string, unknown>) || {};
+    } else {
+      logToClient(`❌ Kitchen: Файл збереження ${projectName}_save.json не знайдено`, 'error');
+      return { data: { ...context, error: 'No save file found' }, nextHandle: ['skip'] };
+    }
+  } catch (err: any) {
+    logToClient(`❌ Kitchen: Помилка читання файлу збереження: ${err.message}`, 'error');
+    return { data: { ...context, error: err.message }, nextHandle: ['skip'] };
   }
 
-  const inventory = apiData?.visitorFarmState?.inventory || apiData?.visitedFarmState?.inventory || {};
+  // Завантажуємо глобальні назви зображень для Kitchen
+  const kitchenImages = recipeImagesConfig.getKitchen();
 
   // Проходимо по всіх УВІМКНЕНИХ правилах по черзі
   for (const rule of enabledRules) {
-    const { recipeName, maxDish, ingMultipliers, selector } = rule;
-    const recipeIngredients = KITCHEN_RECIPES_DATA[recipeName];
+    const { recipeName, maxDish, ingMultipliers } = rule;
+    const recipeIngredients = KITCHEN_RECIPES[recipeName];
 
     if (!recipeIngredients) {
       logToClient(`❌ Kitchen: Невідома страва "${recipeName}" у списку`, 'error');
@@ -100,17 +85,21 @@ export const kitchenNodeHandler = async ({
 
     logToClient(`✅ Kitchen: Умови для [${recipeName}] виконано! Готуємо.`, 'success');
 
-    if (selector && activePage) {
+    // Виконуємо клік по зображенню страви
+    const imgName = kitchenImages[recipeName];
+    if (imgName && activePage) {
       try {
-        logToClient(`🖱️ Kitchen: Клікаємо по селектору ${selector}`, 'info');
-        await activePage.click(selector, { timeout: 5000 });
-        await activePage.waitForTimeout(1000);
+        logToClient(`🖱️ Kitchen: Клікаємо по зображенню "${imgName}" для [${recipeName}]`, 'info');
+        const locator = activePage.locator(`img[src*="${imgName}"]`).first();
+        await locator.click({ timeout: 5000 });
+        await new Promise(r => setTimeout(r, 800));
       } catch (err: any) {
-        logToClient(`❌ Kitchen: Помилка кліку по ${selector}: ${err.message}`, 'error');
+        logToClient(`❌ Kitchen: Зображення "${imgName}" не знайдено для [${recipeName}]: ${err.message}`, 'error');
         return { data: { ...context, error: err.message }, nextHandle: ['skip'] };
       }
-    } else if (!selector) {
-      logToClient(`⚠️ Kitchen: Селектор не задано для [${recipeName}]`, 'info');
+    } else if (!imgName) {
+      logToClient(`⚠️ Kitchen: Зображення не задано для [${recipeName}] у глобальних налаштуваннях`, 'info');
+      // Продовжуємо без кліку — node передає сигнал "cook"
     }
 
     return { data: context, nextHandle: ['cook'] };

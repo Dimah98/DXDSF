@@ -1,0 +1,25 @@
+{
+  "notifications": [
+    {
+      "id": "1787605210027496",
+      "projectName": "SF",
+      "message": "Бот SF ключ",
+      "timestamp": 1787605210027,
+      "read": true
+    },
+    {
+      "id": "1787606305099441",
+      "projectName": "SF",
+      "message": "сундук пропав?",
+      "timestamp": 1787606305099,
+      "read": true
+    },
+    {
+      "id": "1787607516255465",
+      "projectName": "SF6",
+      "message": "Бот SF6 ключ",
+      "timestamp": 1787607516255,
+      "read": false
+    }
+  ]
+}

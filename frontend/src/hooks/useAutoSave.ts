@@ -28,25 +28,39 @@ export function useAutoSave(
         const launchSettings = savedLaunch ? JSON.parse(savedLaunch) : { mode: 'single' };
         
         // Зчитуємо налаштування браузера для поточного проекту з localStorage
-        const savedBrowser = localStorage.getItem(`sfl_browser_${currentProject}`);
+        const savedBrowser = localStorage.getItem(`sfl_browser_${currentProject}`); // Отримання налаштувань з локального сховища
         // Парсимо налаштування браузера або використовуємо дефолтні
-        const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {};
+        const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {}; // Парсинг налаштувань або пустий об'єкт
+        
+        // Зчитуємо глобальні налаштування для отримання photoDebug та disableImages
+        const savedGlobal = localStorage.getItem('sfl_global_settings_v4'); // Зчитування глобального конфігу
+        // Декодуємо глобальні налаштування або використовуємо порожній об'єкт
+        const globalSettings = savedGlobal ? JSON.parse(savedGlobal) : {}; // Декодування налаштувань або пустий об'єкт
+
+        // Об'єднуємо поточні налаштування браузера з глобальними прапорцями
+        const updatedBrowserSettings = { // Оновлений об'єкт налаштувань браузера
+          ...browserSettings, // Копіювання існуючих налаштувань браузера проекту
+          photoDebug: globalSettings.photoDebug !== false, // Перенесення глобального прапорця фотодебагу
+          disableImages: globalSettings.disableImages === true, // Перенесення глобального прапорця вимкнення зображень
+          headless: globalSettings.headless === true // Перенесення глобального прапорця невидимого режиму браузера
+        }; // Завершення об'єднання налаштувань
 
         // Відправляємо запит на збереження проекту на сервер
-        await fetch(`${API_HOST}/api/save`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: currentProject,
-            data: { 
-              nodes: cleanNodes, 
-              edges,
-              variables: globalVariablesRef.current,
-              launchSettings,
-              browserSettings
-            }
-          }),
-        });
+        await fetch(`${API_HOST}/api/save`, { // Виклик API для збереження на сервері
+          method: 'POST', // Використання HTTP-методу POST
+          headers: { 'Content-Type': 'application/json' }, // Встановлення JSON заголовку
+          body: JSON.stringify({ // Перетворення тіла запиту у JSON-рядок
+            name: currentProject, // Назва проекту, який зберігається
+            isAutoSave: true, // Вказуємо бекенду, що це автозбереження
+            data: { // Об'єкт з даними проекту
+              nodes: cleanNodes, // Масив очищених нод сценарію
+              edges, // Масив ребер сценарію
+              variables: globalVariablesRef.current, // Актуальні глобальні змінні проекту
+              launchSettings, // Налаштування запуску
+              browserSettings: updatedBrowserSettings // Оновлені налаштування браузера з фотодебагом
+            } // Завершення об'єкта даних проекту
+          }), // Завершення тіла запиту
+        }); // Завершення виклику fetch
       } catch (e) {
         console.error('AutoSave error:', e);
       }

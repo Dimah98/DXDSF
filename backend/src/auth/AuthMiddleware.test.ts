@@ -5,7 +5,7 @@
  * Requirement 1: JWT Authentication
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import { generateToken, verifyToken, authMiddleware } from './AuthMiddleware';
 import type { AuthenticatedRequest } from '../types';

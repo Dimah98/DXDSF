@@ -51,6 +51,50 @@
     --node-title: #ffffff;
     --node-input-text: #cbd5e1;
     --map-bg: 222 47% 5%;
+
+    /* ── Z-Index система ── */
+    --z-base: 1;
+    --z-sidebar: 40;
+    --z-context-menu: 50;
+    --z-panel: 100;
+    --z-panel-console: 110;
+    --z-canvas-button: 120;
+    --z-modal: 300;
+    --z-modal-high: 400;
+    --z-special: 500;
+    --z-stream-picker: 600;
+
+    /* ── Кольори кнопок ── */
+    --button-primary-bg: #22c55e;
+    --button-primary-hover: #16a34a;
+    --button-secondary-bg: #64748b;
+    --button-secondary-hover: #475569;
+    --button-danger-bg: #ef4444;
+    --button-danger-hover: #dc2626;
+    --button-success-bg: #10b981;
+    --button-success-hover: #059669;
+    --button-icon-bg: rgba(255, 255, 255, 0.1);
+    --button-icon-hover: rgba(255, 255, 255, 0.2);
+
+    /* ── Кольори полів вводу ── */
+    --input-bg: hsla(222, 47%, 11%, 1);
+    --input-border: hsla(221, 83%, 53%, 0.4);
+    --input-text: #cbd5e1;
+    --input-placeholder: #94a3b8;
+
+    /* ── Кольори карточок ── */
+    --card-bg: hsla(215, 28%, 17%, 0.93);
+    --card-border: hsla(221, 83%, 53%, 0.4);
+    --card-hover: hsla(215, 28%, 20%, 0.95);
+
+    /* ── Додаткові кольори інтерфейсу ── */
+    --accent-purple: #8b5cf6;
+    --accent-blue: #3b82f6;
+    --accent-pink: #ec4899;
+    --accent-indigo: #6366f1;
+    --accent-amber: #f59e0b;
+    --accent-emerald: #10b981;
+    --accent-rose: #f43f5e;
   }
 
   .dark {

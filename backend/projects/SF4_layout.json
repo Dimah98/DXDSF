@@ -1,0 +1,884 @@
+{
+  "items": [
+    {
+      "id": "buildings_Workbench_123",
+      "name": "Workbench",
+      "type": "building",
+      "x": 6,
+      "y": 5,
+      "w": 3,
+      "h": 2,
+      "image": "Workbench.png"
+    },
+    {
+      "id": "buildings_Market_123",
+      "name": "Market",
+      "type": "building",
+      "x": 6,
+      "y": 3,
+      "w": 3,
+      "h": 2,
+      "image": "Market.png"
+    },
+    {
+      "id": "buildings_Fire Pit_123",
+      "name": "Fire Pit",
+      "type": "building",
+      "x": 6,
+      "y": 1,
+      "w": 3,
+      "h": 2,
+      "image": "Fire Pit.png"
+    },
+    {
+      "id": "buildings_Water Well_bf535335",
+      "name": "Water Well",
+      "type": "building",
+      "x": 7,
+      "y": -1,
+      "w": 2,
+      "h": 2,
+      "image": "Water Well.png"
+    },
+    {
+      "id": "buildings_Aging Shed_b15d5b3c",
+      "name": "Aging Shed",
+      "type": "building",
+      "x": -5,
+      "y": 2,
+      "w": 3,
+      "h": 2,
+      "image": "Aging Shed.png"
+    },
+    {
+      "id": "buildings_House_1",
+      "name": "House",
+      "type": "building",
+      "x": 5,
+      "y": 9,
+      "w": 4,
+      "h": 4,
+      "image": "House.png"
+    },
+    {
+      "id": "collectibles_Basic Scarecrow_71ba50d7",
+      "name": "Basic Scarecrow",
+      "type": "collectible",
+      "x": 1,
+      "y": 3,
+      "w": 1,
+      "h": 1,
+      "image": "Basic Scarecrow.png"
+    },
+    {
+      "id": "collectibles_Big Orange_19c65265",
+      "name": "Big Orange",
+      "type": "collectible",
+      "x": 5,
+      "y": -1,
+      "w": 2,
+      "h": 2,
+      "image": "Big Orange.png"
+    },
+    {
+      "id": "crops_crops_035d37fb",
+      "name": "crops",
+      "type": "crops",
+      "x": -2,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_468eb2f6",
+      "name": "crops",
+      "type": "crops",
+      "x": -1,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_64ae18d3",
+      "name": "crops",
+      "type": "crops",
+      "x": 0,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_97e90962",
+      "name": "crops",
+      "type": "crops",
+      "x": -2,
+      "y": -1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_aec066ea",
+      "name": "crops",
+      "type": "crops",
+      "x": -1,
+      "y": -1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_bcb92ca2",
+      "name": "crops",
+      "type": "crops",
+      "x": 0,
+      "y": -1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_cfcc9801",
+      "name": "crops",
+      "type": "crops",
+      "x": -2,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_cfff1959",
+      "name": "crops",
+      "type": "crops",
+      "x": -1,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_f80c97f6",
+      "name": "crops",
+      "type": "crops",
+      "x": 0,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_392d88a4",
+      "name": "crops",
+      "type": "crops",
+      "x": 1,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_39cbfaac",
+      "name": "crops",
+      "type": "crops",
+      "x": 1,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_6722c656",
+      "name": "crops",
+      "type": "crops",
+      "x": 1,
+      "y": -1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_734b471d",
+      "name": "crops",
+      "type": "crops",
+      "x": 2,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_7908da8a",
+      "name": "crops",
+      "type": "crops",
+      "x": 2,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_9cbcc3ee",
+      "name": "crops",
+      "type": "crops",
+      "x": 2,
+      "y": -1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_fdfbd6db",
+      "name": "crops",
+      "type": "crops",
+      "x": 3,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_ff5298ba",
+      "name": "crops",
+      "type": "crops",
+      "x": 3,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_0032dbed",
+      "name": "crops",
+      "type": "crops",
+      "x": 3,
+      "y": -1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_1ceef4c1",
+      "name": "crops",
+      "type": "crops",
+      "x": 4,
+      "y": -2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_3c91864a",
+      "name": "crops",
+      "type": "crops",
+      "x": 3,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_61e9c77a",
+      "name": "crops",
+      "type": "crops",
+      "x": 1,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_8ed8bf5b",
+      "name": "crops",
+      "type": "crops",
+      "x": -1,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_c209cb95",
+      "name": "crops",
+      "type": "crops",
+      "x": 3,
+      "y": -2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_c6ec1f65",
+      "name": "crops",
+      "type": "crops",
+      "x": 2,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_fa8d9830",
+      "name": "crops",
+      "type": "crops",
+      "x": 0,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_4926426f",
+      "name": "crops",
+      "type": "crops",
+      "x": -2,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_5c1c58d6",
+      "name": "crops",
+      "type": "crops",
+      "x": 2,
+      "y": -2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_cadffac2",
+      "name": "crops",
+      "type": "crops",
+      "x": 4,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_ec36db05",
+      "name": "crops",
+      "type": "crops",
+      "x": 4,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_98ac3c36",
+      "name": "crops",
+      "type": "crops",
+      "x": 4,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_c3ff927b",
+      "name": "crops",
+      "type": "crops",
+      "x": 4,
+      "y": -1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_2aa9e314",
+      "name": "crops",
+      "type": "crops",
+      "x": -1,
+      "y": -2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_e746876a",
+      "name": "crops",
+      "type": "crops",
+      "x": -2,
+      "y": -2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_d19ae1c2",
+      "name": "crops",
+      "type": "crops",
+      "x": 0,
+      "y": -2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_edc33750",
+      "name": "crops",
+      "type": "crops",
+      "x": 1,
+      "y": -2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "trees_trees_1",
+      "name": "trees",
+      "type": "trees",
+      "x": -1,
+      "y": 9,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_2",
+      "name": "trees",
+      "type": "trees",
+      "x": -1,
+      "y": 7,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_3",
+      "name": "trees",
+      "type": "trees",
+      "x": -3,
+      "y": 9,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_545e940e",
+      "name": "trees",
+      "type": "trees",
+      "x": 3,
+      "y": 9,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_9ef5826e",
+      "name": "trees",
+      "type": "trees",
+      "x": 1,
+      "y": 7,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_05f44a2d",
+      "name": "trees",
+      "type": "trees",
+      "x": 3,
+      "y": 7,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_e4d7cf75",
+      "name": "trees",
+      "type": "trees",
+      "x": -1,
+      "y": 5,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_516a3496",
+      "name": "trees",
+      "type": "trees",
+      "x": 1,
+      "y": 5,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_d83da320",
+      "name": "trees",
+      "type": "trees",
+      "x": 3,
+      "y": 5,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_34648b8d",
+      "name": "trees",
+      "type": "trees",
+      "x": -5,
+      "y": 9,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_8dd325de",
+      "name": "trees",
+      "type": "trees",
+      "x": -5,
+      "y": 7,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_b5d2766c",
+      "name": "trees",
+      "type": "trees",
+      "x": -3,
+      "y": 7,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "trees_trees_36bd72ea",
+      "name": "trees",
+      "type": "trees",
+      "x": 1,
+      "y": 9,
+      "w": 2,
+      "h": 2,
+      "image": "Tree.png"
+    },
+    {
+      "id": "stones_stones_1",
+      "name": "stones",
+      "type": "stones",
+      "x": -8,
+      "y": 3,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_2",
+      "name": "stones",
+      "type": "stones",
+      "x": -9,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_7a340c85",
+      "name": "stones",
+      "type": "stones",
+      "x": -7,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_f36ae688",
+      "name": "stones",
+      "type": "stones",
+      "x": -8,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_744f979b",
+      "name": "stones",
+      "type": "stones",
+      "x": -9,
+      "y": 3,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_6b5512fe",
+      "name": "stones",
+      "type": "stones",
+      "x": -7,
+      "y": 3,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "iron_iron_30383748",
+      "name": "iron",
+      "type": "iron",
+      "x": -9,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Iron Rock.png"
+    },
+    {
+      "id": "iron_iron_2f90ecfe",
+      "name": "iron",
+      "type": "iron",
+      "x": -8,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Iron Rock.png"
+    },
+    {
+      "id": "gold_gold_06a415c3",
+      "name": "gold",
+      "type": "gold",
+      "x": -9,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Gold Rock.png"
+    },
+    {
+      "id": "gold_gold_da194201",
+      "name": "gold",
+      "type": "gold",
+      "x": -7,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Gold Rock.png"
+    },
+    {
+      "id": "gold_gold_b13c4bff",
+      "name": "gold",
+      "type": "gold",
+      "x": -8,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Gold Rock.png"
+    },
+    {
+      "id": "crimstones_crimstones_cdd301d0",
+      "name": "crimstones",
+      "type": "crimstones",
+      "x": -9,
+      "y": 0,
+      "w": 2,
+      "h": 2,
+      "image": "Crimstone Rock.png"
+    },
+    {
+      "id": "fruitPatches_fruitPatches_1",
+      "name": "fruitPatches",
+      "type": "fruitPatches",
+      "x": -7,
+      "y": 7,
+      "w": 2,
+      "h": 2,
+      "image": "Fruit Patch.png"
+    },
+    {
+      "id": "fruitPatches_fruitPatches_2",
+      "name": "fruitPatches",
+      "type": "fruitPatches",
+      "x": -9,
+      "y": 7,
+      "w": 2,
+      "h": 2,
+      "image": "Fruit Patch.png"
+    },
+    {
+      "id": "fruitPatches_fruitPatches_50680e3a",
+      "name": "fruitPatches",
+      "type": "fruitPatches",
+      "x": -7,
+      "y": 9,
+      "w": 2,
+      "h": 2,
+      "image": "Fruit Patch.png"
+    },
+    {
+      "id": "fruitPatches_fruitPatches_20cc93f6",
+      "name": "fruitPatches",
+      "type": "fruitPatches",
+      "x": -9,
+      "y": 9,
+      "w": 2,
+      "h": 2,
+      "image": "Fruit Patch.png"
+    },
+    {
+      "id": "beehives_beehives_0",
+      "name": "beehives",
+      "type": "beehives",
+      "x": -5,
+      "y": -2,
+      "w": 1,
+      "h": 1,
+      "image": "Beehive.png"
+    },
+    {
+      "id": "flowerBeds_flowerBeds_0",
+      "name": "flowerBeds",
+      "type": "flowerBeds",
+      "x": -9,
+      "y": -2,
+      "w": 3,
+      "h": 1,
+      "image": "Flower Bed.png"
+    },
+    {
+      "id": "buildings_gold_inv_1786803464705",
+      "name": "gold",
+      "type": "resource",
+      "x": -7,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Gold Rock.png"
+    },
+    {
+      "id": "buildings_Basic Scarecrow_inv_1786803494293",
+      "name": "Basic Scarecrow",
+      "type": "building",
+      "x": 1,
+      "y": 3,
+      "w": 1,
+      "h": 1,
+      "image": "Basic Scarecrow.png"
+    },
+    {
+      "id": "buildings_Big Orange_inv_1786803502677",
+      "name": "Big Orange",
+      "type": "building",
+      "x": 5,
+      "y": -1,
+      "w": 2,
+      "h": 2,
+      "image": "Big Orange.png"
+    },
+    {
+      "id": "buildings_crops_inv_1786803514633",
+      "name": "crops",
+      "type": "resource",
+      "x": 4,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "buildings_crops_inv_1786803515343",
+      "name": "crops",
+      "type": "resource",
+      "x": 4,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "buildings_crops_inv_1786803516318",
+      "name": "crops",
+      "type": "resource",
+      "x": 4,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "buildings_crops_inv_1786803517073",
+      "name": "crops",
+      "type": "resource",
+      "x": 4,
+      "y": -1,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "buildings_Aging Shed_inv_1786803544657",
+      "name": "Aging Shed",
+      "type": "building",
+      "x": -5,
+      "y": 2,
+      "w": 3,
+      "h": 2,
+      "image": "Aging Shed.png"
+    },
+    {
+      "id": "buildings_iron_inv_1786831030996",
+      "name": "iron",
+      "type": "building",
+      "x": -7,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Iron Rock.png"
+    },
+    {
+      "id": "buildings_iron_inv_1786831036816",
+      "name": "iron",
+      "type": "building",
+      "x": -7,
+      "y": -1,
+      "w": 1,
+      "h": 1,
+      "image": "Iron Rock.png"
+    },
+    {
+      "id": "buildings_stones_inv_1786831041982",
+      "name": "stones",
+      "type": "building",
+      "x": -7,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "buildings_stones_inv_1786831049162",
+      "name": "stones",
+      "type": "building",
+      "x": -9,
+      "y": 5,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "buildings_stones_inv_1786831055690",
+      "name": "stones",
+      "type": "building",
+      "x": -8,
+      "y": 5,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "buildings_stones_inv_1786831059708",
+      "name": "stones",
+      "type": "building",
+      "x": -7,
+      "y": 5,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    }
+  ]
+}

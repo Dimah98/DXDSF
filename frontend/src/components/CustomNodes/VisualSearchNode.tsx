@@ -17,13 +17,14 @@ const VisualSearchNode = memo(({ id, data }: any) => {
         <div className="p-3 space-y-4">
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2">
-              <ImageIcon size={12} /> Еталон (назва файлу)
+              <ImageIcon size={12} /> Еталони (кожен з нового рядка)
             </label>
-            <Input 
+            <textarea 
               value={data.imageName || ''} 
               onChange={(e) => data.onDataChange(id, { imageName: e.target.value })} 
-              placeholder="seedling.png" 
-              className="h-8 text-xs bg-muted border-none focus:ring-1 ring-emerald-500" 
+              placeholder="seedling.png&#10;plant.png&#10;tree.png" 
+              rows={3}
+              className="w-full px-3 py-2 text-xs bg-muted border-none rounded-md focus:ring-1 ring-emerald-500 resize-none"
             />
           </div>
 

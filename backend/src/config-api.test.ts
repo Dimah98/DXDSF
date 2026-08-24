@@ -30,7 +30,7 @@ describe('Config API Endpoints', () => {
     app.use(express.json());
     
     // Add GET /api/config endpoint (no authentication for testing)
-    app.get('/api/config', async (req, res) => {
+    app.get('/api/config', async (_req, res) => {
       try {
         const config = configService.getConfig();
         res.status(200).json(config);

@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import type { InventoryFile, AggregatedInventoryData } from './types';
+import type { InventoryFile } from './types';
 
 describe('Integration: /api/inventory/overview', () => {
   let testDir: string;

@@ -6,12 +6,12 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "telegram": "node telegram_bot.js",
     "ngrok": "node ngrok_manager.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@sf/shared-types": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",

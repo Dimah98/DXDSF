@@ -11,22 +11,23 @@ export const valueLoopNodeHandler = async ({
   context
 }: NodeHandlerParams) => {
   try {
-    const nodeResults: Record<string, any> = { data: context };
-    const parentSel = currentNode.data.selector;
-    const childType = currentNode.data.childType || 'img';
-    const childCustom = currentNode.data.childCustomSelector || '';
-    const minValue = currentNode.data.minValue ?? 0;
+    const nodeResults: Record<string, unknown> = { data: context };
+    const nodeData = currentNode.data as Record<string, unknown>;
+    const parentSel = nodeData.selector as string | undefined;
+    const childType = (nodeData.childType as string) || 'img';
+    const childCustom = (nodeData.childCustomSelector as string) || '';
+    const minValue = (nodeData.minValue as number) ?? 0;
     const childSelector = childType === 'custom' ? childCustom : childType;
 
     if (!parentSel) {
       nodeResults.nextHandle = 'fail';
       ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { loopResult: { clicked: 0, total: 0 } } }));
     } else {
-      const elements = await activePage.evaluate(({ pSel, cSel, min }: any) => {
+      const elements = await activePage.evaluate(({ pSel, cSel, min }: { pSel: string; cSel: string; min: number }) => {
         const parent = document.querySelector(pSel);
         if (!parent) return [];
         const children = Array.from(parent.querySelectorAll(cSel)) as HTMLElement[];
-        const results: { index: number, num: number, rect: any }[] = [];
+        const results: { index: number, num: number, rect: { x: number, y: number } }[] = [];
         children.forEach((el, i) => {
           const container = el.closest('[class]') || el.parentElement;
           if (!container) return;

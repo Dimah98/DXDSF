@@ -1,4 +1,4 @@
-// Єдиний словник конфігурацій всіх типів нод
+﻿// Єдиний словник конфігурацій всіх типів нод
 // Використовується в Sidebar, NodeEditor і NodeHeader (кнопка ?)
 // Щоб додати нову ноду — лише тут, більше ніде нічого дублювати не треба
 
@@ -7,7 +7,9 @@ import {
   GitFork, MousePointerClick, Crosshair, Keyboard,
   Camera, Layers, Monitor, Repeat, Move,
   MessageSquare, Timer, XCircle, Calculator, Activity,
-  ArrowRightLeft, Package, Clock, CalendarClock, Bell, Sprout, Flame, ChefHat
+  ArrowRightLeft, Package, Clock, CalendarClock, Bell, Sprout, Flame, ChefHat, Gamepad2, Hammer,
+  Settings, Type, Flower, PackageCheck,
+  Wallet,
 } from 'lucide-react';
 
 // Тип одного запису конфігурації ноди
@@ -72,6 +74,53 @@ export const KITCHEN_RECIPES_DATA: Record<string, Record<string, number>> = {
   "Spaghetti al Limone": { "Wheat": 10, "Lemon": 15, "Cheese": 3 }
 };
 
+export const DELI_RECIPES_DATA: Record<string, Record<string, number>> = {
+  "Shroom Syrup": { "Magic Mushroom": 3, "Honey": 20 },
+  "Blue Cheese": { "Cheese": 2, "Blueberry": 10 },
+  "Honey Cheddar": { "Cheese": 3, "Honey": 5 },
+  "Fermented Fish": { "Tuna": 6 },
+  "Blueberry Jam": { "Blueberry": 5 },
+  "Fancy Fries": { "Sunflower": 500, "Potato": 500 },
+  "Sauerkraut": { "Cabbage": 20 },
+  "Fermented Carrots": { "Carrot": 20 },
+  "Cheese": { "Milk": 3 }
+};
+
+export const SMOOTHIE_SHACK_RECIPES_DATA: Record<string, Record<string, number>> = {
+  "Grape Juice": { "Grape": 5, "Radish": 20 },
+  "Sour Shake": { "Lemon": 20 },
+  "Purple Smoothie": { "Blueberry": 5, "Cabbage": 10 },
+  "Power Smoothie": { "Blueberry": 10, "Kale": 5 },
+  "Orange Juice": { "Orange": 5 },
+  "Apple Juice": { "Apple": 5 },
+  "Bumpkin Detox": { "Apple": 5, "Orange": 5, "Carrot": 10 },
+  "The Lot": { "Blueberry": 1, "Orange": 1, "Grape": 1, "Apple": 1, "Banana": 1 },
+  "Banana Blast": { "Banana": 10, "Egg": 10 },
+  "Slow Juice": { "Grape": 10, "Kale": 100 },
+  "Carrot Juice": { "Carrot": 30 },
+  "Quick Juice": { "Sunflower": 50, "Pumpkin": 40 }
+};
+
+export const BAKERY_RECIPES_DATA: Record<string, Record<string, number>> = {
+  "Lemon Cheesecake": { "Lemon": 20, "Cheese": 5, "Egg": 40 },
+  "Honey Cake": { "Honey": 10, "Wheat": 10, "Egg": 20 },
+  "Orange Cake": { "Orange": 5, "Egg": 30, "Wheat": 10 },
+  "Apple Pie": { "Apple": 5, "Wheat": 10, "Egg": 20 },
+  "Kale & Mushroom Pie": { "Wild Mushroom": 10, "Kale": 5, "Wheat": 5 },
+  "Sunflower Cake": { "Sunflower": 1000, "Wheat": 10, "Egg": 30 },
+  "Potato Cake": { "Potato": 500, "Wheat": 10, "Egg": 30 },
+  "Pumpkin Cake": { "Pumpkin": 130, "Wheat": 10, "Egg": 30 },
+  "Eggplant Cake": { "Eggplant": 30, "Wheat": 10, "Egg": 30 },
+  "Carrot Cake": { "Carrot": 120, "Wheat": 10, "Egg": 30 },
+  "Cabbage Cake": { "Cabbage": 90, "Wheat": 10, "Egg": 30 },
+  "Beetroot Cake": { "Beetroot": 100, "Wheat": 10, "Egg": 30 },
+  "Parsnip Cake": { "Parsnip": 45, "Wheat": 10, "Egg": 30 },
+  "Cauliflower Cake": { "Cauliflower": 60, "Wheat": 10, "Egg": 30 },
+  "Cornbread": { "Corn": 15, "Wheat": 5, "Egg": 10 },
+  "Radish Cake": { "Radish": 25, "Wheat": 10, "Egg": 30 },
+  "Wheat Cake": { "Wheat": 35, "Egg": 30 }
+};
+
 const defaultFirePitRules = Object.keys(RECIPES_DATA).map(recipeName => {
   const ingMultipliers: Record<string, number> = {};
   Object.keys(RECIPES_DATA[recipeName]).forEach(ing => {
@@ -115,7 +164,7 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     label: 'Браузер',
     icon: Globe,
     desc: 'Керування сторінкою',
-    hint: 'Навігація та дії браузера: перехід за URL, оновлення сторінки, натискання "Назад", очікування завантаження.',
+    hint: 'Навігація та дії браузера: перехід за URL, оновлення сторінки, Натиснути F5, Рандом ПТ (випадкова ферма), натискання "Назад", очікування завантаження.',
     defaultColor: '#a855f7',
   },
   infoNode: {
@@ -291,6 +340,7 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     defaults: {
       subNodes: [],                                    // Буде ініціалізовано при першому відкритті
       subEdges: [],
+      configId: null,                                  // ID конфігурації для умовного запуску
     },
   },
   cooldownNode: {
@@ -327,6 +377,17 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
       message: 'Бот {project} завершив роботу',
     },
   },
+  roninWalletNode: {
+    label: 'Ronin Wallet',
+    icon: Wallet,
+    desc: 'Взаємодія з гаманцем',
+    hint: 'Відкриває Ronin Wallet і автоматично виконує дії (розблокування, підтвердження транзакцій, підписання тощо).',
+    defaultColor: '#2563eb',
+    defaults: {
+      password: 'Ronin123!@#',
+      maxAttempts: 3
+    }
+  },
   cropAnalyzerNode: {
     label: 'Аналізатор врожаю',
     icon: Sprout,
@@ -362,6 +423,52 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
       rules: defaultKitchenRules
     }
   },
+  deliNode: {
+    label: 'Шеф Deli',
+    icon: ChefHat,
+    desc: 'Готування в Deli',
+    hint: 'Перевіряє всі страви Deli згори донизу. Якщо страва увімкнена, її кількість менша за ліміт і вистачає інгредієнтів — клікає по її селектору.',
+    defaultColor: '#f43f5e',
+    defaults: {
+      rules: Object.keys(DELI_RECIPES_DATA || {}).map(recipeName => ({
+        recipeName, enabled: false, maxDish: 10, ingMultipliers: Object.keys(DELI_RECIPES_DATA?.[recipeName] || {}).reduce((acc, ing) => ({...acc, [ing]: 1}), {}), selector: ''
+      }))
+    }
+  },
+  smoothieShackNode: {
+    label: 'Шеф Smoothie Shack',
+    icon: ChefHat,
+    desc: 'Готування в Smoothie Shack',
+    hint: 'Перевіряє всі напої Smoothie Shack згори донизу. Якщо напій увімкнений, кількість менша за ліміт і вистачає інгредієнтів — клікає по його селектору.',
+    defaultColor: '#ec4899',
+    defaults: {
+      rules: Object.keys(SMOOTHIE_SHACK_RECIPES_DATA || {}).map(recipeName => ({
+        recipeName, enabled: false, maxDish: 10, ingMultipliers: Object.keys(SMOOTHIE_SHACK_RECIPES_DATA?.[recipeName] || {}).reduce((acc, ing) => ({...acc, [ing]: 1}), {}), selector: ''
+      }))
+    }
+  },
+  bakeryNode: {
+    label: 'Шеф Bakery',
+    icon: ChefHat,
+    desc: 'Готування в Bakery',
+    hint: 'Перевіряє всю випічку Bakery згори донизу. Якщо випічка увімкнена, її кількість менша за ліміт і вистачає інгредієнтів — клікає по її селектору.',
+    defaultColor: '#f59e0b',
+    defaults: {
+      rules: Object.keys(BAKERY_RECIPES_DATA || {}).map(recipeName => ({
+        recipeName, enabled: false, maxDish: 10, ingMultipliers: Object.keys(BAKERY_RECIPES_DATA?.[recipeName] || {}).reduce((acc, ing) => ({...acc, [ing]: 1}), {}), selector: ''
+      }))
+    }
+  },
+  foodNode: {
+    label: 'Їжа',
+    icon: PackageCheck,
+    desc: 'Їсти предмети їжі',
+    hint: 'Нода їжі: для кожного увімкненого предмету їжі (налаштування у Глобальних Налаштуваннях → Їжа) клікає по зображенню предмету, потім по кнопці "з\'їсти".',
+    defaultColor: '#f59e0b',
+    defaults: {
+      eatButtonSelector: ''
+    }
+  },
   inventoryScannerNode: {
     label: 'Сканер Інвентаря',
     icon: Package,
@@ -387,8 +494,191 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
       selector: '',
       imageName: ''
     }
+  },
+  memoryGameNode: {
+    label: 'Гра Пам\'ять',
+    icon: Gamepad2,
+    desc: 'Міні-гра memory',
+    hint: 'Автоматично проходить міні-гру на пам\'ять (перевертання карток). Використовує комп\'ютерний зір для аналізу скріншотів та стратегію запам\'ятовування позицій.',
+    defaultColor: '#7c3aed',
+    defaults: {
+      flipDelay: 800,
+      mismatchDelay: 1500,
+    }
+  },
+  whackAMoleNode: {
+    label: 'Вдарь Крота',
+    icon: Hammer,
+    desc: 'Міні-гра Whack-a-Mole',
+    hint: 'Автоматично проходить міні-гру «Вдарь Крота» (3×3). Порівнює кожну клітинку з шаблонами з папки mine/ через NCC (нормалізована перехресна кореляція). Клікає по знайдених кротах.',
+    defaultColor: '#d97706',
+    defaults: {
+      checkInterval: 400,
+      clickDelay: 150,
+      matchThreshold: 0.72,
+      maxDuration: 60000,
+    }
+  },
+  // Конфігурація для нової ноди "Введення та Клік"
+  searchAndClickNode: {
+    // Візуальна назва ноди
+    label: 'Введення та Клік',
+    // Іконка для ноди
+    icon: MousePointerClick,
+    // Короткий опис
+    desc: 'Ввести текст та клікнути',
+    // Докладна підказка щодо принципу роботи ноди
+    hint: 'Вводить вказаний текст в інпут, очікує оновлення інтерфейсу, після чого знаходить елемент із цим текстом і клікає на нього.',
+    // Колір ноди за замовчуванням (фіолетовий)
+    defaultColor: '#9333ea',
+    // Початкові значення полів при створенні ноди
+    defaults: {
+      // Початковий порожній селектор для поля введення
+      inputSelector: '',
+      // Початковий порожній текст для введення
+      textToEnter: '',
+      // Початковий порожній селектор елемента для кліку
+      clickSelector: '',
+      // Дефолтна затримка перед кліком у мілісекундах (500 мс)
+      clickDelay: 500
+    }
+  },
+  // Нода конфігурації — перевіряє умови з JSON-файлів проекту
+  configNode: {
+    label: 'Конфігурація',
+    icon: Settings,
+    desc: 'Перевірки з JSON',
+    hint: 'Завантажує збережену конфігурацію правил і перевіряє їх по JSON-файлах проекту (наприклад _save.json). Підтримує порівняння чисел, перевірку наявності, читання та видалення значень.',
+    defaultColor: '#06b6d4',
+    defaults: {
+      configId: '',
+    }
+  },
+  islandArrangerNode: {
+    label: 'Дизайнер Острова',
+    icon: Move,
+    desc: 'Перестановка будівель',
+    hint: 'Звіряє поточну карту острова з тою, яку ви налаштували у візуальному редакторі (Карта Острова), і автоматично переміщує будівлі/грядки на їх нові місця.',
+    defaultColor: '#facc15',
+    defaults: {
+      filterType: 'all', // all, crops, buildings, collectibles
+      step1Selector: '',
+      step3Selector: '',
+      step6Selector: '',
+      step7Selector: '',
+      step8Selector: '',
+      step9Selector: '',
+      step10Selector: ''
+    }
+  },
+  deliveryNode: {
+    label: 'Доставки',
+    icon: PackageCheck,
+    desc: 'Обробка відмічених доставок',
+    hint: 'Перевіряє відмічені доставки з проекту і для кожної виконує: 1) клік на зображення 2) клік по селектору 3) клік по селектору і зняття відмітки. Виходи: success (є доставки), no_deliveries (нема доставок), error (помилка).',
+    defaultColor: '#0ea5e9',
+    defaults: {
+      deliveries: [
+        { name: 'betty', image: '', enabled: true },
+        { name: 'blacksmith', image: '', enabled: true },
+        { name: 'bert', image: '', enabled: true },
+        { name: 'corale', image: '', enabled: true },
+        { name: 'cornwell', image: '', enabled: true },
+        { name: 'finley', image: '', enabled: true },
+        { name: 'finn', image: '', enabled: true },
+        { name: 'gambit', image: '', enabled: true },
+        { name: 'gordo', image: '', enabled: true },
+        { name: 'grimbly', image: '', enabled: true },
+        { name: 'grimtooth', image: '', enabled: true },
+        { name: 'grubnuk', image: '', enabled: true },
+        { name: 'jester', image: '', enabled: true },
+        { name: 'miranda', image: '', enabled: true },
+        { name: 'old salty', image: '', enabled: true },
+        { name: 'peggy', image: '', enabled: true },
+        { name: 'pharaoh', image: '', enabled: true },
+        { name: "pumpkin' pete", image: '', enabled: true },
+        { name: 'raven', image: '', enabled: true },
+        { name: 'tango', image: '', enabled: true },
+        { name: 'timmy', image: '', enabled: true },
+        { name: 'tywin', image: '', enabled: true },
+        { name: 'victoria', image: '', enabled: true }
+      ],
+      step2Selector: '',
+      step3Selector: ''
+    }
+  },
+  textInputNode: {
+    label: 'Введення Тексту',
+    icon: Type,
+    desc: 'Вставка тексту в поле',
+    hint: 'Знаходить поле введення (input, textarea тощо) за CSS-селектором та вставляє в нього текст. Підтримує динамічне отримання тексту через вхідний порт "Вхід тексту" (зліва) або з іншої ноди/змінної.',
+    defaultColor: '#2563eb',
+    defaults: {
+      selector: '',
+      text: '',
+      clearFirst: true,
+      pressEnter: false,
+      delayBetweenKeys: 0
+    }
+  },
+  flowerPlanterNode: {
+    label: 'Посадник Квіток',
+    icon: Flower,
+    desc: 'Вибір квітки для посадки',
+    hint: 'Читає інвентар з _save.json. Перевіряє наявність насіння та ресурсів для кожної увімкненої квітки. Вибирає квітку якої найменше в інвентарі. Виконує 2 кліки: насіння → ресурс. Виходи: plant (кліки виконано) та skip (нічого не підійшло).',
+    defaultColor: '#10b981',
+    defaults: {
+      rules: Object.entries(
+        (()=>{
+          const data: Record<string,{seed:string,resources:string[]}> = {
+            "Red Pansy":    {seed:"Sunpetal Seed",resources:["Radish","Banana","Red Cosmos","Purple Daffodil","Red Balloon Flower","Red Lotus","Primula Enigma"]},
+            "Yellow Pansy": {seed:"Sunpetal Seed",resources:["Sunflower","Apple","Red Pansy","Red Daffodil","Yellow Balloon Flower","Yellow Carnation"]},
+            "Purple Pansy": {seed:"Sunpetal Seed",resources:["Blue Pansy","Purple Balloon Flower","Purple Carnation"]},
+            "White Pansy":  {seed:"Sunpetal Seed",resources:["Yellow Cosmos"]},
+            "Blue Pansy":   {seed:"Sunpetal Seed",resources:["Purple Cosmos","White Pansy","White Cosmos","White Daffodil","Blue Daffodil","White Carnation"]},
+            "Red Cosmos":   {seed:"Sunpetal Seed",resources:["Yellow Daffodil","Purple Lotus"]},
+            "Yellow Cosmos":{seed:"Sunpetal Seed",resources:["Yellow Pansy","White Balloon Flower","Red Carnation"]},
+            "Purple Cosmos":{seed:"Sunpetal Seed",resources:["Beetroot","Eggplant","Kale","Blue Cosmos","Blue Balloon Flower","Celestial Frostbloom"]},
+            "White Cosmos": {seed:"Sunpetal Seed",resources:["Prism Petal","Yellow Lotus"]},
+            "Blue Cosmos":  {seed:"Sunpetal Seed",resources:["Cauliflower","Parsnip","Blueberry","Purple Pansy","White Lotus","Blue Carnation"]},
+            "Prism Petal":  {seed:"Sunpetal Seed",resources:["Blue Lotus"]},
+            "Red Balloon Flower":    {seed:"Bloom Seed",resources:["Sunflower","Beetroot","Apple","Banana","Purple Pansy","Red Pansy","Red Daffodil","Yellow Daffodil","Purple Daffodil","Yellow Carnation"]},
+            "Yellow Balloon Flower": {seed:"Bloom Seed",resources:["Yellow Lotus"]},
+            "Purple Balloon Flower": {seed:"Bloom Seed",resources:["Blue Carnation"]},
+            "White Balloon Flower":  {seed:"Bloom Seed",resources:["White Cosmos","Blue Daffodil","White Daffodil","White Balloon Flower"]},
+            "Blue Balloon Flower":   {seed:"Bloom Seed",resources:["Cauliflower","Parsnip","Eggplant","Kale","Blue Pansy","Blue Cosmos","Purple Cosmos","Blue Balloon Flower","Celestial Frostbloom"]},
+            "Red Daffodil":    {seed:"Bloom Seed",resources:["Yellow Pansy","Yellow Balloon Flower","Red Carnation","Primula Enigma"]},
+            "Yellow Daffodil": {seed:"Bloom Seed",resources:["Red Cosmos","White Carnation","White Lotus"]},
+            "Purple Daffodil": {seed:"Bloom Seed",resources:["Radish","Blueberry","Red Balloon Flower","Red Lotus","Blue Lotus"]},
+            "White Daffodil":  {seed:"Bloom Seed",resources:["Yellow Cosmos","Prism Petal"]},
+            "Blue Daffodil":   {seed:"Bloom Seed",resources:["Purple Balloon Flower","Purple Carnation","Purple Lotus"]},
+            "Celestial Frostbloom": {seed:"Bloom Seed",resources:["White Pansy"]},
+            "Red Carnation":    {seed:"Sprout Mix",resources:["Yellow Cosmos","Red Balloon Flower","Yellow Lotus"]},
+            "Yellow Carnation": {seed:"Sprout Mix",resources:["Yellow Pansy","Red Balloon Flower","Yellow Carnation"]},
+            "Purple Carnation": {seed:"Sprout Mix",resources:["Blue Pansy","Purple Balloon Flower"]},
+            "White Carnation":  {seed:"Sprout Mix",resources:["Blue Pansy","White Balloon Flower","White Lotus","White Daffodil"]},
+            "Blue Carnation":   {seed:"Sprout Mix",resources:["Purple Cosmos","Purple Balloon Flower","Blue Carnation"]},
+            "Red Lotus":    {seed:"Sprout Mix",resources:["Red Pansy","Red Daffodil","Red Lotus"]},
+            "Yellow Lotus": {seed:"Sprout Mix",resources:["Red Pansy","Yellow Lotus"]},
+            "Purple Lotus": {seed:"Sprout Mix",resources:["Red Cosmos","Purple Daffodil","Purple Lotus"]},
+            "White Lotus":  {seed:"Sprout Mix",resources:["Yellow Daffodil","White Lotus"]},
+            "Blue Lotus":   {seed:"Sprout Mix",resources:["Blue Pansy","Blue Cosmos","Blue Lotus","Prism Petal"]},
+            "Primula Enigma": {seed:"Sprout Mix",resources:["Red Pansy","Red Daffodil"]},
+          };
+          return data;
+        })()
+      ).map(([flowerName, recipe]) => ({
+        flowerName,
+        seed: recipe.seed,
+        enabled: false,
+        seedMultiplier: 1,
+        resources: recipe.resources.map(resourceName => ({ resourceName, enabled: true, multiplier: 1 }))
+      })),
+      selectors: {}
+    }
   }
 };
 
 // Список типів нод що відображаються у сайдбарі (в порядку)
 export const SIDEBAR_NODE_TYPES = Object.keys(NODE_CONFIG);
+

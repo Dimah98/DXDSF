@@ -37,23 +37,36 @@ export function useProjectManager({
       addLog(`Збереження проекту "${name}"...`, 'info');
       const savedLaunch = localStorage.getItem(`sfl_launch_settings_${name}`);
       const launchSettings = savedLaunch ? JSON.parse(savedLaunch) : { mode: 'single' };
-      const savedBrowser = localStorage.getItem(`sfl_browser_${name}`);
-      const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {};
+      const savedBrowser = localStorage.getItem(`sfl_browser_${name}`); // Зчитування збережених налаштувань браузера проекту
+      const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {}; // Декодування налаштувань або пустий об'єкт
 
-      await fetch(`${API_HOST}/api/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name, 
-          data: { 
-            nodes: nodesRef.current, 
-            edges: edgesRef.current,
-            variables: globalVariablesRef.current,
-            launchSettings,
-            browserSettings
-          } 
-        }),
-      });
+      // Зчитуємо глобальні налаштування для отримання photoDebug та disableImages
+      const savedGlobal = localStorage.getItem('sfl_global_settings_v4'); // Отримання глобальних налаштувань
+      // Декодуємо глобальні налаштування або використовуємо порожній об'єкт
+      const globalSettings = savedGlobal ? JSON.parse(savedGlobal) : {}; // Декодування налаштувань або пустий об'єкт
+
+      // Об'єднуємо поточні налаштування браузера з глобальними прапорцями
+      const updatedBrowserSettings = { // Оновлений об'єкт налаштувань браузера
+        ...browserSettings, // Копіювання існуючих налаштувань браузера проекту
+        photoDebug: globalSettings.photoDebug !== false, // Встановлення глобального прапорця фотодебагу
+        disableImages: globalSettings.disableImages === true, // Встановлення глобального прапорця вимкнення зображень
+        headless: globalSettings.headless === true // Встановлення глобального прапорця невидимого режиму браузера
+      }; // Завершення об'єднання налаштувань
+
+      await fetch(`${API_HOST}/api/save`, { // Відправлення запиту збереження на сервер
+        method: 'POST', // Метод POST
+        headers: { 'Content-Type': 'application/json' }, // Встановлення JSON заголовка
+        body: JSON.stringify({ // Серіалізація об'єкта даних
+          name, // Назва проекту для збереження
+          data: { // Дані проекту
+            nodes: nodesRef.current, // Поточні ноди проекту з референсу
+            edges: edgesRef.current, // Поточні ребра проекту з референсу
+            variables: globalVariablesRef.current, // Змінні проекту з референсу
+            launchSettings, // Параметри запуску проекту
+            browserSettings: updatedBrowserSettings // Оновлені налаштування браузера проекту
+          } // Кінець об'єкта даних
+        }), // Кінець тіла запиту
+      }); // Кінець fetch запиту
       
       // Відправляємо подію для збереження поточних логів
       window.dispatchEvent(new CustomEvent('sfl-save-logs', { detail: { projectName: name } }));

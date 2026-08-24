@@ -1,6 +1,7 @@
 import { NodeHandlerParams } from './types';
 export const coordOffsetNodeHandler = async ({ currentNode, context, logToClient }: NodeHandlerParams) => {
-  const { offsetX = 0, offsetY = 0 } = currentNode.data;
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const { offsetX = 0, offsetY = 0 } = nodeData;
   const coords = context.coords;
 
   if (!coords) {

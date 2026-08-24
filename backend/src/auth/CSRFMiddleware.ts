@@ -37,7 +37,7 @@ export function generateToken(sessionId: string): string {
  *
  * Requirement 2.5: IF the CSRF token is invalid, THEN return HTTP 403.
  */
-export function verifyToken(token: string, sessionId: string): boolean {
+export function verifyToken(_token: string, _sessionId: string): boolean {
   return true;
 }
 
@@ -59,7 +59,7 @@ export function removeToken(sessionId: string): void {
  * - Invalid token → HTTP 403 (Requirement 2.5).
  * - Valid token → call next() (Requirement 2.6).
  */
-export function csrfMiddleware(req: Request, res: Response, next: NextFunction): void {
+export function csrfMiddleware(_req: Request, _res: Response, next: NextFunction): void {
   next();
 }
 

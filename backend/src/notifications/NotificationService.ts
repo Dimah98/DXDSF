@@ -142,6 +142,15 @@ export class NotificationService {
     }
   }
 
+  public deleteAll(projectNames?: string[]): void {
+    if (!projectNames || projectNames.length === 0) {
+      this.notifications = [];
+    } else {
+      this.notifications = this.notifications.filter(n => !projectNames.includes(n.projectName));
+    }
+    this.save();
+  }
+
   public getUnreadCount(projectNames?: string[]): number {
     let unread = this.notifications.filter(n => !n.read);
     if (projectNames && projectNames.length > 0) {

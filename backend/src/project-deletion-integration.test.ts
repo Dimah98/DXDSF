@@ -18,7 +18,6 @@ describe('Project Deletion - Inventory File Cleanup Integration', () => {
   let projectPath: string;
   let inventoryPath: string;
   let statsPath: string;
-  let logsPath: string;
 
   beforeEach(() => {
     // Create test directory
@@ -30,7 +29,6 @@ describe('Project Deletion - Inventory File Cleanup Integration', () => {
     projectPath = path.join(testDir, `${TEST_PROJECT_NAME}.json`);
     inventoryPath = path.join(testDir, `${TEST_PROJECT_NAME}_inventory.json`);
     statsPath = path.join(testDir, `${TEST_PROJECT_NAME}_stats.json`);
-    logsPath = path.join(testDir, `${TEST_PROJECT_NAME}_logs.json`);
   });
 
   afterEach(() => {

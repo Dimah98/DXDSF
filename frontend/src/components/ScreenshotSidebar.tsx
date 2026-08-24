@@ -1,6 +1,6 @@
 // Права панель для перегляду та управління скріншотами проекту
 import React, { useState, useEffect } from 'react';
-import { Camera, X, Trash2, Maximize2, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Camera, X, Trash2, Maximize2, PanelRightClose } from 'lucide-react';
 
 interface ScreenshotSidebarProps {
   projectName: string | null;
@@ -77,29 +77,21 @@ const ScreenshotSidebar: React.FC<ScreenshotSidebarProps> = ({
   };
 
   if (isCollapsed) {
-    return (
-      <button
-        onClick={onToggle}
-        className="fixed right-0 top-1/2 -translate-y-1/2 z-50 p-2 bg-pink-500 hover:bg-pink-600 text-white rounded-l-md shadow-lg transition-colors"
-        title="Відкрити скріншоти"
-      >
-        <PanelRightOpen size={20} />
-      </button>
-    );
+    return null;
   }
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 w-80 bg-[#0f172a] border-l border-pink-500/30 shadow-xl z-40 flex flex-col">
+    <div className="fixed right-0 top-0 bottom-0 w-80 bg-[var(--interface-bg)] border-l border-[var(--accent-pink)]/30 shadow-xl z-[var(--z-sidebar)] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-pink-500/30 bg-pink-500/10">
-        <div className="flex items-center gap-2 text-pink-400">
+      <div className="flex items-center justify-between p-3 border-b border-[var(--accent-pink)]/30 bg-[var(--accent-pink)]/10">
+        <div className="flex items-center gap-2 text-[var(--accent-pink)]">
           <Camera size={18} />
           <span className="text-sm font-semibold">Скріншоти</span>
           <span className="text-xs text-muted-foreground">({screenshots.length})</span>
         </div>
         <button
           onClick={onToggle}
-          className="p-1 text-muted-foreground hover:text-pink-400 transition-colors"
+          className="p-1 text-muted-foreground hover:text-[var(--accent-pink)] transition-colors"
           title="Закрити"
         >
           <PanelRightClose size={18} />
@@ -122,7 +114,7 @@ const ScreenshotSidebar: React.FC<ScreenshotSidebarProps> = ({
             {screenshots.map((filename) => (
               <div
                 key={filename}
-                className="relative group cursor-pointer rounded-lg overflow-hidden border border-border hover:border-pink-500/50 transition-all"
+                className="relative group cursor-pointer rounded-lg overflow-hidden border border-border hover:border-[var(--accent-pink)]/50 transition-all"
                 onClick={() => setSelectedImage(filename)}
               >
                 {/* Thumbnail */}
@@ -136,7 +128,7 @@ const ScreenshotSidebar: React.FC<ScreenshotSidebarProps> = ({
                 </div>
 
                 {/* Filename */}
-                <div className="p-1.5 bg-[#0f172a]">
+                <div className="p-1.5 bg-[var(--interface-bg)]">
                   <p className="text-[9px] text-muted-foreground truncate" title={filename}>
                     {filename}
                   </p>
@@ -145,7 +137,7 @@ const ScreenshotSidebar: React.FC<ScreenshotSidebarProps> = ({
                 {/* Delete button */}
                 <button
                   onClick={(e) => handleDelete(filename, e)}
-                  className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-1 right-1 p-1 bg-[var(--button-danger-bg)]/80 hover:bg-[var(--button-danger-bg)] text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Видалити"
                 >
                   <Trash2 size={12} />
@@ -171,7 +163,7 @@ const ScreenshotSidebar: React.FC<ScreenshotSidebarProps> = ({
       {/* Full-size image modal */}
       {selectedImage && (
         <div
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/90 z-[var(--z-modal-high)] flex items-center justify-center p-4"
           onClick={() => setSelectedImage(null)}
         >
           <button

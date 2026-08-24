@@ -16,7 +16,6 @@ import request from 'supertest';
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { authMiddleware } from '../auth/AuthMiddleware';
 import { InventoryReader } from './InventoryReader';
 import { ResourceAggregator } from './ResourceAggregator';
 import type { InventoryFile } from './types';
@@ -55,7 +54,7 @@ describe('GET /api/inventory/overview', () => {
     }
 
     // Setup test endpoint (no auth for testing)
-    app.get('/api/inventory/overview', async (req, res) => {
+    app.get('/api/inventory/overview', async (_req, res) => {
       try {
         const inventoryReader = new InventoryReader();
         const resourceAggregator = new ResourceAggregator();

@@ -59,18 +59,18 @@ const CoordClickNode = memo(({ id, data }: any) => {
                  <Hash size={10} />
                  <span>Кількість кліків</span>
               </div>
-              <span className="text-[7px] text-amber-500 font-bold italic">← Порт числа</span>
+              <span className="text-[7px] text-amber-500 font-bold italic font-sans">← Порт числа або змінна</span>
             </div>
             <Input 
-              type="number" 
-              min="1" 
-              value={data.clickCount || 1} 
-              onChange={(e) => data.onDataChange(id, { clickCount: parseInt(e.target.value) || 1 })} 
-              className="h-7 text-xs border-border bg-muted/30 text-foreground" 
+              type="text" 
+              value={data.clickCount !== undefined ? data.clickCount : '1'} 
+              onChange={(e) => data.onDataChange(id, { clickCount: e.target.value })} 
+              placeholder="1 або {змінна}"
+              className="h-7 text-xs border-border bg-muted/30 text-foreground font-mono" 
             />
           </div>
 
-          <div className="pt-1 border-t border-border flex flex-col items-center justify-center gap-2">
+           <div className="pt-1 border-t border-border flex flex-col items-start justify-center gap-1.5">
              <label className="flex items-center gap-2 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
                <input 
                  type="checkbox" 
@@ -80,11 +80,20 @@ const CoordClickNode = memo(({ id, data }: any) => {
                />
                <span>Елемент інтерфейсу (не тягнути карту)</span>
              </label>
-             <div className="flex items-center gap-2">
+             <label className="flex items-center gap-2 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer">
+               <input 
+                 type="checkbox" 
+                 checked={data.ignoreContextCoords || false} 
+                 onChange={(e) => data.onDataChange(id, { ignoreContextCoords: e.target.checked })} 
+                 className="rounded bg-muted/50 border-border text-cyan-500 focus:ring-cyan-500 w-3 h-3" 
+               />
+               <span>Ігнорувати вхідні координати (тільки записані)</span>
+             </label>
+             <div className="flex items-center gap-2 pt-1 self-center">
                <MousePointer2 size={10} className="text-cyan-400" />
                <span className="text-[9px] text-muted-foreground italic">Клікне {data.clickCount || 1} раз(и)</span>
              </div>
-          </div>
+           </div>
         </div>
       )}
     </BaseNode>

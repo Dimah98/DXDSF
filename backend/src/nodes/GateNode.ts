@@ -9,13 +9,14 @@ export const gateNodeHandler = async ({
   targetHandle,
   nodeRuntimeState,
 }: NodeHandlerParams) => {
-  const nodeResults: Record<string, any> = {};
+  const nodeResults: Record<string, unknown> = {};
+  const nodeData = currentNode.data as Record<string, unknown>;
 
   // Отримуємо або ініціалізуємо стан для цього шлюзу
   if (!nodeRuntimeState.has(currentNode.id)) {
     nodeRuntimeState.set(currentNode.id, { currentCount: 0 });
   }
-  const state = nodeRuntimeState.get(currentNode.id)!;
+  const state = nodeRuntimeState.get(currentNode.id) as Record<string, unknown> | undefined;
 
   // Якщо сигнал прийшов на порт встановлення ліміту
   if (targetHandle === 'setLimit') {
@@ -32,9 +33,11 @@ export const gateNodeHandler = async ({
   }
 
   // Збільшуємо лічильник при кожному вході
-  state.currentCount = (state.currentCount || 0) + 1;
-  const current = state.currentCount;
-  const limit = state.limit ?? currentNode.data.limit ?? 1;
+  if (state) {
+    state.currentCount = ((state.currentCount as number) || 0) + 1;
+  }
+  const current = state?.currentCount as number | undefined;
+  const limit = (state?.limit as number | undefined) ?? (nodeData.limit as number) ?? 1;
 
   // Оновлюємо дані на фронтенді (лише для відображення)
   ws.send(JSON.stringify({
@@ -43,7 +46,7 @@ export const gateNodeHandler = async ({
     data: { currentCount: current },
   }));
 
-  if (current <= limit) {
+  if (current !== undefined && current <= limit) {
     nodeResults.nextHandle = 'pass';
     logToClient(`🔢 Лічильник: ${current}/${limit} (Прохід дозволено)`, 'success');
   } else {

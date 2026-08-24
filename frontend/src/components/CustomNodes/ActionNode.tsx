@@ -9,8 +9,11 @@ import BaseNode, { getHandleStyle } from './BaseNode';
 const ACTION_TYPES = [
   { value: 'click',          label: 'Одинарний клік' },
   { value: 'double_click',   label: 'Подвійний клік' },
+  // Додаємо новий тип дії — потрійний клік
+  { value: 'triple_click',   label: 'Потрійний клік' },
   { value: 'hover',          label: 'Наведення (Hover)' },
   { value: 'scroll',         label: 'Прокрутити до (Scroll)' },
+  { value: 'scroll_center',  label: 'Скрол (Центр)' },
   { value: 'force_click',    label: '⚡ Force Click (обхід капчі)' },
   { value: 'js_click',       label: '💻 JS Click (element.click())' },
   { value: 'dispatch_click', label: '🎯 Dispatch Click (повна симуляція)' },
@@ -98,18 +101,38 @@ const ActionNode = memo(({ id, data }: { id: string, data: any }) => {
 
           {/* Клікнути всі копії (не для js_click) */}
           {actionType !== 'js_click' && (
-            <label className="flex items-center gap-3 p-2 bg-muted/50 rounded-md cursor-pointer group hover:bg-muted transition-colors">
-              <input
-                type="checkbox"
-                checked={data.clickAll || false}
-                onChange={(e) => data.onDataChange(id, { clickAll: e.target.checked })}
-                className="w-3.5 h-3.5 rounded border-none bg-blue-500/20 text-blue-500 focus:ring-0"
-              />
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold group-hover:text-blue-400 transition-colors">Клікнути всі копії</span>
-                <span className="text-[9px] text-muted-foreground">Наприклад всі кнопки "Зібрати"</span>
-              </div>
-            </label>
+            <>
+              <label className="flex items-center gap-3 p-2 bg-muted/50 rounded-md cursor-pointer group hover:bg-muted transition-colors">
+                <input
+                  type="checkbox"
+                  checked={data.clickAll || false}
+                  onChange={(e) => {
+                    const clickAll = e.target.checked;
+                    data.onDataChange(id, { clickAll, clickLast: clickAll ? false : data.clickLast });
+                  }}
+                  className="w-3.5 h-3.5 rounded border-none bg-blue-500/20 text-blue-500 focus:ring-0"
+                />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold group-hover:text-blue-400 transition-colors">Клікнути всі копії</span>
+                  <span className="text-[9px] text-muted-foreground">Наприклад всі кнопки "Зібрати"</span>
+                </div>
+              </label>
+
+              {!data.clickAll && (
+                <label className="flex items-center gap-3 p-2 bg-muted/50 rounded-md cursor-pointer group hover:bg-muted transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={data.clickLast || false}
+                    onChange={(e) => data.onDataChange(id, { clickLast: e.target.checked })}
+                    className="w-3.5 h-3.5 rounded border-none bg-blue-500/20 text-blue-500 focus:ring-0"
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold group-hover:text-blue-400 transition-colors">Клікнути останній</span>
+                    <span className="text-[9px] text-muted-foreground">Якщо знайдено декілька — вибере останній</span>
+                  </div>
+                </label>
+              )}
+            </>
           )}
 
           <label className="flex items-center gap-3 p-2 bg-muted/50 rounded-md cursor-pointer group hover:bg-muted transition-colors">
@@ -122,6 +145,22 @@ const ActionNode = memo(({ id, data }: { id: string, data: any }) => {
             <div className="flex flex-col">
               <span className="text-[10px] font-bold group-hover:text-blue-400 transition-colors">Елемент інтерфейсу (статика)</span>
               <span className="text-[9px] text-muted-foreground">Не перетягувати карту до краю вікна</span>
+            </div>
+          </label>
+
+          {/* Прапорець для швидкого кліку (без тривалого очікування появи селектора) */}
+          <label className="flex items-center gap-3 p-2 bg-muted/50 rounded-md cursor-pointer group hover:bg-muted transition-colors">
+            <input
+              type="checkbox" // Тип інпуту - чекбокс
+              checked={data.quick || false} // Стан чекбоксу береться з даних ноди
+              onChange={(e) => data.onDataChange(id, { quick: e.target.checked })} // Оновлюємо значення при зміні
+              className="w-3.5 h-3.5 rounded border-none bg-blue-500/20 text-blue-500 focus:ring-0" // Стилі чекбоксу
+            />
+            <div className="flex flex-col">
+              {/* Заголовок опції */}
+              <span className="text-[10px] font-bold group-hover:text-blue-400 transition-colors">Швидкий клік</span>
+              {/* Допоміжний опис */}
+              <span className="text-[9px] text-muted-foreground">Не чекати 5 секунд появи селектора</span>
             </div>
           </label>
         </div>

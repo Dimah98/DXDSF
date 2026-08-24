@@ -1,0 +1,534 @@
+{
+  "projectName": "SF9",
+  "data": [
+    {
+      "image": "/api/images/soybean_seed.png",
+      "number": 2,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 294
+      }
+    },
+    {
+      "image": "/api/images/5xxBrzDwO0YUxYkAENq029oUhwW2NwdApTXr64fbQxHFiZiGgd+dT3sAvt4MgKzNcT2J87Zw5BKgm+gX97wE4PJ64lpywACMsU9yXG3I2nzAjLGpFE2lUGkNgGtJVFobPrhYlLUpoQOaDVqPTfM_0Q81AUYm90CvAwAAAABJRU5ErkJggg==.png",
+      "number": 41,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 403
+      }
+    },
+    {
+      "image": "/api/images/tools_stone_pickaxe.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 513
+      }
+    },
+    {
+      "image": "/api/images/tools_fishing_rod.png",
+      "number": 13,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 343,
+        "y": 513
+      }
+    },
+    {
+      "image": "/api/images/tools_salt_rake.png",
+      "number": 2,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 402,
+        "y": 513
+      }
+    },
+    {
+      "image": "/api/images/tools_sand_shovel.png",
+      "number": 2,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 462,
+        "y": 513
+      }
+    },
+    {
+      "image": "/api/images/K4Seb_O45KcyFta1iRpOVtSLNrWugzasQdAO63QAQ==.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 521,
+        "y": 513
+      }
+    },
+    {
+      "image": "/api/images/sunflower_crop.png",
+      "number": 1.2,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 622
+      }
+    },
+    {
+      "image": "/api/images/rhubarb_crop.png",
+      "number": 1.1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 343,
+        "y": 622
+      }
+    },
+    {
+      "image": "/api/images/pumpkin_crop.png",
+      "number": 8.8,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 402,
+        "y": 622
+      }
+    },
+    {
+      "image": "/api/images/carrot_crop.png",
+      "number": 65.7,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 462,
+        "y": 622
+      }
+    },
+    {
+      "image": "/api/images/cabbage_crop.png",
+      "number": 706,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 521,
+        "y": 622
+      }
+    },
+    {
+      "image": "/api/images/soybean_crop.png",
+      "number": 912,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 581,
+        "y": 622
+      }
+    },
+    {
+      "image": "/api/images/corn_crop.png",
+      "number": 113,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 641,
+        "y": 622
+      }
+    },
+    {
+      "image": "/api/images/wheat_crop.png",
+      "number": 99,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 700,
+        "y": 622
+      }
+    },
+    {
+      "image": "/api/images/kale_crop.png",
+      "number": 91.7,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 760,
+        "y": 622
+      }
+    },
+    {
+      "image": "/api/images/resources_wood.png",
+      "number": 49.8,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 732
+      }
+    },
+    {
+      "image": "/api/images/resources_stone.png",
+      "number": 139,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 343,
+        "y": 732
+      }
+    },
+    {
+      "image": "/api/images/qLWygZeWx8_MV3J3HeDyeAAAAAF0Uk5TAEDm2GYAAAA+SURBVAjXY2BgYAgFYtZQwQAG1hAXF1cGIOEiyhDo4iJoyhAkIqgEJJWVlEMZgpWVjEMZWI2NTQOAekJDGQAHbQl34P9HEgAAAABJRU5ErkJggg==.png",
+      "number": 21,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 402,
+        "y": 732
+      }
+    },
+    {
+      "image": "/api/images/HNKOAAAAGFBMVEUAAAB1HRH133DuqiDRZAXy896kPAbpz0hnuJ+VAAAAAXRSTlMAQObYZgAAAD5JREFUCNdjAAJBIGYUDBVgYBRSUlJkEFdSUgpkEC1SCnVkEA4KNQaSJsYmiQwiJsZuggyMLm6JAkA9goIMAMKHB0z3pi_7AAAAAElFTkSuQmCC.png",
+      "number": 4,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 462,
+        "y": 732
+      }
+    },
+    {
+      "image": "/api/images/resources_wild_mushroom.png",
+      "number": 50,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 521,
+        "y": 732
+      }
+    },
+    {
+      "image": "/api/images/resources_magic_mushroom.png",
+      "number": 20,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 581,
+        "y": 732
+      }
+    },
+    {
+      "image": "/api/images/Y+JZTrANcBHFSBSDxH9DwA_AOAgBeDokksBlSU+caTapVrNTCnZZzacmOyZE51S8sxsie0TvHOuf8M4DMPyBhER+Y5VRDaFPcb4AQ==.png",
+      "number": 350,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 641,
+        "y": 732
+      }
+    },
+    {
+      "image": "/api/images/oGDSHbr5pQQqIJAHyOwjMAWf1I1iIj+TwAwue_3YmddovoFbFQOYHbs9WB5ujPxM6t2iteIWCk6T3d9ol5VqfLTiPgU9F8AVRUA.png",
+      "number": 210,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 842
+      }
+    },
+    {
+      "image": "/api/images/3_OxWNxdxUXLS4lpSTtYSXtE2C1SgAA.png",
+      "number": 119,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 343,
+        "y": 842
+      }
+    },
+    {
+      "image": "/api/images/xIiqv+fLCv6LyGi+h_dN4zoXoTrhAIANtJAhoEXwy0AAAAASUVORK5CYII=.png",
+      "number": 36,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 951
+      }
+    },
+    {
+      "image": "/api/images/S4io_kejY9CDjUFCRDXme5nSf2QaQxEDAwMA0e1ZQi6bzAoAAAAASUVORK5CYII=.png",
+      "number": 2,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 343,
+        "y": 951
+      }
+    },
+    {
+      "image": "/api/images/z9cN0wCHUiIqP5nYmBgYPheVo1iEozPArNLCEkBzG6WF29uM5owMPw_g6TT5OZDhhdvbjMyYvPjize3GRkYGBgAQDBCtB4tVnMAAAAOZVhJZk1NACoAAAAIAAAAAAAAANJTkwAAAABJRU5ErkJggg==.png",
+      "number": 5,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 402,
+        "y": 951
+      }
+    },
+    {
+      "image": "/api/images/VEWSkrdmAJwf7AOwaMdYIYC+vNF3h887iExqz1tf3pSzCklkkun9hfW3_MG9iRLHl3pIzQaYZW74Bb+xbvlRsuCLAAAAAElFTkSuQmCC.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 1061
+      }
+    },
+    {
+      "image": "/api/images/KzUvXmaKO2sq1wMcyLzT6iDWAl2O02QwKw_zIQVBRSQwKyAMpgZ6ekRf+ZAl9UzqrJKAAAAAElFTkSuQmCC.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 343,
+        "y": 1061
+      }
+    },
+    {
+      "image": "/api/images/MHxUYsrpiL2awYAVWaSoIpqmUyDCTSVQEXsyx_aAAAHnnO6ztaNUUyzl6cvqA1UZSa91x2gyoza0Jo2Q30txKTKjPt2bm2IVWGU6GD0ozvDpTzotgFmRNPwB8mKXfAbmQu3AAAAAElFTkSuQmCC.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 402,
+        "y": 1061
+      }
+    },
+    {
+      "image": "/api/images/nvjWTpgA3wE+geX_2Vj9dCMFAAAAABJRU5ErkJggg==.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 462,
+        "y": 1061
+      }
+    },
+    {
+      "image": "/api/images/2RPe8lDjzP6Evt8AB++n99_+L69pHJeHoS8gdQrKLebFBvNpjPsqMQYwUa4j7csdts2W22pjSgMAWT9GS09ISiICgHOAaZzzK6vXY5gIbo9eWNottrMxlPeUvCSh8P21HiR7FcKfe0iedUfPkbaSOEfIu2JbUAAAAASUVORK5CYII=.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 521,
+        "y": 1061
+      }
+    },
+    {
+      "image": "/api/images/zQD4iGduOC0BKFXLwPdZTaPJ6_Mol10TBWEk2zs6e+88+F8ggAv8Al44uY1liyyBAAAAAElFTkSuQmCC.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 581,
+        "y": 1061
+      }
+    },
+    {
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAP5JREFUOI1jYBhowAhjZFjk/GdgYGCYcWIKhhi6ODJgQeY0zbFjYEhhgGvqs+VDks35j80QFnSBmjw2BqHzHHB+0eFPcHaGBaYhGAYwMDAwGGw7xXDzym6G72XVaK7AdAlWA25e2Y3Ch7nCV0KGwVeCj4EBySUoAVaTx8ZwcZUYXKOj6iesBiG7gAnGmHFiCmPLpF8oGvbfRnc+ZmzADciwyPnvKyHDwMDAwLD5xROchmRY5PxHjl4mBjSw+cUTBnSDkA2BhIMMPI1gDUR0AyE0A9xgrF6YcWIKI0IxwgswPyNr3vziCVwcxQUoAYQl0aBrZmBAikZCgJh8QRYAAFNOcYhttaVoAAAAAElFTkSuQmCC",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 641,
+        "y": 1061
+      }
+    },
+    {
+      "image": "/api/images/fm4TMB8gykdaPAmfmSLG2EEf6FDnYOqP88ZUiMqKaE30FfEff6KQV37b9FpwVAr1PS07O2u5cv_QHA+R7ddvlrzkDiUBlNLbDf3csI1+s1wAAAA==.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 1170
+      }
+    },
+    {
+      "image": "/api/images/1MFjx_8mvtfy0M+ctXZu3rgAAAA==.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 343,
+        "y": 1170
+      }
+    },
+    {
+      "image": "/api/images/EZldCkIzXtFaK1Qz4vAAi0+nMo_5Gafi3FGDTXYLsMpAAA=.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 402,
+        "y": 1170
+      }
+    },
+    {
+      "image": "/api/images/81vxXc0RfF1nkn_uhhY+nphgWu+qpggti8ghLCLCMaAA.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 462,
+        "y": 1170
+      }
+    },
+    {
+      "image": "/api/images/MEaJ5RrQnWI3dDPnJfJZ9vyJ9F_+Lwo56lo87kr8oEvefDWaX4a7+ADAAA.png",
+      "number": 2,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 521,
+        "y": 1170
+      }
+    },
+    {
+      "image": "/api/images/5Z_gp8Mhh6TC6m5CquFzi5RFgAA=.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 581,
+        "y": 1170
+      }
+    },
+    {
+      "image": "/api/images/webp;base64,UklGRoIAAABXRUJQVlA4THYAAAAvCkACED9gEACSIAKIo37gFfaYjUgAwgU++OKjY74oqiLboO6DBgL400D_BBqZmf8AYN9v7zmsxZxxUgvYBACDVNXw23lhFTTAIiAN+J1F9D8g4ivgpGXfwZgPqcx9ocqYmStzd6ouInqSJiLGdKrregZAxBQA.png",
+      "number": 10,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 1280
+      }
+    },
+    {
+      "image": "/api/images/OyjvatTTJX4y9VdTWY07UImfO6x_mqgAAAAASUVORK5CYII=.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 343,
+        "y": 1280
+      }
+    },
+    {
+      "image": "/api/images/EHJI06dDs2OoDXJ0W1UlaL4bWRgWqljNcnRatpIQaP8_okraalRgUG8lOlwB9tDH3Tjcnb2QAAAABJRU5ErkJggg==.png",
+      "number": 9,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 402,
+        "y": 1280
+      }
+    },
+    {
+      "image": "/api/images/5ryYvCnbZjPgmhkA7UQZmIQ6Gl8d+MUjqs4FtMKgoB8sfPHOXgbF79pb_pgYaYAGYRhBHUpQPLAYiQAphAKwBxIFpgkngosGeBtmCrACXZgdTFUZ4cKFrQjcApBgkBgDr+1CgnVKDRgAAAABJRU5ErkJggg==.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 462,
+        "y": 1280
+      }
+    },
+    {
+      "image": "/api/images/HDZJxr3WHbDNFuPkzidAd7vHaJxD_XTl19s0WEy3j+GGwAAAABJRU5ErkJggg==.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 521,
+        "y": 1280
+      }
+    },
+    {
+      "image": "/api/images/hX0vBneLeZfcsqnOpHCfLnDLUoE7M95ZXoKWCcIoh+YqSZnDcNucI65MkHUigTszecgOu05IaiO5JPViV9AzRSfsGkvoUCJBaShw1zKHXRGuGf4OOyLwJZV8sMOuCKdWJIEPdlRwko_nv4wINjD60V+wQx6VInwMlxQXOAAAAABJRU5ErkJggg==.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 581,
+        "y": 1280
+      }
+    },
+    {
+      "image": "/api/images/F_4lxun4n7mrwy9h44zwgO72M7yPy7FvYeOMzIwMDAAABpvYmrWP+EpAAAAAElFTkSuQmCC.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 641,
+        "y": 1280
+      }
+    },
+    {
+      "image": "/api/images/GHaff8nAwMDAcOXkPRQbUExGtiGK6TeDq6E4Q5vUDwYGBgaGF5d_MXx+8AdTMbKTYODzgz8Mz48cYsQZY5I2iOCEBC8DAwDfgFI0tv9rSAAAAABJRU5ErkJggg==.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 1390
+      }
+    },
+    {
+      "image": "/api/images/treasures_sea_cucumber.png",
+      "number": 2,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 343,
+        "y": 1390
+      }
+    },
+    {
+      "image": "/api/images/2MkiuDrUDsUj21guiVdbs98H9Ysxy_9SawAAA==.png",
+      "number": 3,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 402,
+        "y": 1390
+      }
+    },
+    {
+      "image": "/api/images/treasures_starfish.png",
+      "number": 1,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 462,
+        "y": 1390
+      }
+    },
+    {
+      "image": "/api/images/N+BBHR_wmAFefISFTdyFkHI8zdaPJOnyNBHBfVZyHEnIvdt4UMJR9NHJmXMRH6kGtKLSDnqCkRcJn0k1psuMVtjPXozbrOJzKPR+8BwDknZAA=.png",
+      "number": 132,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 283,
+        "y": 1499
+      }
+    },
+    {
+      "image": "/api/images/02hqG1VgEEmSU0lT54Ag4KMAajDA4SBF9D8orQWkDopq5KHbyH1ZrlFOvYNHJ5T_D+CZACUAAA==.png",
+      "number": 220,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 343,
+        "y": 1499
+      }
+    },
+    {
+      "image": "/api/images/lTNOauHACuIkkyZHKGv+lrwFIBPOL4HttPfw53D2HiP5PQIkAiLDjZhMQm029P7tb8c+zlVPykXxsrTyS3DUuxjHr+9OscM+SNBuUWIQBZGmyWiRbI0_+FlsAAA==.png",
+      "number": 3,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 402,
+        "y": 1499
+      }
+    },
+    {
+      "image": "/api/images/rQMjf1lVVWsT0VEbB0NtbTZ_d13vXVTEdPGcTWf0MVdGjBEBgBjAA==.png",
+      "number": 110,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 462,
+        "y": 1499
+      }
+    },
+    {
+      "image": "/api/images/3TAiPh3ekZWihZ9VdWlgjH0jpAi61jUJ+aGDctrIzN8nG8T3uPi89yhVZ7m6mev7gyAQ31dHdQeq1sWD4pLZREzVzDj8upl7Ce5EZFLZSErUCt94vE2u4Rilr485k2UjSeIhEJCjG3vIPP40ZRC_+pXwet1DUAt+pY6PPiOPuiQAAAABJRU5ErkJggg==.png",
+      "number": 20,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 521,
+        "y": 1499
+      }
+    },
+    {
+      "image": "/api/images/wP2HZi07sHpcWXSWkJ_aB1DX63PaagxpPgXHo4cwgA13sDxDQAA.png",
+      "number": 95,
+      "selector": "div.relative:has(img[alt=\"item\"])",
+      "coords": {
+        "x": 581,
+        "y": 1499
+      }
+    }
+  ],
+  "timestamp": 1783963485547,
+  "version": "1.0",
+  "metadata": {
+    "selector": "div.relative:has(img[alt=\"item\"])",
+    "itemCount": 58,
+    "scanDuration": 9816
+  }
+}

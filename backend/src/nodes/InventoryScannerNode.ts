@@ -1,4 +1,5 @@
 import { Logger } from '../logger';
+import { upsertInventoryItem } from '../db/schema';
 import { NodeHandlerParams, NodeResult, InventoryScannerNodeData, ScanResult, InventoryFile } from './types';
 import { inputValidator } from '../validation/InputValidator';
 import * as fs from 'fs';
@@ -28,7 +29,7 @@ export const inventoryScannerNodeHandler = async ({
   logToClient,
   takeDebugSnapshot
 }: NodeHandlerParams): Promise<NodeResult> => {
-  const nodeData = currentNode.data as InventoryScannerNodeData;
+  const nodeData = currentNode.data as unknown as InventoryScannerNodeData;
   const { selector, containerSelector, mode = 'all', imageSource = 'auto', numberRegex } = nodeData;
   
   // Requirement 1.8: Validate CSS selector before Playwright operations
@@ -322,6 +323,16 @@ export const inventoryScannerNodeHandler = async ({
         path: inventoryFilePath, 
         itemCount: scanResults.length 
       });
+    // SQLite: sync inventory items
+    try {
+      for (const item of scanResults) {
+        const itemName = item.image ? (item.image.split('/').pop() || '').replace(/.[^/.]+$/, '') : 'unknown';
+        upsertInventoryItem(projectName, itemName, item.number, item.image);
+      }
+    } catch (dbErr) {
+      logger.warn('Failed to sync inventory to SQLite', { error: String(dbErr) });
+    }
+
     } catch (saveErr) {
       logger.error(`Failed to save inventory file`, saveErr instanceof Error ? saveErr : new Error(String(saveErr)), {
         projectName,

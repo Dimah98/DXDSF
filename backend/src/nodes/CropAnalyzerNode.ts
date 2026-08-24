@@ -1,8 +1,8 @@
 import { NodeHandlerParams } from './types';
-import { Logger } from '../logger';
 import { schedulerService } from '../index';
-
-const logger = new Logger('CropAnalyzerNode');
+import { BASE_GROWTH_TIMES } from '../plugins/sunflower-land/data/crops';
+import fs from 'fs';
+import path from 'path';
 
 // Тип одного правила розкладу
 // Якщо час до врожаю потрапляє в діапазон [fromMin, toMin),
@@ -14,56 +14,30 @@ interface ScheduleRule {
   scheduleToMin: number;   // Запустити не пізніше ніж через Y хвилин
 }
 
-// Базовий час росту для кожної рослини (в мілісекундах)
-// Взято з офіційного репозиторію Sunflower Land (src/features/game/types/crops.ts)
-const BASE_GROWTH_TIMES: Record<string, number> = {
-  'Sunflower': 60 * 1000,
-  'Potato': 5 * 60 * 1000,
-  'Rhubarb': 10 * 60 * 1000,
-  'Pumpkin': 30 * 60 * 1000,
-  'Zucchini': 30 * 60 * 1000,
-  'Carrot': 60 * 60 * 1000,
-  'Yam': 60 * 60 * 1000,
-  'Cabbage': 2 * 60 * 60 * 1000,
-  'Broccoli': 2 * 60 * 60 * 1000,
-  'Soybean': 3 * 60 * 60 * 1000,
-  'Beetroot': 4 * 60 * 60 * 1000,
-  'Pepper': 4 * 60 * 60 * 1000,
-  'Cauliflower': 8 * 60 * 60 * 1000,
-  'Parsnip': 12 * 60 * 60 * 1000,
-  'Eggplant': 16 * 60 * 60 * 1000,
-  'Corn': 20 * 60 * 60 * 1000,
-  'Onion': 20 * 60 * 60 * 1000,
-  'Radish': 24 * 60 * 60 * 1000,
-  'Wheat': 24 * 60 * 60 * 1000,
-  'Turnip': 24 * 60 * 60 * 1000,
-  'Kale': 36 * 60 * 60 * 1000,
-  'Artichoke': 36 * 60 * 60 * 1000,
-  'Barley': 48 * 60 * 60 * 1000,
-  'Rice': 32 * 60 * 60 * 1000,
-  'Olive': 44 * 60 * 60 * 1000,
-};
-
 // Обробник ноди "Аналізатор врожаю"
 export const cropAnalyzerNodeHandler = async ({
   currentNode, context, globalVariables, broadcastVariables, logToClient, projectName
 }: NodeHandlerParams) => {
-  const { variableName, scheduleRules = [] } = currentNode.data;
+  const { variableName, scheduleRules = [] } = currentNode.data as Record<string, unknown>;
 
   if (!variableName) {
     logToClient(`❌ Аналізатор: Не вказана змінна для збереження результату`, 'error');
     return { data: { ...context, error: 'Missing variable name' }, nextHandle: ['error'] };
   }
 
-  // Шукаємо дані в context.raw або context.value (куди ApiNode зберігає результат)
-  const apiData = context?.raw || context?.value;
-
-  if (!apiData || typeof apiData !== 'object') {
-    logToClient(`❌ Аналізатор: В контексті немає JSON даних від API`, 'error');
-    return { data: { ...context, error: 'No API data found in context' }, nextHandle: ['error'] };
+  const savePath = path.join(__dirname, '../../projects', `${projectName}_save.json`);
+  let apiData: any = null;
+  try {
+    const fileContent = fs.readFileSync(savePath, 'utf-8');
+    apiData = JSON.parse(fileContent);
+  } catch (e) {
+    logToClient(`❌ Аналізатор: Не вдалося прочитати ${projectName}_save.json`, 'error');
+    return { data: { ...context, error: 'Failed to read save file' }, nextHandle: ['error'] };
   }
 
-  const crops = apiData?.visitedFarmState?.crops;
+  const apiDataObj = apiData as Record<string, unknown>;
+  const visitedFarmState = apiDataObj.visitedFarmState as Record<string, unknown> | undefined;
+  const crops = visitedFarmState?.crops as Record<string, unknown> | undefined;
 
   if (!crops || Object.keys(crops).length === 0) {
     logToClient(`⚠️ Аналізатор: Грядки не знайдено в даних`, 'info');
@@ -72,7 +46,7 @@ export const cropAnalyzerNodeHandler = async ({
   }
 
   // Отримуємо зміщення часу між нашим ПК і сервером (якщо ApiNode його зберегла)
-  const clockOffset = context?.__clockOffset || 0;
+  const clockOffset = (context?.__clockOffset as number) || 0;
   // Поточний час у координатах сервера
   const serverNow = Date.now() - clockOffset;
 
@@ -82,15 +56,15 @@ export const cropAnalyzerNodeHandler = async ({
 
   // Проходимо по всіх грядках
   for (const cropId in crops) {
-    const cropData = crops[cropId].crop;
+    const cropData = (crops[cropId] as Record<string, unknown>).crop as Record<string, unknown>;
     if (!cropData || !cropData.plantedAt) continue; // Пропускаємо порожні грядки
 
-    const cropName = cropData.name || 'Unknown';
-    const baseTime = BASE_GROWTH_TIMES[cropName] || 0;
+    const cropName = String(cropData.name) || 'Unknown';
+    const baseTime = BASE_GROWTH_TIMES[cropName as keyof typeof BASE_GROWTH_TIMES] || 0;
 
     // ЛОГІКА GRI: plantedAt вже зсунуто у минуле на величину бафу!
     // Тому: readyAt = plantedAt + базовий_час
-    const readyAtServerTime = cropData.plantedAt + baseTime;
+    const readyAtServerTime = (cropData.plantedAt as number) + baseTime;
 
     if (readyAtServerTime <= serverNow) {
       // Ця рослина вже виросла
@@ -116,7 +90,7 @@ export const cropAnalyzerNodeHandler = async ({
     const adjustedReadyAt = minReadyAt + clockOffset;
 
     // Зберігаємо час у глобальну змінну для SetNextRunNode
-    globalVariables[variableName] = adjustedReadyAt;
+    globalVariables[String(variableName)] = adjustedReadyAt;
     broadcastVariables();
 
     const minutesLeft = Math.max(0, Math.round((adjustedReadyAt - Date.now()) / 60000));

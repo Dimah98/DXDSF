@@ -1,23 +1,24 @@
 import { NodeHandlerParams } from './types';
 export const compareNodeHandler = async ({ currentNode, context, globalVariables, ws, targetHandle, logToClient }: NodeHandlerParams) => {
-  const nodeResults: Record<string, any> = {};
-  const mode = currentNode.data.compareMode || 'number';
+  const nodeResults: Record<string, unknown> = {};
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const mode = (nodeData.compareMode as string) || 'number';
 
   if (targetHandle === 'valA') {
-    currentNode.data.valA = mode === 'number' ? (context.num ?? context.value ?? 0) : (context.text ?? context.value ?? "");
-    ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { valA: currentNode.data.valA } }));
+    nodeData.valA = mode === 'number' ? (context.num ?? context.value ?? 0) : (context.text ?? context.value ?? "");
+    ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { valA: nodeData.valA } }));
     nodeResults.skipNext = true;
   } else if (targetHandle === 'valB') {
-    currentNode.data.valB = mode === 'number' ? (context.num ?? context.value ?? 0) : (context.text ?? context.value ?? "");
-    ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { valB: currentNode.data.valB } }));
+    nodeData.valB = mode === 'number' ? (context.num ?? context.value ?? 0) : (context.text ?? context.value ?? "");
+    ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { valB: nodeData.valB } }));
     nodeResults.skipNext = true;
   } else {
     let met = false;
-    const op = currentNode.data.operator || (mode === 'number' ? '>' : 'equals');
+    const op = (nodeData.operator as string) || (mode === 'number' ? '>' : 'equals');
 
     if (mode === 'number') {
-      const a = Number(currentNode.data.valA || 0);
-      const b = Number(currentNode.data.valB || 0);
+      const a = Number(nodeData.valA || 0);
+      const b = Number(nodeData.valB || 0);
       if (op === '>') met = a > b;
       else if (op === '<') met = a < b;
       else if (op === '==') met = a == b;
@@ -26,10 +27,10 @@ export const compareNodeHandler = async ({ currentNode, context, globalVariables
       else if (op === '!=') met = a != b;
       logToClient(`⚙️ ЧИСЛА: ${a} ${op} ${b} -> ${met}`, met ? 'success' : 'error');
     } else {
-      let valA = String(currentNode.data.valA || "");
+      let valA = String(nodeData.valA || "");
       // Підтримка глобальних змінних
       if (globalVariables[valA] !== undefined) valA = String(globalVariables[valA]);
-      const valB = String(currentNode.data.valB || "");
+      const valB = String(nodeData.valB || "");
 
       if (op === 'equals') met = valA === valB;
       else if (op === 'not_equals') met = valA !== valB;

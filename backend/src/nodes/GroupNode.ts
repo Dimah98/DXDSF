@@ -2,6 +2,9 @@ import { Logger } from '../logger';
 import { BotEngine } from '../engine/BotEngine';
 import { nodeHandlers } from './index';
 import { getOrCreateSession } from '../browserManager';
+import { ConfigStore } from '../configs/ConfigStore';
+import { evaluateConfig, loadConfigFiles } from '../configs/ConfigEvaluator';
+import { NodeHandlerParams, NodeResult, NodeData } from './types';
 
 const logger = new Logger('GroupNode');
 
@@ -11,22 +14,57 @@ export const groupNodeHandler = async ({
   ws,
   context,
   globalVariables,
-  projectName, // Назва поточного проекту для передачі в підпрограмний двигун
+  projectName,
   broadcastVariables,
   logToClient,
   takeDebugSnapshot,
   smartSleep,
   nodeRuntimeState,
-}: any): Promise<any> => {
-  const subNodes: any[] = currentNode.data?.subNodes || [];
-  const subEdges: any[] = currentNode.data?.subEdges || [];
-  const groupLabel = currentNode.data?.label || 'Контейнер';
+}: NodeHandlerParams): Promise<NodeResult> => {
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const subNodes = Array.isArray(nodeData.subNodes) ? nodeData.subNodes : [];
+  const subEdges = Array.isArray(nodeData.subEdges) ? nodeData.subEdges : [];
+  const groupLabel = (nodeData.label as string) || 'Контейнер';
+  const configId = nodeData.configId as string | undefined;
+
+  // ── Якщо вказана конфігурація — оцінюємо перед запуском ──
+  if (configId) {
+    const config = ConfigStore.getById(configId);
+    if (!config) {
+      logToClient(`❌ [${groupLabel}] Конфігурацію ${configId} не знайдено — пропускаємо контейнер`, 'error');
+      return { nextHandle: 'out', data: context };
+    }
+
+    if (config.enabled === false) {
+      logToClient(`🚫 [${groupLabel}] Конфіг «${config.name}» ВИМКНЕНО — пропускаємо контейнер`, 'error');
+      return { nextHandle: 'out', data: context };
+    }
+
+    // Оцінюємо конфігурацію так само, як ConfigNode — з читанням файлів
+    const fileCache = loadConfigFiles(config, projectName, logToClient);
+    const extractedVars: Record<string, unknown> = {};
+    const filesToSave = new Set<string>();
+
+    const finalResult = evaluateConfig(config, projectName, fileCache, filesToSave, extractedVars, globalVariables, logToClient);
+
+    // Note: we intentionally do NOT save files here (GroupNode is read-only check)
+    // If read_delete rules need to persist, use ConfigNode instead
+
+    logToClient(`${finalResult ? '✅' : '❌'} [${groupLabel}] Конфіг «${config.name}» → ${finalResult ? 'TRUE' : 'FALSE'}`, finalResult ? 'success' : 'error');
+
+    if (!finalResult) {
+      logToClient(`⏭️ [${groupLabel}] Конфіг FALSE — пропускаємо контейнер, сигнал йде далі`, 'info');
+      return { nextHandle: 'out', data: context };
+    }
+
+    logToClient(`▶️ [${groupLabel}] Конфіг TRUE — запускаємо контейнер`, 'success');
+  }
 
   logger.debug(`Running group "${groupLabel}"`, { nodeId: currentNode.id, subNodeCount: subNodes.length, subEdgeCount: subEdges.length });
 
   logToClient(`📦 [${groupLabel}] Запуск підпрограми (${subNodes.length} нод)`, 'debug');
 
-  const entryNode = subNodes.find((n: any) => n.type === 'subEntryNode');
+  const entryNode = subNodes.find((n: Record<string, unknown>) => n.type === 'subEntryNode');
   if (!entryNode) {
     logger.error(`No subEntryNode found in group ${currentNode.id}`);
     logToClient(`❌ [${groupLabel}] Не знайдено вхідної ноди (subEntryNode)!`, 'error');
@@ -35,8 +73,7 @@ export const groupNodeHandler = async ({
 
   logger.debug(`Entry node found for group "${groupLabel}"`, { entryNodeId: entryNode.id });
 
-  // Отримуємо сесію за назвою проекту (projectName приходить з параметрів ноди)
-  const session = getOrCreateSession(projectName); // Отримуємо відповідну сесію для перевірки стану
+  const session = getOrCreateSession(projectName);
 
   const engine = new BotEngine({
     nodes: subNodes,
@@ -44,20 +81,20 @@ export const groupNodeHandler = async ({
     activePage,
     ws,
     globalVariables,
-    projectName, // Передаємо назву проекту з параметрів ноди в підрушній двигун
+    projectName,
     broadcastVariables,
     logToClient: (msg, type) => logToClient(`  ↳ ${msg}`, type),
     takeDebugSnapshot,
     smartSleep,
     nodeRuntimeState,
     nodeHandlers,
-    checkRunning: () => (ws as any).isSingleNodeRun ? (ws as any).isBotRunning : session.isBotRunning, // Перевіряємо, чи продовжує працювати бот для поточного проекту
-    onNodeDisplayUpdate: (nodeId, data) => {
+    checkRunning: () => (ws as any).isSingleNodeRun ? (ws as any).isBotRunning : session.isBotRunning,
+    onNodeDisplayUpdate: (nodeId) => {
       try {
         ws.send(JSON.stringify({
           type: 'NODE_DATA_UPDATE',
           nodeId: currentNode.id,
-          data: { activeNodeLabel: subNodes.find((n: any) => n.id === nodeId)?.data?.label || '...', activeNodeId: nodeId }
+          data: { activeNodeLabel: subNodes.find((n: Record<string, unknown>) => n.id === nodeId)?.data?.label || '...', activeNodeId: nodeId }
         }));
       } catch (sendErr) {
         logger.warn(`Failed to send NODE_DATA_UPDATE for group node ${currentNode.id}`, { error: String(sendErr) });
@@ -77,22 +114,18 @@ export const groupNodeHandler = async ({
     }
   });
 
-  // Requirement 13.1: Wrap async operations in try-catch with logging
-  let result: any;
+  let result: { context: NodeData } | undefined;
   try {
-    // Запускаємо внутрішній граф
     result = await engine.run(entryNode.id, context);
-  } catch (err: any) {
-    // Requirement 13.1: Log the error
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
     logger.error(`Group engine run failed for node ${currentNode.id}`, err instanceof Error ? err : new Error(String(err)), { groupLabel });
-    logToClient(`❌ [${groupLabel}] Помилка підпрограми: ${err.message || String(err)}`, 'error');
-    // Requirement 13.5: Continue execution through error handle path
+    logToClient(`❌ [${groupLabel}] Помилка підпрограми: ${errorMessage}`, 'error');
     return { nextHandle: 'out', data: context };
   }
 
   logToClient(`📦 [${groupLabel}] Підпрограма завершена ✓`, 'success');
 
-  // Очищаємо статус активної ноди в UI
   try {
     ws.send(JSON.stringify({
       type: 'NODE_DATA_UPDATE',
@@ -105,4 +138,3 @@ export const groupNodeHandler = async ({
 
   return { nextHandle: 'out', data: result?.context || context };
 };
-

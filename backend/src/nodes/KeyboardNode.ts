@@ -10,40 +10,43 @@ export const keyboardNodeHandler = async ({ currentNode, activePage, smartSleep,
       logToClient(`⌨️ Натискання ESC`, 'debug');
       await activePage.keyboard.press('Escape');
     } else {
-      const keys = currentNode.data.keys || [];
+      const nodeData = currentNode.data as Record<string, unknown>;
+      const keys = Array.isArray(nodeData.keys) ? nodeData.keys as Record<string, unknown>[] : [];
       for (const k of keys) {
         if (!k.key) continue;
         
-        const keyStr = k.key2 ? `${k.key2} + ${k.key}` : k.key;
-        logToClient(`⌨️ Макрос: ${keyStr} (утримання ${k.holdTime || 0}мс)`, 'debug');
+        const keyStr = k.key2 ? `${k.key2} + ${k.key}` : String(k.key);
+        const holdTime = (k.holdTime as number) || 0;
+        const delay = (k.delay as number) || 0;
+        logToClient(`⌨️ Макрос: ${keyStr} (утримання ${holdTime}мс)`, 'debug');
         
         if (k.key2) {
-          await activePage.keyboard.down(k.key2);
-          await smartSleep(20, ws);
+          await activePage.keyboard.down(String(k.key2));
+          await new Promise(resolve => setTimeout(resolve, 20));
         }
         
-        await activePage.keyboard.down(k.key);
+        await activePage.keyboard.down(String(k.key));
         
-        if (k.holdTime && k.holdTime > 0) {
-          await smartSleep(k.holdTime, ws);
+        if (holdTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, holdTime));
         }
         
-        await activePage.keyboard.up(k.key);
+        await activePage.keyboard.up(String(k.key));
         
         if (k.key2) {
-          await smartSleep(20, ws);
-          await activePage.keyboard.up(k.key2);
+          await new Promise(resolve => setTimeout(resolve, 20));
+          await activePage.keyboard.up(String(k.key2));
         }
         
-        if (k.delay && k.delay > 0) {
-          await smartSleep(k.delay, ws);
+        if (delay > 0) {
+          await smartSleep(delay, ws);
         }
       }
     }
-  } catch (err: any) {
-    // Requirement 13.1: Log the error
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
     logger.error(`Keyboard action failed for node ${currentNode.id}`, err instanceof Error ? err : new Error(String(err)));
-    logToClient(`❌ Помилка клавіатури: ${err.message || String(err)}`, 'error');
+    logToClient(`❌ Помилка клавіатури: ${errorMessage}`, 'error');
     // Requirement 13.5: Continue execution through error handle path
     return { data: context, nextHandle: ['error'] };
   }

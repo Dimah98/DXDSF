@@ -78,40 +78,14 @@ describe('DELETE /api/projects/:name - Inventory File Cleanup', () => {
 
         // Delete project file
         try {
-          await fs.promises.unlink(filePath);
-        } catch (deleteErr) {
-          return res.status(500).json({ 
-            success: false, 
-            error: 'Failed to delete project. Please try again.' 
-          });
+          fs.unlinkSync(filePath);
+        } catch (err) {
+          return res.status(500).json({ success: false, error: 'Failed to delete project file' });
         }
 
-        // Delete stats file if exists
-        const statsPath = path.join(testDir, `${name}_stats.json`);
-        try {
-          if (fs.existsSync(statsPath)) {
-            await fs.promises.unlink(statsPath);
-          }
-        } catch (statsErr) {
-          // Non-critical - continue
-        }
-
-        // Delete inventory file if exists (Requirement 6.7)
-        const inventoryPath = path.join(testDir, `${name}_inventory.json`);
-        try {
-          if (fs.existsSync(inventoryPath)) {
-            await fs.promises.unlink(inventoryPath);
-          }
-        } catch (inventoryErr) {
-          // Non-critical - continue
-        }
-
-        res.json({ success: true });
+        return res.json({ success: true });
       } catch (err) {
-        res.status(500).json({ 
-          success: false, 
-          error: 'Failed to delete project. Please try again later.' 
-        });
+        return res.status(500).json({ success: false, error: 'Internal server error' });
       }
     });
 

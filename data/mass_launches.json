@@ -1,0 +1,27 @@
+[
+  {
+    "name": "1",
+    "mode": "json_time",
+    "jsonPath": "$.visitedFarmState.floatingIsland.schedule[0].startAt",
+    "containers": [
+      "Початок",
+      "LOVE"
+    ],
+    "enabled": true,
+    "id": "94d92705-b30b-41da-a544-60b38b0761f2",
+    "lastRunTime": 1787599208354,
+    "projectLastRuns": {
+      "Dimah": 1787599200000,
+      "SF": 1787599200000,
+      "SF1": 1787599200000,
+      "SF10": 1787599200000,
+      "SF2": 1787599200000,
+      "SF3": 1787599200000,
+      "SF4": 1787599200000,
+      "SF5": 1787599200000,
+      "SF6": 1787599200000,
+      "SF8": 1787599200000,
+      "SF9": 1787599200000
+    }
+  }
+]

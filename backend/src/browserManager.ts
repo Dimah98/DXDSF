@@ -1,13 +1,13 @@
 // Імпортуємо необхідні типи та модулі з playwright та стандартних бібліотек Node.js
-import { chromium, BrowserContext, Page, Browser } from 'playwright';
+import { chromium, Page } from 'playwright';
 // Імпортуємо модуль path для роботи зі шляхами до файлів
 import path from 'path';
 // Імпортуємо модуль fs для роботи з файловою системою
 import fs from 'fs';
 // Імпортуємо модуль net для перевірки вільних портів
 import net from 'net';
-// Імпортуємо клас WebSocket для типізації
-import { WebSocket } from 'ws';
+// Імпортуємо child_process для виклику Win32 API приховування вікон
+import { exec } from 'child_process';
 // Читаємо налаштування з файлу .env
 import 'dotenv/config';
 // Імпортуємо структурований логер
@@ -16,7 +16,53 @@ import { Logger } from './logger';
 // Логер для browserManager
 const logger = new Logger('BrowserManager');
 
+/**
+ * Приховує вікно процесу з панелі завдань та екрану Windows за допомогою cdpPort
+ */
+export function hideProcessWindowByPort(cdpPort: number) {
+  if (process.platform !== 'win32' || !cdpPort) return;
+
+  const psScript = `$code = @'
+using System;
+using System.Runtime.InteropServices;
+public class WinUtil {
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(Func<IntPtr, IntPtr, bool> lpEnumFunc, IntPtr lParam);
+    public static void HidePid(uint targetPid) {
+        EnumWindows((hWnd, lParam) => {
+            uint p;
+            GetWindowThreadProcessId(hWnd, out p);
+            if (p == targetPid) { ShowWindow(hWnd, 0); }
+            return true;
+        }, IntPtr.Zero);
+    }
+}
+'@
+Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
+$proc = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*remote-debugging-port=${cdpPort}*' } | Select-Object -First 1
+if ($proc) { [WinUtil]::HidePid([uint32]$proc.ProcessId) }
+`;
+
+  const command = `powershell -NoProfile -NonInteractive -Command "${psScript.replace(/\r?\n/g, ' ')}"`;
+
+  try {
+    exec(command, (err) => {
+      if (err) logger.debug(`Failed to hide window for cdpPort ${cdpPort}: ${err.message}`);
+    });
+    setTimeout(() => {
+      try { exec(command, () => {}); } catch (_) {}
+    }, 1000);
+    setTimeout(() => {
+      try { exec(command, () => {}); } catch (_) {}
+    }, 2500);
+  } catch (e) {
+    logger.debug(`Error executing hideProcessWindowByPort: ${String(e)}`);
+  }
+}
+
 import { ProjectSession, ExtendedWebSocket } from './types';
+import { internalConfig } from './internalConfig';
 
 // Створюємо карту для зберігання активних сесій за назвою проекту
 export const sessions = new Map<string, ProjectSession>();
@@ -102,9 +148,27 @@ export function setSessionActiveWs(projectName: string, ws: ExtendedWebSocket) {
 }
 
 // Функція для перевірки чи активний браузер у сесії
-export function isSessionBrowserAlive(session: ProjectSession) {
+export function isSessionBrowserAlive(session: ProjectSession): boolean {
   // Перевіряємо чи об'єкт браузера існує та чи має активне підключення
-  return session.browser && session.browser.isConnected();
+  if (session.browser && session.browser.isConnected()) {
+    return true;
+  }
+  // Перевіряємо через context (для persistent context Playwright)
+  if (session.context) {
+    try {
+      const pages = session.context.pages();
+      if (pages.length > 0 && !pages[0].isClosed()) {
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+  // Перевіряємо через page
+  if (session.page && !session.page.isClosed()) {
+    return true;
+  }
+  return false;
 }
 
 // Функція для закриття браузера конкретної сесії
@@ -118,11 +182,17 @@ export async function closeSessionBrowser(session: ProjectSession) {
       // Логуємо помилку закриття браузера (не критична — ресурси все одно скидаємо)
       logger.warn(`Error closing browser for project ${session.projectName}`, { error: String(e) });
     }
-    // Скидаємо посилання в сесії на null
-    session.browser = null;
-    session.context = null;
-    session.page = null;
+  } else if (session.context) {
+    try {
+      await session.context.close();
+    } catch (e) {
+      logger.warn(`Error closing browser context for project ${session.projectName}`, { error: String(e) });
+    }
   }
+  // Скидаємо посилання в сесії на null
+  session.browser = null;
+  session.context = null;
+  session.page = null;
 }
 
 // Функція для підключення Playwright до запущеного браузера через CDP
@@ -253,7 +323,7 @@ async function resizeBrowserWindow(session: ProjectSession, targetPage: Page, wi
 }
 
 // Головна функція для підключення або запуску браузера конкретної сесії проекту
-export async function connectToBrowser(session: ProjectSession, width = 1280, height = 720, profileName?: string, profileDir?: string, proxyServer?: string) {
+export async function connectToBrowser(session: ProjectSession, width = 1280, height = 720, _profileName?: string, profileDir?: string, proxyServer?: string) {
   // Визначаємо директорію профілю: вказану користувачем або дефолтну
   const requestedProfileDir = profileDir && profileDir.trim() !== '' ? profileDir : ITBROWSER_PROFILE_DIR;
 
@@ -398,12 +468,28 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     // Формуємо повний шлях до userData профілю
     const activeUserData = path.join(ITBROWSER_BASE_USERDATA, activeProfileDir);
     
+    const RONIN_EXTENSION_ID = 'fnjhmkhhmkbjkkabndcnnogagogbneec';
+    const extensionBaseDir = path.join(activeUserData, 'Default', 'Extensions', RONIN_EXTENSION_ID);
+    let loadExtensionPath = '';
+    if (fs.existsSync(extensionBaseDir)) {
+      try {
+        const versionDirs = fs.readdirSync(extensionBaseDir).filter(d => fs.statSync(path.join(extensionBaseDir, d)).isDirectory());
+        if (versionDirs.length > 0) {
+          loadExtensionPath = path.join(extensionBaseDir, versionDirs[0]);
+        }
+      } catch (e) {
+        logger.error(`Failed to read extension directory for project ${session.projectName}`, e instanceof Error ? e : new Error(String(e)));
+      }
+    }
+
     // Формуємо масив аргументів для запуску Chromium
     const args = [
       // Вказуємо шлях до файлу фінгерпринту IT Browser
       `--itbrowser=${path.join(path.dirname(ITBROWSER_BASE_USERDATA), 'fingerprint', activeProfileDir + '.json')}`,
       // Передаємо виділений динамічний порт віддаленого налагодження
       `--remote-debugging-port=${session.cdpPort}`,
+      // Дозволяємо підключення з будь-яких IP (щоб DevTools працював з інших пристроїв)
+      '--remote-debugging-address=0.0.0.0',
       // Директорія профілю за замовчуванням
       '--profile-directory=Default',
       // Вимикаємо вікно першого запуску
@@ -424,6 +510,13 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     // щоб вони не віддавали закешовані картинки і всі запити йшли через наш route перехоплювач
     if (session.botSettings?.disableImages) {
       args.push('--disable-service-workers');
+    }
+
+    // Перевіряємо чи увімкнено невидимий режим в глобальному конфігу або в налаштуваннях бота
+    const isHeadless = internalConfig.get('headless') === 1 || session.botSettings?.headless === true;
+    if (isHeadless) {
+      // Сучасний нативний безголовий режим Chromium (Chrome 109+), який підтримує всі антидетект-функції ITBrowser без відкриття вікон
+      args.push('--headless=new');
     }
 
     // Об'єкт конфігурації проксі для Playwright, який дозволить автоматично авторизуватися без спливаючих вікон
@@ -476,13 +569,18 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
       logger.debug(`Project ${session.projectName} using proxy`, { server: proxyConfig?.server || 'unknown', hasAuth: !!proxyConfig?.username });
     } // Кінець перевірки проксі
 
+    if (loadExtensionPath) {
+      args.push(`--disable-extensions-except=${loadExtensionPath}`);
+      args.push(`--load-extension=${loadExtensionPath}`);
+    }
+
     // Запускаємо стійкий контекст Playwright з усіма налаштуваннями
     return await chromium.launchPersistentContext(activeUserData, { // Запускаємо браузер із профілем
       executablePath: ITBROWSER_EXE, // Шлях до виконуваного файлу IT Browser
-      headless: false, // Запускаємо браузер у видимому вікні
+      headless: false, // ITBrowser антидетект крашиться від нативного Playwright --headless, невидимість забезпечується через --window-position=-32000,-32000
       viewport: null, // Дозволяємо браузеру самостійно визначати розмір вікна
-      ignoreDefaultArgs: ['--enable-automation'], // Видаляємо повідомлення про автоматизацію
-      args, // Передаємо додаткові аргументи Chromium
+      ignoreDefaultArgs: ['--enable-automation', '--disable-extensions'], // Видаляємо повідомлення про автоматизацію і дозволяємо розширення
+      args, // Передаємо додаткові аргументи Chromium (включаючи зміщення вікна за екран для невидимого режиму)
       proxy: proxyConfig // Передаємо об'єкт проксі для авто-авторизації без спливаючих вікон
     }); // Повертаємо запущений контекст
   };
@@ -550,6 +648,13 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
 
     // Отримуємо об'єкт браузера
     session.browser = session.context.browser() as any;
+
+    const isHeadless = internalConfig.get('headless') === 1 || session.botSettings?.headless === true;
+    if (isHeadless) {
+      logger.info(`Hiding taskbar window for project ${session.projectName} (CDP Port ${session.cdpPort})`);
+      hideProcessWindowByPort(session.cdpPort);
+    }
+
     logger.info(`Profile ${activeProfileDir} launched successfully for project ${session.projectName}`, { port: session.cdpPort });
     // Зберігаємо поточний запущений профіль
     session.currentlyRunningProfileDir = requestedProfileDir;
@@ -637,7 +742,7 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
           session.latestFarmId = farmId;
           session.latestApiToken = token;
         }
-      } catch {
+      } catch (e) {
         // Ігноруємо помилки фонового перехоплювача
       }
     });
@@ -941,8 +1046,9 @@ export async function takeDebugSnapshot(session: ProjectSession, nodeId: string,
       logger.warn(`Failed to clean up old debug images for project ${session.projectName}`, { error: String(cleanupErr) });
     }
 
-    // Формуємо назву файлу
-    const fileName = `debug_node_${nodeId}_${Date.now()}.png`;
+    // Формуємо назву файлу (додано projectName для фільтрації)
+    const sanitizedProjectName = session.projectName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `debug_${sanitizedProjectName}_node_${nodeId}_${Date.now()}.png`;
     const filePath = path.join(imagesDir, fileName);
 
     // Додаємо підсвітку та лейбл на сторінку
@@ -959,42 +1065,73 @@ export async function takeDebugSnapshot(session: ProjectSession, nodeId: string,
         s.setProperty('pointer-events', 'none', 'important');
         s.setProperty('display', 'block', 'important');
 
-        let posX = 20, posY = 20;
+        let foundRect: DOMRect | null = null;
+        let foundEl: Element | null = null;
 
         if (h) {
           if (h.selector) {
-            const el = document.querySelector(h.selector);
-            if (el) {
-              const r = el.getBoundingClientRect();
-              s.setProperty('border', '4px solid #ef4444', 'important');
-              s.setProperty('left', (r.left - 2) + 'px', 'important');
-              s.setProperty('top', (r.top - 2) + 'px', 'important');
-              s.setProperty('width', (r.width + 4) + 'px', 'important');
-              s.setProperty('height', (r.height + 4) + 'px', 'important');
-              s.setProperty('border-radius', '4px', 'important');
-              posX = r.left;
-              posY = r.top - 40;
+            // 1. Спробуємо стандартний querySelector
+            try {
+              foundEl = document.querySelector(h.selector);
+            } catch {
+              foundEl = null;
             }
-          } else if (h.x !== undefined) {
+
+            // 2. Якщо це img[src*="..."], шукаємо серед усіх <img> за підрядком
+            if (!foundEl && typeof h.selector === 'string' && h.selector.includes('img[')) {
+              const srcMatch = h.selector.match(/src\*=["']?([^"']+)["']?/);
+              if (srcMatch && srcMatch[1]) {
+                const searchStr = srcMatch[1].toLowerCase();
+                const allImgs = Array.from(document.querySelectorAll('img'));
+                foundEl = allImgs.find(img => img.src && img.src.toLowerCase().includes(searchStr)) || null;
+              }
+            }
+
+            // 3. Якщо селектор містить просто зображення або частину імені
+            if (!foundEl && typeof h.selector === 'string') {
+              const searchStr = h.selector.replace(/['"[\]]/g, '').toLowerCase();
+              const allImgs = Array.from(document.querySelectorAll('img'));
+              foundEl = allImgs.find(img => img.src && img.src.toLowerCase().includes(searchStr)) || null;
+            }
+
+            // 4. Отримуємо rect і якщо розмір 0, беремо батьківський елемент
+            if (foundEl) {
+              let r = foundEl.getBoundingClientRect();
+              if ((r.width === 0 || r.height === 0) && foundEl.parentElement) {
+                r = foundEl.parentElement.getBoundingClientRect();
+              }
+              foundRect = r;
+            }
+          }
+
+          if (foundRect && (foundRect.width > 0 || foundRect.height > 0)) {
+            s.setProperty('border', '4px solid #ef4444', 'important');
+            s.setProperty('background', 'rgba(239, 68, 68, 0.45)', 'important');
+            s.setProperty('box-shadow', '0 0 25px rgba(239, 68, 68, 0.95), inset 0 0 15px rgba(239, 68, 68, 0.5)', 'important');
+            s.setProperty('left', (foundRect.left - 3) + 'px', 'important');
+            s.setProperty('top', (foundRect.top - 3) + 'px', 'important');
+            s.setProperty('width', (foundRect.width + 6) + 'px', 'important');
+            s.setProperty('height', (foundRect.height + 6) + 'px', 'important');
+            s.setProperty('border-radius', '6px', 'important');
+            document.body.appendChild(container);
+          } else if (h.x !== undefined && h.y !== undefined) {
             const vX = h.x - window.scrollX;
             const vY = h.y - window.scrollY;
-            s.setProperty('width', '24px', 'important');
-            s.setProperty('height', '24px', 'important');
-            s.setProperty('background', 'rgba(239, 68, 68, 0.8)', 'important');
-            s.setProperty('border', '2px solid white', 'important');
+            s.setProperty('width', '30px', 'important');
+            s.setProperty('height', '30px', 'important');
+            s.setProperty('background', 'rgba(239, 68, 68, 0.85)', 'important');
+            s.setProperty('border', '3px solid white', 'important');
             s.setProperty('border-radius', '50%', 'important');
-            s.setProperty('left', (vX - 12) + 'px', 'important');
-            s.setProperty('top', (vY - 12) + 'px', 'important');
-            s.setProperty('box-shadow', '0 0 15px rgba(0,0,0,0.6)', 'important');
-            posX = vX;
-            posY = vY - 40;
+            s.setProperty('left', (vX - 15) + 'px', 'important');
+            s.setProperty('top', (vY - 15) + 'px', 'important');
+            s.setProperty('box-shadow', '0 0 20px #ef4444, 0 0 10px rgba(0,0,0,0.8)', 'important');
+            document.body.appendChild(container);
           }
-          document.body.appendChild(container);
         }
 
         const label = document.createElement('div');
         label.id = '__debug_label';
-        label.innerText = `🤖 [${title || 'Нода'}]`;
+        label.innerText = `🤖 [${title || 'Нода'}]${h?.selector ? ` 🎯 ${h.selector}` : ''}`;
         const ls = label.style;
         ls.setProperty('position', 'fixed', 'important');
         ls.setProperty('z-index', '2147483647', 'important');
@@ -1042,13 +1179,14 @@ export async function takeDebugSnapshot(session: ProjectSession, nodeId: string,
     // Відправляємо скріншот на клієнт через WebSocket цієї сесії
     if (session.activeWs && session.activeWs.readyState === 1) {
       try {
-        session.activeWs.send(JSON.stringify({ 
-          type: 'DEBUG_SNAPSHOT', 
-          nodeId, 
-          nodeTitle, 
-          image: `/api/images/${fileName}`,
-          timestamp: Date.now()
-        }));
+        session.activeWs.send(JSON.stringify({ // Відправка JSON-повідомлення через WebSocket
+          type: 'DEBUG_SNAPSHOT', // Встановлення типу повідомлення DEBUG_SNAPSHOT
+          nodeId, // Передача ідентифікатора поточної ноди
+          nodeTitle, // Передача назви поточної ноди
+          // Встановлюємо шлях з підпапкою debug, оскільки Express обслуговує всю папку images
+          image: `/api/images/debug/${fileName}`, // Формування шляху до зображення з урахуванням підкаталогу debug
+          timestamp: Date.now() // Передача мітки часу створення скріншоту
+        })); // Кінець відправки повідомлення
       } catch (sendErr) {
         logger.warn(`Failed to send debug snapshot via WebSocket for project ${session.projectName}`, { error: String(sendErr) });
       }

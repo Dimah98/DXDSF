@@ -5,7 +5,7 @@
  * Requirement 2: CSRF Protection
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { generateToken, verifyToken, removeToken, csrfMiddleware } from './CSRFMiddleware';
 import type { Request, Response, NextFunction } from 'express';
 

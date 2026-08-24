@@ -131,7 +131,7 @@ export class InputValidator implements IInputValidator {
     try {
       const sandbox = {
         document: {
-          querySelectorAll: (sel: string) => {
+          querySelectorAll: (_sel: string) => {
             // This is a mock implementation that just validates syntax
             // The actual validation happens when the VM tries to parse the selector
             return [];

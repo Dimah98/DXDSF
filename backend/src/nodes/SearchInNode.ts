@@ -4,17 +4,49 @@ import { NodeHandlerParams } from './types';
 const logger = new Logger('SearchInNode');
 
 export const searchInNodeHandler = async ({ currentNode, activePage, nodeTitle, takeDebugSnapshot, ws, logToClient, context }: NodeHandlerParams) => {
-  const { selector, imageName } = currentNode.data;
+  const nodeData = currentNode.data as Record<string, unknown>;
+  const selector = (nodeData.selector as string) || '';
+  const imageName = (nodeData.imageName as string) || '';
   if (!selector || !imageName) throw new Error('Вкажіть селектор та назву картинки');
   
   const fileName = imageName;
   
   // Requirement 13.1: Wrap async operations in try-catch with logging
-  let result: any = null;
+  let result: { x: number, y: number } | null = null;
   try {
-    result = await activePage.evaluate(({ sel, imgName }: any) => {
+    result = await activePage.evaluate(({ sel, imgName }: { sel: string; imgName: string }) => {
+       const findElements = (s: string): Element[] => {
+         try {
+           return Array.from(document.querySelectorAll(s));
+         } catch (e) {
+           const hasTextMatch = s.match(/^(.+?):has-text\((['"]?)(.*?)\2\)$/i);
+           if (hasTextMatch) {
+             const baseSel = hasTextMatch[1].trim() || '*';
+             const searchText = hasTextMatch[3];
+             const candidates = Array.from(document.querySelectorAll(baseSel));
+             return candidates.filter(el => el.textContent && el.textContent.includes(searchText));
+           }
+           const textMatch = s.match(/^text=(['"]?)(.*?)\1$/i) || s.match(/^:text\((['"]?)(.*?)\1\)$/i);
+           if (textMatch) {
+             const searchText = textMatch[2].trim();
+             const candidates = Array.from(document.querySelectorAll('*'));
+             return candidates.filter(el => el.textContent && el.textContent.trim() === searchText);
+           }
+           if (s.startsWith('//') || s.startsWith('(//')) {
+             const results: Element[] = [];
+             const query = document.evaluate(s, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+             for (let i = 0; i < query.snapshotLength; i++) {
+               const node = query.snapshotItem(i);
+               if (node instanceof Element) results.push(node);
+             }
+             return results;
+           }
+           return [];
+         }
+       }
+
        // Шукаємо всі елементи, що підходять під селектор
-       const elements = Array.from(document.querySelectorAll(sel));
+       const elements = findElements(sel);
        
        for (const el of elements) {
           // Перевіряємо чи є всередині потрібна картинка (або якщо сам елемент і є картинка)
@@ -37,10 +69,11 @@ export const searchInNodeHandler = async ({ currentNode, activePage, nodeTitle, 
        }
        return null;
     }, { sel: selector, imgName: fileName });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
     // Requirement 13.1: Log the error
     logger.error(`SearchIn evaluate failed for node ${currentNode.id}`, err instanceof Error ? err : new Error(String(err)), { selector, imageName });
-    logToClient(`❌ Помилка пошуку: ${err.message || String(err)}`, 'error');
+    logToClient(`❌ Помилка пошуку: ${errorMessage}`, 'error');
     // Requirement 13.5: Continue execution through error handle path
     try {
       ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { status: 'Помилка' } }));

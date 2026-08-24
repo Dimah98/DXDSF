@@ -73,6 +73,7 @@ export default function ScheduleManager({ isOpen, onClose }: { isOpen: boolean, 
       // Очищаємо таймер інтервалу при розмонтуванні
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [isOpen]);
 
   // Якщо компонент закритий, нічого не рендеримо
@@ -182,7 +183,7 @@ export default function ScheduleManager({ isOpen, onClose }: { isOpen: boolean, 
     // Затемнений напівпрозорий фон, клік на який викликає закриття вікна
     <div 
       // Класи заднього фону, розмиття та анімації плавного відображення
-      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-6 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[var(--z-panel)] bg-black/60 backdrop-blur-xs flex items-center justify-center p-6 animate-in fade-in duration-200"
       // Клік поза вікном закриває модальне вікно
       onClick={onClose}
     >

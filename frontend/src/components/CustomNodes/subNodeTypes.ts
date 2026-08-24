@@ -1,4 +1,4 @@
-// Реєстр типів нод для використання всередині GroupNode (sub-canvas)
+﻿// Реєстр типів нод для використання всередині GroupNode (sub-canvas)
 // Окремий файл щоб уникнути кругових залежностей (GroupNode → NodeEditor → GroupNode)
 // ВАЖЛИВО: GroupNode тут не включено (немає рекурсії)
 
@@ -36,8 +36,23 @@ import NotifyNode from './NotifyNode';
 import CropAnalyzerNode from './CropAnalyzerNode';
 import FirePitNode from './FirePitNode';
 import KitchenNode from './KitchenNode';
+import DeliNode from './DeliNode';
+import SmoothieShackNode from './SmoothieShackNode';
+import BakeryNode from './BakeryNode';
+// Сканер інвентаря — реєструємо для відображення всередині контейнера
 import InventoryScannerNode from './InventoryScannerNode';
 import ScreenshotNode from './ScreenshotNode';
+import MemoryGameNode from './MemoryGameNode'; // Імпортуємо компонент ноди Гра Пам'ять
+import WhackAMoleNode from './WhackAMoleNode'; // Імпортуємо компонент ноди Вдарь Крота
+// Імпортуємо новий компонент для введення тексту та кліку
+import SearchAndClickNode from './SearchAndClickNode';
+import ConfigNode from './ConfigNode';
+import IslandArrangerNode from './IslandArrangerNode';
+import TextInputNode from './TextInputNode';
+import FlowerPlanterNode from './FlowerPlanterNode';
+import DeliveryNode from './DeliveryNode';
+import FoodNode from './FoodNode';
+import { RoninWalletNode } from './RoninWalletNode';
 
 // Всі доступні типи нод для sub-canvas (без GroupNode — без рекурсії)
 export const SUB_NODE_TYPES: Record<string, any> = {
@@ -77,8 +92,24 @@ export const SUB_NODE_TYPES: Record<string, any> = {
   cropAnalyzerNode: CropAnalyzerNode,
   firePitNode: FirePitNode,
   kitchenNode: KitchenNode,
+  deliNode: DeliNode,
+  smoothieShackNode: SmoothieShackNode,
+  bakeryNode: BakeryNode,
   // Сканер інвентаря — реєструємо для відображення всередині контейнера
   inventoryScannerNode: InventoryScannerNode,
   // Скріншот — реєструємо для відображення всередині контейнера
   screenshotNode: ScreenshotNode,
+  // Гра Пам'ять — реєструємо для відображення всередині контейнера
+  memoryGameNode: MemoryGameNode,
+  // Вдарь Крота — реєструємо для відображення всередині контейнера
+  whackAMoleNode: WhackAMoleNode,
+  // Реєструємо нову ноду введення та кліку в реєстрі піднод
+  searchAndClickNode: SearchAndClickNode,
+  configNode: ConfigNode,
+  islandArrangerNode: IslandArrangerNode,
+  textInputNode: TextInputNode,
+  flowerPlanterNode: FlowerPlanterNode,
+  deliveryNode: DeliveryNode,
+  foodNode: FoodNode,
+  roninWalletNode: RoninWalletNode,
 };

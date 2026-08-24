@@ -221,6 +221,19 @@ const ApiNode = memo(({ id, data }: { id: string, data: any }) => {
             </div>
           )}
 
+          {/* Опція збереження отриманої відповіді у файли проекту */}
+          <div className="pt-2 border-t border-border"> {/* Контейнер для налаштування збереження */}
+            <label className="flex items-center gap-2 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer font-bold uppercase"> {/* Контейнер-підпис для чекбоксу */}
+              <input // Елемент введення чекбокс
+                type="checkbox" // Встановлення типу чекбокс
+                checked={data.saveToProject || false} // Поточне значення чекбоксу з властивостей
+                onChange={(e) => data.onDataChange(id, { saveToProject: e.target.checked })} // Збереження статусу при зміні
+                className="rounded bg-muted/50 border-border text-indigo-500 focus:ring-indigo-500 w-3 h-3" // Класи оформлення чекбоксу
+              /> {/* Закриття тегу чекбоксу */}
+              <span>Зберегти в проект</span> {/* Текст опису чекбоксу */}
+            </label> {/* Закриття тегу підпису */}
+          </div> {/* Закриття контейнера */}
+
           {/* Результат (спільний для обох режимів) */}
           <div className="bg-muted/30 rounded border border-border p-2 space-y-1">
              <div className="flex items-center justify-between">

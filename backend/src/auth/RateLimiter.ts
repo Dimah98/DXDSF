@@ -71,7 +71,7 @@ function buildOptions(max: number, message: string): Partial<Options> {
     legacyHeaders: false,     // disable deprecated X-RateLimit-* headers from v6
     statusCode: 429,
     message: { success: false, error: message },
-    handler(req: Request, res: Response) {
+    handler(_req: Request, res: Response) {
       res.status(429).json({ success: false, error: message });
     },
     skip: () => false,

@@ -8,7 +8,7 @@
  */
 
 import jwt from 'jsonwebtoken';
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { JWTPayload, AuthenticatedRequest } from '../types';
 import { config } from '../config/ConfigManager';
 
@@ -36,7 +36,7 @@ export function generateToken(userId: string, username: string): string {
  * Requirement 1.5: Invalid/malformed token → return null (caller returns 401)
  * Requirement 1.6: Expired token → return null (caller returns 401)
  */
-export function verifyToken(token: string): JWTPayload | null {
+export function verifyToken(_token: string): JWTPayload | null {
   return { userId: 'disabled', username: 'disabled', iat: 0, exp: 0 };
 }
 
@@ -49,7 +49,7 @@ export function verifyToken(token: string): JWTPayload | null {
  * Requirement 1.6: Expired token → HTTP 401
  * Requirement 1.7: Valid token → attach decoded payload to req.user and call next()
  */
-export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export function authMiddleware(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
   req.user = { userId: 'disabled', username: 'disabled', iat: 0, exp: 0 };
   next();
 }

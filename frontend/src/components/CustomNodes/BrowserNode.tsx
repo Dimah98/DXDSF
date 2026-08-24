@@ -43,12 +43,16 @@ const BrowserNode = memo(({ id, data }: { id: string, data: any }) => {
             >
               {/* Опція оновлення сторінки */}
               <option value="refresh">Оновити сторінку</option>
+              {/* Опція емуляції клавіші F5 */}
+              <option value="f5">Натиснути F5</option>
               {/* Опція повернення на попередню сторінку в історії */}
               <option value="back">Назад</option>
               {/* Опція очікування спокою мережі */}
               <option value="wait_load">Чекати завантаження</option>
               {/* Опція віддалення камери за допомогою Ctrl + прокрутка */}
               <option value="zoom_out">Віддалити камеру (Ctrl+Scroll)</option>
+              {/* Опція переходу на випадкову ферму проекту */}
+              <option value="random_pt">Рандом ПТ</option>
               {/* Опція примусового закриття сесії браузера */}
               <option value="close">Закрити браузер</option>
             </select>

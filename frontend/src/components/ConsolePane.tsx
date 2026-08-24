@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Terminal, Camera, Trash2, Image as ImageIcon, Search, Bell, Bug } from 'lucide-react';
 import { NotificationsPanel } from './NotificationsPanel';
 
@@ -54,8 +55,85 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
     return () => window.removeEventListener('unread-notifications-update', handleUpdate);
   }, []);
 
+  const [selectedFullImage, setSelectedFullImage] = useState<any | null>(null);
+
+  const currentIndex = selectedFullImage ? debugImages.findIndex((img: any) => img.id === selectedFullImage.id) : -1;
+  const hasNext = currentIndex > 0;
+  const hasPrev = currentIndex !== -1 && currentIndex < debugImages.length - 1;
+
+  useEffect(() => {
+    if (!selectedFullImage) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && hasPrev) setSelectedFullImage(debugImages[currentIndex + 1]);
+      if (e.key === 'ArrowRight' && hasNext) setSelectedFullImage(debugImages[currentIndex - 1]);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedFullImage, debugImages, currentIndex, hasPrev, hasNext]);
+
   return (
-    <div className={`absolute bottom-0 right-0 z-[110] transition-all duration-300 ease-in-out ${isOpen ? 'h-[350px]' : 'h-10'} ${isSidebarCollapsed ? 'left-14' : 'left-60'} bg-[var(--interface-bg)] backdrop-blur-md border-t border-[var(--interface-border)] shadow-2xl flex flex-col`}>
+    <div className={`absolute bottom-0 right-0 z-[var(--z-panel-console)] transition-all duration-300 ease-in-out ${isOpen ? 'h-[350px]' : 'h-10'} ${isSidebarCollapsed ? 'left-14' : 'left-60'} bg-[var(--interface-bg)] backdrop-blur-md border-t border-[var(--interface-border)] shadow-2xl flex flex-col`}>
+      {/* Модальне вікно скріншоту на весь екран */}
+      {selectedFullImage && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setSelectedFullImage(null)}
+        >
+          <div 
+            className="relative max-w-7xl max-h-[90vh] bg-[#0f172a] border border-white/20 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-2.5 bg-black/60 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2">
+                <Camera size={16} className="text-indigo-400" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">{selectedFullImage.nodeName}</span>
+                <span className="text-[10px] text-white/50">({selectedFullImage.time})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = selectedFullImage.image;
+                    link.download = `debug_${selectedFullImage.id}.png`;
+                    link.click();
+                  }}
+                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <ImageIcon size={12} />
+                  <span>Завантажити</span>
+                </button>
+                <button
+                  onClick={() => setSelectedFullImage(null)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg text-white/60 hover:text-white transition-colors"
+                >
+                  <Trash2 size={16} className="hidden" /> ✕
+                </button>
+              </div>
+            </div>
+            <div className="p-2 flex-1 overflow-auto flex items-center justify-center bg-black relative group">
+              {hasPrev && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSelectedFullImage(debugImages[currentIndex + 1]); }}
+                  className="absolute left-4 p-4 bg-black/50 hover:bg-black text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold"
+                >
+                  ←
+                </button>
+              )}
+              <img src={selectedFullImage.image} className="max-w-full max-h-[80vh] object-contain rounded-lg" alt="Full Debug View" />
+              {hasNext && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSelectedFullImage(debugImages[currentIndex - 1]); }}
+                  className="absolute right-4 p-4 bg-black/50 hover:bg-black text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold"
+                >
+                  →
+                </button>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Шапка консолі */}
       <div className="flex items-center justify-between px-4 h-10 border-b border-border/50">
         <div 
@@ -223,7 +301,11 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
                ) : (
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {debugImages.map((img) => (
-                      <div key={img.id} className="bg-muted/30 border border-border/50 rounded-xl overflow-hidden group hover:border-indigo-500/50 transition-all shadow-lg">
+                      <div 
+                        key={img.id} 
+                        onClick={() => setSelectedFullImage(img)}
+                        className="bg-muted/30 border border-border/50 rounded-xl overflow-hidden group hover:border-indigo-500/50 transition-all shadow-lg cursor-pointer hover:scale-[1.02]"
+                      >
                          <div className="relative aspect-video bg-black/40">
                             <img src={img.image} className="w-full h-full object-contain" alt="Debug View" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

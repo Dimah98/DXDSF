@@ -40,6 +40,21 @@ export const stripFunctionsFromNodes = (nodes: any[]): any[] => {
       }
     });
     
+    // Видаляємо globalVariables — вони зберігаються окремо у variables
+    // і підставляються в ноди при завантаженні/рендері
+    delete cleanData.globalVariables;
+    
+    // Очищуємо globalVariables з subNodes (GroupNode)
+    if (Array.isArray(cleanData.subNodes)) {
+      cleanData.subNodes = cleanData.subNodes.map((sub: any) => {
+        if (sub?.data?.globalVariables) {
+          const { globalVariables, ...cleanSubData } = sub.data;
+          return { ...sub, data: cleanSubData };
+        }
+        return sub;
+      });
+    }
+    
     return { ...rest, data: cleanData };
   });
 };

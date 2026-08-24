@@ -1,0 +1,50 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Maple Leaf Stem -->
+    <path
+        android:strokeColor="#F97316"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M50,92 L50,70" />
+    <!-- Main Leaf Outline -->
+    <path
+        android:strokeColor="#F97316"
+        android:strokeWidth="4"
+        android:fillColor="#15F97316"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M50,70 L35,68 L40,58 L20,62 L30,46 L10,40 L30,30 L25,18 L42,24 L50,8 L58,24 L75,18 L70,30 L90,40 L70,46 L80,62 L60,58 L65,68 Z" />
+    <!-- Main Central Vein -->
+    <path
+        android:strokeColor="#F97316"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M50,70 L50,15" />
+    <!-- Left Main Vein -->
+    <path
+        android:strokeColor="#F97316"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M50,55 L22,38" />
+    <!-- Left Side Veins -->
+    <path
+        android:strokeColor="#F97316"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M38,47 L30,55 M34,42 L18,41" />
+    <!-- Right Main Vein -->
+    <path
+        android:strokeColor="#F97316"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M50,55 L78,38" />
+    <!-- Right Side Veins -->
+    <path
+        android:strokeColor="#F97316"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M62,47 L70,55 M66,42 L82,41" />
+</vector>
