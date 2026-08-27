@@ -2,6 +2,7 @@ import { Logger } from '../logger';
 import { NodeHandlerParams } from './types';
 import { inputValidator } from '../validation/InputValidator';
 import { sessions } from '../browserManager';
+import { PROJECTS_DIR } from '../constants';
 import * as fs from 'fs'; // Імпортуємо модуль файлової системи для збереження файлів
 import * as path from 'path'; // Імпортуємо модуль path для роботи зі шляхами файлів
 
@@ -15,10 +16,9 @@ const saveResponseToProject = async (
   logToClient: (msg: string, type?: 'info' | 'success' | 'error' | 'debug') => void
 ) => {
   if (saveToProject && responseJson) { // Перевіряємо чи увімкнено опцію та чи є дані для збереження
-    const projectsDir = path.join(__dirname, '../../projects'); // Шлях до папки з проектами
-    const inventoryFilePath = path.join(projectsDir, `${projectName}_save.json`); // Шлях до збереженого файлу проекту
+    const inventoryFilePath = path.join(PROJECTS_DIR, `${projectName}_save.json`); // Шлях до збереженого файлу проекту
     try {
-      await fs.promises.mkdir(projectsDir, { recursive: true }); // Створюємо папку проектів якщо вона не існує
+      await fs.promises.mkdir(PROJECTS_DIR, { recursive: true }); // Створюємо папку проектів якщо вона не існує
       await fs.promises.writeFile(inventoryFilePath, JSON.stringify(responseJson, null, 2), 'utf-8'); // Записуємо JSON дані у файл
       logToClient(`💾 JSON збережено в проект: ${projectName}_save.json`, 'success'); // Повідомляємо клієнта про успішне збереження та назву файлу
       logger.info(`Saved API response JSON to project`, { projectName, path: inventoryFilePath }); // Логуємо подію в бекенді
@@ -34,46 +34,189 @@ export const apiNodeHandler = async ({ currentNode, ws, logToClient, context, pr
 
   // ─── Режим перехоплення мережі ───────────────────────────────────────────────
   if (mode === 'intercept') {
-    logToClient(`🕵️ API (перехоплення): Шукаємо збережені дані у фоні...`, 'info');
+    logToClient(`🕵️ API (перехоплення): Шукаємо збережені дані авторизації у браузері...`, 'info');
 
     try {
       const session = sessions.get(projectName);
       if (!session) {
-        logToClient(`❌ Сесія браузера не знайдена. Перевірте чи запущений браузер.`, 'error');
+        logToClient(`❌ Сесія браузера не знайдена. Перевірте чи відкритий браузер для цього проекту.`, 'error');
         return { data: { ...context, error: 'No browser session' }, nextHandle: ['error'] };
       }
 
-      // Retry-логіка: чекаємо до 10 секунд поки браузер перехопить дані
+      // Допоміжна функція вилучення токена та Farm ID зі сховища сторінки
+      const extractFromPage = async (page: any): Promise<{ token?: string | null; farmId?: string | null } | null> => {
+        try {
+          if (!page || page.isClosed()) return null;
+          return await page.evaluate(() => {
+            const jwtRegex = /eyJ[A-Za-z0-9-_]{10,}\.[A-Za-z0-9-_]{10,}\.[A-Za-z0-9-_]+/;
+            let foundToken: string | null = null;
+            let foundFarmId: string | null = null;
+
+            // 1. Пошук у localStorage
+            try {
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (!key) continue;
+                const val = localStorage.getItem(key);
+                if (!val) continue;
+
+                if (!foundToken) {
+                  const m = val.match(jwtRegex);
+                  if (m) foundToken = m[0];
+                }
+                if (key.toLowerCase().includes('farmid') && !foundFarmId) {
+                  const numMatch = val.match(/\d+/);
+                  if (numMatch) foundFarmId = numMatch[0];
+                }
+              }
+            } catch (_) {}
+
+            // 2. Пошук у sessionStorage
+            if (!foundToken) {
+              try {
+                for (let i = 0; i < sessionStorage.length; i++) {
+                  const key = sessionStorage.key(i);
+                  if (!key) continue;
+                  const val = sessionStorage.getItem(key);
+                  if (!val) continue;
+
+                  const m = val.match(jwtRegex);
+                  if (m) { foundToken = m[0]; break; }
+                }
+              } catch (_) {}
+            }
+
+            // 3. Пошук у cookie
+            if (!foundToken) {
+              try {
+                const m = document.cookie.match(jwtRegex);
+                if (m) foundToken = m[0];
+              } catch (_) {}
+            }
+
+            // 4. Пошук Farm ID в URL адресі
+            try {
+              const urlM = window.location.href.match(/(?:visit|farm|world)\/(\d+)/i) || window.location.href.match(/\b(\d{5,})\b/);
+              if (urlM && !foundFarmId) foundFarmId = urlM[1];
+            } catch (_) {}
+
+            return { token: foundToken, farmId: foundFarmId };
+          });
+        } catch (_) {
+          return null;
+        }
+      };
+
+      const parseJwtFarmId = (jwtToken: string): string | null => {
+        try {
+          const parts = jwtToken.split('.');
+          if (parts.length >= 2) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
+            const extracted = payload.farmId || payload.sub || payload.user?.farmId || payload.userId || payload.id;
+            if (extracted) return String(extracted);
+          }
+        } catch (_) {}
+        return null;
+      };
+
       let farmId = session.latestFarmId;
       let token = session.latestApiToken;
 
+      // Спроба отримати зі сховища активної сторінки
       if (!farmId || !token) {
-        logToClient(`⏳ Дані ще не перехоплені, чекаємо до 10 секунд...`, 'info');
-        for (let i = 0; i < 10; i++) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        const storageData = await extractFromPage(session.page);
+        if (storageData?.token && !token) {
+          token = storageData.token;
+          session.latestApiToken = token;
+        }
+        if (token && !farmId) {
+          farmId = parseJwtFarmId(token);
+          if (farmId) session.latestFarmId = farmId;
+        }
+        if (storageData?.farmId && !farmId) {
+          farmId = storageData.farmId;
+          session.latestFarmId = farmId;
+        }
+      }
+
+      // Retry-логіка: очікуємо до 10 секунд (перевіряємо мережу та сторінку кожні 500мс)
+      if (!farmId || !token) {
+        logToClient(`⏳ Очікуємо перехоплення даних з браузера (до 10 сек)...`, 'info');
+        for (let i = 0; i < 20; i++) {
+          await new Promise(resolve => setTimeout(resolve, 500));
           farmId = session.latestFarmId;
           token = session.latestApiToken;
+
+          if (token && !farmId) {
+            farmId = parseJwtFarmId(token);
+            if (farmId) session.latestFarmId = farmId;
+          }
+
+          if ((!farmId || !token) && session.context) {
+            const pages = session.context.pages();
+            for (const p of pages) {
+              const storageData = await extractFromPage(p);
+              if (storageData?.token && !token) {
+                token = storageData.token;
+                session.latestApiToken = token;
+              }
+              if (token && !farmId) {
+                farmId = parseJwtFarmId(token);
+                if (farmId) session.latestFarmId = farmId;
+              }
+              if (storageData?.farmId && !farmId) {
+                farmId = storageData.farmId;
+                session.latestFarmId = farmId;
+              }
+              if (farmId && token) break;
+            }
+          }
+
           if (farmId && token) break;
         }
       }
 
+      // Якщо перехопити наживо не вдалося, перевіряємо збережені дані у властивостях ноди
+      if (!token && currentNode.data.apiKey && typeof currentNode.data.apiKey === 'string') {
+        token = currentNode.data.apiKey;
+        logToClient(`ℹ️ Використовуємо збережений Bearer токен ноди`, 'info');
+      }
+      if (!farmId && token) {
+        farmId = parseJwtFarmId(token);
+      }
+      if (!farmId && currentNode.data.farmId) {
+        farmId = String(currentNode.data.farmId);
+        logToClient(`ℹ️ Використовуємо збережений Farm ID ноди: ${farmId}`, 'info');
+      }
+
       if (!farmId || !token) {
-        logToClient(`❌ Дані не перехоплені браузером після 10 секунд очікування. Перезавантажте сторінку ферми (F5).`, 'error');
+        logToClient(`❌ Дані не перехоплені браузером. Переконайтеся, що гра Sunflower Land завантажена у браузері (перезавантажте F5 або увійдіть у гру).`, 'error');
         return { data: { ...context, error: 'No intercepted data after retry' }, nextHandle: ['error'] };
       }
 
-      logToClient(`✅ Знайдено фонові дані! Farm ID: ${farmId}`, 'success');
+      logToClient(`✅ Авторизаційні дані знайдено! Farm ID: ${farmId}`, 'success');
 
-      // Робимо реальний запит до /visit/{farmId} з перехопленим токеном
+      // Виконуємо запит до API
       let visitJson: any = null;
       let clockOffset = 0;
-
       const visitUrl = `https://api.sunflower-land.com/visit/${farmId}`;
       logToClient(`🌐 Запит до: ${visitUrl}`, 'debug');
 
-      const visitRes = await fetch(visitUrl, {
+      let visitRes = await fetch(visitUrl, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
+      // Якщо /visit повернув помилку, пробуємо альтернативні ендпоінти
+      if (!visitRes.ok) {
+        const altUrl = `https://api.sunflower-land.com/community/farms/${farmId}`;
+        logToClient(`⚠️ /visit повернув ${visitRes.status}. Пробуємо ${altUrl}...`, 'debug');
+        const altRes = await fetch(altUrl, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (altRes.ok) {
+          visitRes = altRes;
+        }
+      }
 
       if (visitRes.ok) {
         visitJson = await visitRes.json();
@@ -85,35 +228,33 @@ export const apiNodeHandler = async ({ currentNode, ws, logToClient, context, pr
           if (!isNaN(serverTime)) clockOffset = Date.now() - serverTime;
         }
 
-        logToClient(`✅ Дані ферми отримано!`, 'success');
+        logToClient(`✅ Дані ферми успішно отримано через перехоплення!`, 'success');
       } else {
-        const errMsg = `HTTP ${visitRes.status} ${visitRes.statusText}`;
-        logToClient(`❌ API помилка при запиті /visit: ${errMsg}`, 'error');
+        const errBody = await visitRes.text().catch(() => '');
+        const errMsg = `HTTP ${visitRes.status} ${visitRes.statusText}${errBody ? `: ${errBody.substring(0, 100)}` : ''}`;
+        logToClient(`❌ API помилка при запиті: ${errMsg}`, 'error');
         return { data: { ...context, error: errMsg }, nextHandle: ['error'] };
       }
 
       // Оновлюємо UI ноди знайденими даними
-      ws.send(JSON.stringify({
-        type: 'NODE_DATA_UPDATE',
-        nodeId: currentNode.id,
-        data: {
-          farmId: farmId,
-          apiKey: token,
-          url: visitUrl,
-          lastResponse: visitJson
-        }
-      }));
+      try {
+        ws.send(JSON.stringify({
+          type: 'NODE_DATA_UPDATE',
+          nodeId: currentNode.id,
+          data: {
+            farmId: farmId,
+            apiKey: token,
+            url: visitUrl,
+            lastResponse: visitJson
+          }
+        }));
+      } catch (_) {}
 
       // Зберігаємо отримані дані у файл інвентарю проекту за потреби
-      // Використовуємо session.projectName як надійне джерело імені проекту
       const safeProjectName = session.projectName || projectName;
-      if (safeProjectName !== projectName) {
-        logToClient(`⚠️ Попередження: projectName (${projectName}) не збігається з session (${safeProjectName}). Використовуємо session.`, 'debug');
-      }
       await saveResponseToProject(safeProjectName, visitJson, Boolean(currentNode.data.saveToProject), logToClient);
 
       return {
-        // Явно передаємо сигнал тільки на зелений вихід (success) при успішному перехопленні
         nextHandle: ['success'],
         data: {
           ...context,
@@ -128,7 +269,7 @@ export const apiNodeHandler = async ({ currentNode, ws, logToClient, context, pr
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       logger.error(`ApiNode intercept error`, err instanceof Error ? err : new Error(String(err)));
-      logToClient(`❌ Перехоплення: ${errorMessage}`, 'error');
+      logToClient(`❌ Помилка перехоплення: ${errorMessage}`, 'error');
       return { data: { ...context, error: errorMessage }, nextHandle: ['error'] };
     }
   }

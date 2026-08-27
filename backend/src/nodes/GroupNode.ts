@@ -114,7 +114,7 @@ export const groupNodeHandler = async ({
     }
   });
 
-  let result: { context: NodeData } | undefined;
+  let result: { context: NodeData; status: 'success' | 'error' | 'stopped'; error?: string } | undefined;
   try {
     result = await engine.run(entryNode.id, context);
   } catch (err: unknown) {
@@ -124,7 +124,13 @@ export const groupNodeHandler = async ({
     return { nextHandle: 'out', data: context };
   }
 
-  logToClient(`📦 [${groupLabel}] Підпрограма завершена ✓`, 'success');
+  if (result?.status === 'error') {
+    logToClient(`⚠️ [${groupLabel}] Підпрограма перервана через помилку: ${result.error || 'невідома помилка'}`, 'error');
+  } else if (result?.status === 'stopped') {
+    logToClient(`🛑 [${groupLabel}] Підпрограму зупинено`, 'info');
+  } else {
+    logToClient(`📦 [${groupLabel}] Підпрограма завершена ✓`, 'success');
+  }
 
   try {
     ws.send(JSON.stringify({

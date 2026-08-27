@@ -67,9 +67,7 @@ function getFilesToClean(dir) {
   return { files: toClean, totalSize };
 }
 
-// ─── Validation ────────────────────────────────────────────────────────────
-
-function validatePreconditions() {
+function validatePreconditions(files) {
   const errors = [];
 
   if (!fs.existsSync(DB_PATH)) {
@@ -80,7 +78,7 @@ function validatePreconditions() {
     errors.push(`Projects directory not found: ${PROJECTS_DIR}`);
   }
 
-  // Check SQLite has data
+  // Check SQLite has data corresponding to files that will be cleaned
   try {
     const { DatabaseSync } = require('node:sqlite');
     const db = new DatabaseSync(DB_PATH);
@@ -89,9 +87,12 @@ function validatePreconditions() {
     const invCount = db.prepare('SELECT COUNT(*) as c FROM inventory_items').get().c;
     db.close();
 
-    if (projectCount === 0) errors.push('SQLite projects table is empty');
-    if (execCount === 0) errors.push('SQLite executions table is empty');
-    if (invCount === 0) errors.push('SQLite inventory_items table is empty');
+    const hasStatsFiles = files.some(f => f.name.endsWith('_stats.json'));
+    const hasInvFiles = files.some(f => f.name.endsWith('_inventory.json'));
+
+    if (projectCount === 0) errors.push('SQLite projects table is empty (run migration first)');
+    if (hasStatsFiles && execCount === 0) errors.push('SQLite executions table is empty but stats files exist');
+    if (hasInvFiles && invCount === 0) errors.push('SQLite inventory_items table is empty but inventory files exist');
 
     console.log(`SQLite check: ${projectCount} projects, ${execCount} executions, ${invCount} inventory items ✓`);
   } catch (e) {
@@ -115,20 +116,20 @@ function main() {
     console.log('');
   }
 
-  // Validation
-  const errors = validatePreconditions();
-  if (errors.length > 0) {
-    console.error('Precondition errors:');
-    errors.forEach(e => console.error(`  ❌ ${e}`));
-    process.exit(1);
-  }
-
   // Scan files
   const { files, totalSize } = getFilesToClean(PROJECTS_DIR);
 
   if (files.length === 0) {
     console.log('No legacy files found. Nothing to clean.');
     return;
+  }
+
+  // Validation
+  const errors = validatePreconditions(files);
+  if (errors.length > 0) {
+    console.error('Precondition errors:');
+    errors.forEach(e => console.error(`  ❌ ${e}`));
+    process.exit(1);
   }
 
   console.log(`Found ${files.length} legacy files (${formatBytes(totalSize)}):`);

@@ -20,9 +20,26 @@ import { Page } from 'playwright';
 import { Logger } from '../logger';
 import { BrowserLifecycle as IBrowserLifecycle, BrowserSettings, ProjectSession } from '../types';
 import { connectToBrowser, closeSessionBrowser } from '../browserManager';
+import { internalConfig } from '../internalConfig';
 
-/** Safety timeout: 24 hours in milliseconds */
-const SAFETY_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+/** Safety timeout default: 24 hours in milliseconds (customizable via frontend settings/internalConfig) */
+export const SAFETY_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Get the effective browser safety timeout in milliseconds from internalConfig,
+ * or fallback to SAFETY_TIMEOUT_MS.
+ */
+export function getBrowserSafetyTimeoutMs(): number {
+  const customMinutes = internalConfig.get('browserSafetyTimeoutMinutes');
+  if (customMinutes && customMinutes > 0) {
+    return customMinutes * 60 * 1000;
+  }
+  const customMs = internalConfig.get('browserSafetyTimeoutMs');
+  if (customMs && customMs > 0) {
+    return customMs;
+  }
+  return SAFETY_TIMEOUT_MS;
+}
 
 const logger = new Logger('BrowserLifecycle');
 
@@ -138,7 +155,7 @@ export class BrowserLifecycle implements IBrowserLifecycle {
    * @param session - The project session to set the timeout for
    * @param timeoutMs - Inactivity duration in milliseconds (default: 10 minutes)
    */
-  setupSafetyTimeout(session: ProjectSession, timeoutMs: number = SAFETY_TIMEOUT_MS): void {
+  setupSafetyTimeout(session: ProjectSession, timeoutMs: number = getBrowserSafetyTimeoutMs()): void {
     // Clear any existing safety timeout
     if (session.safetyTimeout) {
       clearTimeout(session.safetyTimeout);
@@ -346,7 +363,7 @@ export async function withBrowser(
 
   try {
     page = await lifecycle.launchBrowser(session, settings);
-    lifecycle.setupSafetyTimeout(session, SAFETY_TIMEOUT_MS);
+    lifecycle.setupSafetyTimeout(session, getBrowserSafetyTimeoutMs());
     await runFn(page);
   } catch (err) {
     logger.error(

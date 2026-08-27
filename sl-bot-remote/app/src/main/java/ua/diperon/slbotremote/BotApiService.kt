@@ -28,6 +28,35 @@ data class Project(
     @Json(name = "isRunning") val isRunning: Boolean = false
 )
 
+data class ProjectOverviewItem(
+    @Json(name = "name") val name: String,
+    @Json(name = "isRunning") val isRunning: Boolean = false,
+    @Json(name = "isBrowserOpen") val isBrowserOpen: Boolean = false,
+    @Json(name = "activeNodeTitle") val activeNodeTitle: String? = null,
+    @Json(name = "nextRun") val nextRun: Long? = null,
+    @Json(name = "plannedNodeRun") val plannedNodeRun: Long? = null,
+    @Json(name = "level") val level: Int? = null,
+    @Json(name = "gold") val gold: Double? = null,
+    @Json(name = "balance") val balance: Double? = null,
+    @Json(name = "gem") val gem: Double? = null,
+    @Json(name = "season") val season: String? = null,
+    @Json(name = "isFullMoon") val isFullMoon: Boolean = false,
+    @Json(name = "hasChestCollectedToday") val hasChestCollectedToday: Boolean = false,
+    @Json(name = "hasShipmentRestockedToday") val hasShipmentRestockedToday: Boolean = false,
+    @Json(name = "hasPetalPuzzleSolvedToday") val hasPetalPuzzleSolvedToday: Boolean = false,
+    @Json(name = "miniImages") val miniImages: List<List<Any?>> = emptyList()
+) {
+    fun getParsedMiniImages(): List<Pair<String, Int?>> {
+        return miniImages.mapNotNull { item ->
+            if (item.isNotEmpty()) {
+                val img = item[0] as? String ?: return@mapNotNull null
+                val count = (item.getOrNull(1) as? Number)?.toInt()
+                Pair(img, count)
+            } else null
+        }
+    }
+}
+
 data class RunProjectsRequest(@Json(name = "projectNames") val projectNames: List<String>)
 data class StopProjectsRequest(@Json(name = "projectNames") val projectNames: List<String>)
 
@@ -227,6 +256,12 @@ data class ConfigListResponse(
     @Json(name = "error") val error: String? = null
 )
 
+data class QueueResponse(
+    @Json(name = "queue") val queue: List<String> = emptyList(),
+    @Json(name = "maxParallel") val maxParallel: Int? = 1,
+    @Json(name = "activeRunning") val activeRunning: Int? = 0
+)
+
 // ===== Island Map Models =====
 data class MapItem(
     @Json(name = "id") val id: String,
@@ -255,6 +290,91 @@ data class LayoutData(
 data class ProjectMapResponse(
     @Json(name = "success") val success: Boolean,
     @Json(name = "data") val data: Any? = null, // Can be List<MapItem> or LayoutData
+    @Json(name = "error") val error: String? = null
+)
+
+// ===== Mass Scheduler Models =====
+data class MassCalculatedTime(
+    @Json(name = "project") val project: String = "",
+    @Json(name = "timestamp") val timestamp: Long = 0L,
+    @Json(name = "timeStr") val timeStr: String = "",
+    @Json(name = "fullDateTime") val fullDateTime: String = "",
+    @Json(name = "relative") val relative: String = "",
+    @Json(name = "isPast") val isPast: Boolean = false
+)
+
+data class MassLaunchSummary(
+    @Json(name = "time") val time: String = "",
+    @Json(name = "fullDateTime") val fullDateTime: String = "",
+    @Json(name = "project") val project: String = "",
+    @Json(name = "relative") val relative: String = "",
+    @Json(name = "isPast") val isPast: Boolean = false,
+    @Json(name = "totalWithTime") val totalWithTime: Int = 0,
+    @Json(name = "totalProjects") val totalProjects: Int = 0
+)
+
+data class MassLaunchItem(
+    @Json(name = "id") val id: String = "",
+    @Json(name = "name") val name: String = "",
+    @Json(name = "mode") val mode: String = "manual_time", // "manual_time" | "json_time"
+    @Json(name = "time") val time: String? = null,
+    @Json(name = "jsonPath") val jsonPath: String? = null,
+    @Json(name = "configId") val configId: String? = null,
+    @Json(name = "containers") val containers: List<String> = emptyList(),
+    @Json(name = "enabled") val enabled: Boolean = true,
+    @Json(name = "calculatedTimes") val calculatedTimes: List<MassCalculatedTime>? = null,
+    @Json(name = "nextLaunchSummary") val nextLaunchSummary: MassLaunchSummary? = null
+)
+
+data class MassLaunchCreateRequest(
+    @Json(name = "name") val name: String,
+    @Json(name = "mode") val mode: String,
+    @Json(name = "time") val time: String? = null,
+    @Json(name = "jsonPath") val jsonPath: String? = null,
+    @Json(name = "configId") val configId: String? = null,
+    @Json(name = "containers") val containers: List<String> = emptyList(),
+    @Json(name = "enabled") val enabled: Boolean = true
+)
+
+data class ProjectTimePreviewItem(
+    @Json(name = "projectName") val projectName: String = "",
+    @Json(name = "timestamp") val timestamp: Long? = null,
+    @Json(name = "timeStr") val timeStr: String? = null,
+    @Json(name = "dateStr") val dateStr: String? = null,
+    @Json(name = "fullDateTime") val fullDateTime: String? = null,
+    @Json(name = "relative") val relative: String? = null,
+    @Json(name = "isPast") val isPast: Boolean = false,
+    @Json(name = "status") val status: String = "not_found"
+)
+
+data class PreviewTimeResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "summary") val summary: MassLaunchSummary? = null,
+    @Json(name = "projectTimes") val projectTimes: List<ProjectTimePreviewItem> = emptyList(),
+    @Json(name = "error") val error: String? = null
+)
+
+data class MatchingProjectsResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "projects") val projects: List<String> = emptyList()
+)
+
+data class ProjectContainersResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "containers") val containers: List<String> = emptyList()
+)
+
+// ===== Run History Models =====
+data class RunRecordItem(
+    @Json(name = "runId") val runId: String,
+    @Json(name = "startTime") val startTime: Long,
+    @Json(name = "endTime") val endTime: Long? = null,
+    @Json(name = "status") val status: String = "running"
+)
+
+data class ProjectRunsResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "runs") val runs: List<RunRecordItem> = emptyList(),
     @Json(name = "error") val error: String? = null
 )
 
@@ -315,6 +435,9 @@ interface BotApiService {
     @GET("api/projects")
     suspend fun getProjects(): List<String>
 
+    @GET("api/projects/overview")
+    suspend fun getProjectsOverview(): List<ProjectOverviewItem>
+
     @GET("api/projects/status")
     suspend fun getProjectsStatus(): Map<String, ProjectStatusInfo>
 
@@ -353,6 +476,9 @@ interface BotApiService {
 
     @GET("api/schedule")
     suspend fun getSchedule(): List<ScheduleInfo>
+
+    @GET("api/queue")
+    suspend fun getQueue(): QueueResponse
 
     @PUT("api/schedule/{projectName}")
     suspend fun updateSchedule(
@@ -452,12 +578,50 @@ interface BotApiService {
     @DELETE("api/configs/{id}")
     suspend fun deleteConfig(@Path("id") id: String): ActionResponse
 
+    // --- Mass Launches API ---
+    @GET("api/mass-launches")
+    suspend fun getMassLaunches(): List<MassLaunchItem>
+
+    @POST("api/mass-launches")
+    suspend fun createMassLaunch(@Body request: MassLaunchCreateRequest): ActionResponse
+
+    @PUT("api/mass-launches/{id}")
+    suspend fun updateMassLaunch(@Path("id") id: String, @Body request: Map<String, Any?>): ActionResponse
+
+    @DELETE("api/mass-launches/{id}")
+    suspend fun deleteMassLaunch(@Path("id") id: String): ActionResponse
+
+    @GET("api/mass-launches/preview-time")
+    suspend fun previewMassLaunchTime(
+        @Query("configId") configId: String,
+        @Query("jsonPath") jsonPath: String
+    ): PreviewTimeResponse
+
+    @GET("api/configs/{configId}/matching-projects")
+    suspend fun getMatchingProjects(@Path("configId") configId: String): MatchingProjectsResponse
+
+    @GET("api/projects/{projectName}/containers")
+    suspend fun getContainersList(@Path("projectName") projectName: String): ProjectContainersResponse
+
+    // --- Run History API ---
+    @GET("api/projects/{projectName}/runs")
+    suspend fun getProjectRuns(@Path("projectName") projectName: String): ProjectRunsResponse
+
+    @GET("api/projects/{projectName}/runs/{runId}/logs")
+    suspend fun getProjectRunLogs(
+        @Path("projectName") projectName: String,
+        @Path("runId") runId: String
+    ): okhttp3.ResponseBody
+
+    @GET("api/project-save/{projectName}")
+    suspend fun getProjectSaveRaw(@Path("projectName") projectName: String): okhttp3.ResponseBody
+
     companion object {
         private const val TAG = "BotApiService"
 
         fun create(interceptor: DynamicBaseUrlInterceptor): BotApiService {
             val logging = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
+                level = HttpLoggingInterceptor.Level.BASIC
             }
 
             val okHttpClient = OkHttpClient.Builder()

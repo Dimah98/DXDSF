@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import { attachEdgeCallbacks } from '../utils/flowUtils';
+import { useUIStore } from '../store/useUIStore';
 
 interface UseProjectManagerProps {
   API_HOST: string;
@@ -69,6 +70,7 @@ export function useProjectManager({
       }); // Кінець fetch запиту
       
       // Відправляємо подію для збереження поточних логів
+      useUIStore.getState().requestSaveLogs(name);
       window.dispatchEvent(new CustomEvent('sfl-save-logs', { detail: { projectName: name } }));
       
       addLog(`Проект "${name}" успішно збережено`, 'success');

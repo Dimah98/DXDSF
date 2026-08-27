@@ -19,19 +19,20 @@
 import rateLimit, { RateLimitRequestHandler, Options } from 'express-rate-limit';
 import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../types';
+import { internalConfig } from '../internalConfig';
 
 // ─── Window / limit constants ────────────────────────────────────────────────
 
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
-/** Requirement 7.1 – /api/* : 100 req / 15 min */
-const API_MAX = 9999999;
+/** Requirement 7.1 – /api/* : Default 9999999 (customizable via settings/internalConfig) */
+export const API_MAX = 9999999;
 
-/** Requirement 7.2 – /ws : 10 connections / 15 min */
-const WS_MAX = 9999999;
+/** Requirement 7.2 – /ws : Default 9999999 (customizable via settings/internalConfig) */
+export const WS_MAX = 9999999;
 
-/** Requirement 7.3 – /api/projects/run-multiple : 5 req / 15 min */
-const RUN_MULTIPLE_MAX = 9999999;
+/** Requirement 7.3 – /api/projects/run-multiple : Default 9999999 (customizable via settings/internalConfig) */
+export const RUN_MULTIPLE_MAX = 9999999;
 
 // ─── Client key generator ────────────────────────────────────────────────────
 
@@ -62,10 +63,10 @@ function keyGenerator(req: Request): string {
  * Requirement 7.6: Return HTTP 429 Too Many Requests when limit exceeded
  * Requirement 7.7: Include X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset headers
  */
-function buildOptions(max: number, message: string): Partial<Options> {
+function buildOptions(getMax: () => number, message: string): Partial<Options> {
   return {
     windowMs: WINDOW_MS,
-    max,
+    max: () => getMax(),
     keyGenerator,
     standardHeaders: true,   // sets X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
     legacyHeaders: false,     // disable deprecated X-RateLimit-* headers from v6
@@ -82,26 +83,44 @@ function buildOptions(max: number, message: string): Partial<Options> {
 
 /**
  * Rate limiter for all /api/* endpoints.
- * Requirement 7.1: 100 requests per 15 minutes per client
+ * Default: 9999999 or custom rateLimitApi from internalConfig
  */
 export const apiRateLimiter: RateLimitRequestHandler = rateLimit({
-  ...buildOptions(API_MAX, 'Too many requests. Please try again later.'),
+  ...buildOptions(
+    () => {
+      const custom = internalConfig.get('rateLimitApi');
+      return custom && custom > 0 ? custom : API_MAX;
+    },
+    'Too many requests. Please try again later.'
+  ),
 });
 
 /**
  * Rate limiter for /ws connections.
- * Requirement 7.2: 10 connections per 15 minutes per client
+ * Default: 9999999 or custom rateLimitWs from internalConfig
  */
 export const wsRateLimiter: RateLimitRequestHandler = rateLimit({
-  ...buildOptions(WS_MAX, 'Too many WebSocket connection attempts. Please try again later.'),
+  ...buildOptions(
+    () => {
+      const custom = internalConfig.get('rateLimitWs');
+      return custom && custom > 0 ? custom : WS_MAX;
+    },
+    'Too many WebSocket connection attempts. Please try again later.'
+  ),
 });
 
 /**
  * Stricter rate limiter for /api/projects/run-multiple.
- * Requirement 7.3: 5 requests per 15 minutes per client
+ * Default: 9999999 or custom rateLimitRunMultiple from internalConfig
  */
 export const runMultipleRateLimiter: RateLimitRequestHandler = rateLimit({
-  ...buildOptions(RUN_MULTIPLE_MAX, 'Too many run-multiple requests. Please try again later.'),
+  ...buildOptions(
+    () => {
+      const custom = internalConfig.get('rateLimitRunMultiple');
+      return custom && custom > 0 ? custom : RUN_MULTIPLE_MAX;
+    },
+    'Too many run-multiple requests. Please try again later.'
+  ),
 });
 
 // ─── Named export object (matches RateLimiter interface from types.ts) ────────

@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
             MyApplicationTheme(darkTheme = true, dynamicColor = false) {
                 // Setup NavController and container scaffolds
                 val navController = rememberNavController()
+                val sharedDashboardViewModel: DashboardViewModel = viewModel()
 
                 NavHost(
                     navController = navController,
@@ -35,9 +36,8 @@ class MainActivity : ComponentActivity() {
                 ) {
                         // 1. Dashboard Screen route
                         composable("dashboard") {
-                            val dashboardViewModel: DashboardViewModel = viewModel()
                             DashboardScreen(
-                                viewModel = dashboardViewModel,
+                                viewModel = sharedDashboardViewModel,
                                 onNavigateToSettings = {
                                     navController.navigate("connection_settings")
                                 },
@@ -58,15 +58,20 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToConfigs = {
                                     navController.navigate("config_manager")
+                                },
+                                onNavigateToMassScheduler = {
+                                    navController.navigate("mass_scheduler")
+                                },
+                                onNavigateToVideoWall = {
+                                    navController.navigate("video_wall")
                                 }
                             )
                         }
 
                         // 2. Connections Settings screen route
                         composable("connection_settings") {
-                            val dashboardViewModel: DashboardViewModel = viewModel()
                             ConnectionSettingsScreen(
-                                viewModel = dashboardViewModel,
+                                viewModel = sharedDashboardViewModel,
                                 canGoBack = true,
                                 onBackClick = {
                                     navController.popBackStack()
@@ -131,10 +136,9 @@ class MainActivity : ComponentActivity() {
                             )
                         ) { backStackEntry ->
                             val projectName = backStackEntry.arguments?.getString("projectName") ?: ""
-                            val dashboardViewModel: DashboardViewModel = viewModel()
                             ProjectEditorScreen(
                                 projectName = projectName,
-                                apiService = dashboardViewModel.getApiService(),
+                                apiService = sharedDashboardViewModel.getApiService(),
                                 onBackClick = {
                                     navController.popBackStack()
                                 }
@@ -151,8 +155,7 @@ class MainActivity : ComponentActivity() {
                             )
                         ) { backStackEntry ->
                             val projectName = backStackEntry.arguments?.getString("projectName") ?: ""
-                            val dashboardViewModel: DashboardViewModel = viewModel()
-                            val apiService = dashboardViewModel.getApiService()
+                            val apiService = sharedDashboardViewModel.getApiService()
                             
                             if (apiService != null) {
                                 InventoryScreen(
@@ -175,8 +178,7 @@ class MainActivity : ComponentActivity() {
 
                         // 9. All Inventories Screen route
                         composable("all_inventories") {
-                            val dashboardViewModel: DashboardViewModel = viewModel()
-                            val apiService = dashboardViewModel.getApiService()
+                            val apiService = sharedDashboardViewModel.getApiService()
                             
                             if (apiService != null) {
                                 AllInventoriesScreen(
@@ -206,8 +208,7 @@ class MainActivity : ComponentActivity() {
                             )
                         ) { backStackEntry ->
                             val projectName = backStackEntry.arguments?.getString("projectName") ?: ""
-                            val dashboardViewModel: DashboardViewModel = viewModel()
-                            val apiService = dashboardViewModel.getApiService()
+                            val apiService = sharedDashboardViewModel.getApiService()
                             
                             if (apiService != null) {
                                 IslandMapScreen(
@@ -229,8 +230,7 @@ class MainActivity : ComponentActivity() {
 
                         // 10. All Screenshots Screen route
                         composable("all_screenshots") {
-                            val dashboardViewModel: DashboardViewModel = viewModel()
-                            val apiService = dashboardViewModel.getApiService()
+                            val apiService = sharedDashboardViewModel.getApiService()
                             
                             if (apiService != null) {
                                 AllScreenshotsScreen(
@@ -251,8 +251,7 @@ class MainActivity : ComponentActivity() {
 
                         // 11. All Deliveries Screen route
                         composable("all_deliveries") {
-                            val dashboardViewModel: DashboardViewModel = viewModel()
-                            val apiService = dashboardViewModel.getApiService()
+                            val apiService = sharedDashboardViewModel.getApiService()
                             
                             if (apiService != null) {
                                 AllDeliveriesScreen(
@@ -273,8 +272,7 @@ class MainActivity : ComponentActivity() {
 
                         // 12. Config Manager Screen route
                         composable("config_manager") {
-                            val dashboardViewModel: DashboardViewModel = viewModel()
-                            val apiService = dashboardViewModel.getApiService()
+                            val apiService = sharedDashboardViewModel.getApiService()
                             
                             if (apiService != null) {
                                 ConfigManagerScreen(
@@ -291,6 +289,42 @@ class MainActivity : ComponentActivity() {
                                     androidx.compose.material3.Text("Завантаження...")
                                 }
                             }
+                        }
+
+                        // 13. Mass Scheduler Screen route
+                        composable("mass_scheduler") {
+                            val apiService = sharedDashboardViewModel.getApiService()
+                            
+                            if (apiService != null) {
+                                MassSchedulerScreen(
+                                    apiService = apiService,
+                                    onBackClick = {
+                                        navController.popBackStack()
+                                    }
+                                )
+                            } else {
+                                androidx.compose.foundation.layout.Box(
+                                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                                    contentAlignment = androidx.compose.ui.Alignment.Center
+                                ) {
+                                    androidx.compose.material3.Text("Завантаження...")
+                                }
+                            }
+                        }
+
+                        // 14. Multi-Stream Video Wall route
+                        composable("video_wall") {
+                            val multiStreamViewModel: MultiStreamViewModel = viewModel()
+                            MultiStreamWallScreen(
+                                viewModel = multiStreamViewModel,
+                                apiService = sharedDashboardViewModel.getApiService(),
+                                onBackClick = {
+                                    navController.popBackStack()
+                                },
+                                onNavigateToMonitor = { projectName ->
+                                    navController.navigate("project_monitor/$projectName")
+                                }
+                            )
                         }
                     }
                 }

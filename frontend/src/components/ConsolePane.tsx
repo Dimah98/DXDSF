@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Terminal, Camera, Trash2, Image as ImageIcon, Search, Bell, Bug } from 'lucide-react';
 import { NotificationsPanel } from './NotificationsPanel';
+import { useUIStore } from '../store/useUIStore';
 
 interface ConsolePaneProps {
   isOpen: boolean; // Чи відкрита панель консолі
@@ -26,7 +27,8 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   setActiveTab,
   currentProject // Назва поточного проекту для збереження/очищення логів на диску
 }) => {
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const storeUnread = useUIStore((s) => s.unreadNotificationsCount);
+  const [unreadNotifications, setUnreadNotifications] = useState(storeUnread);
   // Чи показувати детальні (debug) логи кроків нод. Зберігається між сеансами.
   const [showDebug, setShowDebug] = useState(() => localStorage.getItem('sfl_console_show_debug') !== 'false');
 
@@ -48,6 +50,10 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
     // Зберігаємо стан відкритості консолі для наступного сеансу
     localStorage.setItem('sfl_console_open', String(next));
   };
+
+  useEffect(() => {
+    setUnreadNotifications(storeUnread);
+  }, [storeUnread]);
 
   useEffect(() => {
     const handleUpdate = (e: any) => setUnreadNotifications(e.detail);
@@ -72,7 +78,7 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   }, [selectedFullImage, debugImages, currentIndex, hasPrev, hasNext]);
 
   return (
-    <div className={`absolute bottom-0 right-0 z-[var(--z-panel-console)] transition-all duration-300 ease-in-out ${isOpen ? 'h-[350px]' : 'h-10'} ${isSidebarCollapsed ? 'left-14' : 'left-60'} bg-[var(--interface-bg)] backdrop-blur-md border-t border-[var(--interface-border)] shadow-2xl flex flex-col`}>
+    <div className={`absolute bottom-0 right-0 z-[var(--z-panel-console)] transition-all duration-300 ease-in-out ${isOpen ? 'h-[55vh] md:h-[350px]' : 'h-10'} left-0 ${isSidebarCollapsed ? 'md:left-14' : 'md:left-60'} bg-[var(--interface-bg)] backdrop-blur-md border-t border-[var(--interface-border)] shadow-2xl flex flex-col`}>
       {/* Модальне вікно скріншоту на весь екран */}
       {selectedFullImage && createPortal(
         <div 
@@ -154,41 +160,41 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
         </div>
 
         {isOpen && (
-          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg mr-4 border border-white/10 backdrop-blur-md">
+          <div className="flex items-center gap-0.5 sm:gap-1 bg-white/5 p-0.5 sm:p-1 rounded-lg mr-2 sm:mr-4 border border-white/10 backdrop-blur-md">
             {/* Кнопка логів */}
             <button 
               onClick={() => setActiveTab('logs')}
-              className={`px-3 py-1 rounded-md text-[9px] font-bold uppercase transition-all flex items-center gap-2 ${
+              className={`px-2 sm:px-3 py-1 rounded-md text-[9px] font-bold uppercase transition-all flex items-center gap-1 sm:gap-2 ${
                 activeTab === 'logs' 
                   ? 'bg-blue-500/30 text-blue-300 border border-blue-500/30 shadow-sm' 
                   : 'text-white/40 hover:text-white/80'
               }`}
             >
-              <Terminal size={12} /> Логи
+              <Terminal size={12} /> <span className="hidden xs:inline sm:inline">Логи</span>
             </button>
             {/* Кнопка фото дебагу */}
             <button 
               onClick={() => setActiveTab('photos')}
-              className={`px-3 py-1 rounded-md text-[9px] font-bold uppercase transition-all flex items-center gap-2 ${
+              className={`px-2 sm:px-3 py-1 rounded-md text-[9px] font-bold uppercase transition-all flex items-center gap-1 sm:gap-2 ${
                 activeTab === 'photos' 
                   ? 'bg-blue-500/30 text-blue-300 border border-blue-500/30 shadow-sm' 
                   : 'text-white/40 hover:text-white/80'
               }`}
             >
-              <Camera size={12} /> Фото дебагу
+              <Camera size={12} /> <span className="hidden xs:inline sm:inline">Фото</span>
             </button>
             {/* Кнопка Сповіщень */}
             <button 
               onClick={() => setActiveTab('notifications')}
-              className={`px-3 py-1 rounded-md text-[9px] font-bold uppercase transition-all flex items-center gap-2 ${
+              className={`px-2 sm:px-3 py-1 rounded-md text-[9px] font-bold uppercase transition-all flex items-center gap-1 sm:gap-2 ${
                 activeTab === 'notifications' 
                   ? 'bg-blue-500/30 text-blue-300 border border-blue-500/30 shadow-sm' 
                   : 'text-white/40 hover:text-white/80'
               }`}
             >
-              <Bell size={12} /> Сповіщення
+              <Bell size={12} /> <span className="hidden xs:inline sm:inline">Сповіщення</span>
               {unreadNotifications > 0 && (
-                <span className="bg-amber-500 text-black px-1 rounded-full text-[8px] leading-tight ml-1">{unreadNotifications}</span>
+                <span className="bg-amber-500 text-black px-1 rounded-full text-[8px] leading-tight ml-0.5 sm:ml-1">{unreadNotifications}</span>
               )}
             </button>
           </div>

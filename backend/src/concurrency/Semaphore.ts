@@ -40,20 +40,32 @@ const semaphoreLogger = {
  * Requirement 19.4: Automatically releases the slot on completion or error
  * Requirement 19.5: Exposes available slots via getAvailable()
  */
+import { internalConfig } from '../internalConfig';
+
 export class Semaphore {
   private running = 0;
   private readonly queue: Array<() => void> = [];
   private readonly acquireTimeoutMs: number = 5 * 60 * 1000; // 5 хвилин таймаут за замовчуванням
+  private readonly defaultLimit: number;
 
   /**
-   * @param limit Maximum number of concurrent operations allowed.
-   *              Defaults to the MAX_PARALLEL_BROWSERS configuration value.
+   * @param defaultLimit Maximum number of concurrent operations allowed.
+   *                     Defaults to the MAX_PARALLEL_BROWSERS configuration value.
    * @param acquireTimeoutMs Timeout in milliseconds for acquiring a slot. Default: 5 minutes.
    */
-  constructor(private readonly limit: number = config.get('MAX_PARALLEL_BROWSERS'), acquireTimeoutMs?: number) {
+  constructor(defaultLimit: number = config.get('MAX_PARALLEL_BROWSERS'), acquireTimeoutMs?: number) {
+    this.defaultLimit = defaultLimit;
     if (acquireTimeoutMs !== undefined) {
       this.acquireTimeoutMs = acquireTimeoutMs;
     }
+  }
+
+  get limit(): number {
+    const queueMode = internalConfig.get('queueMode') === 1;
+    if (queueMode) {
+      return Math.max(1, internalConfig.get('maxParallelProjects') || 1);
+    }
+    return this.defaultLimit;
   }
 
   /**
@@ -156,6 +168,27 @@ export class Semaphore {
    */
   getQueueLength(): number {
     return this.queue.length;
+  }
+
+  /**
+   * Return the number of permits currently in use (running).
+   */
+  getPermitsInUse(): number {
+    return this.running;
+  }
+
+  /**
+   * Alias for getAvailable() for backwards compatibility.
+   */
+  getAvailablePermits(): number {
+    return this.getAvailable();
+  }
+
+  /**
+   * Alias for getLimit() for backwards compatibility.
+   */
+  getMaxPermits(): number {
+    return this.limit;
   }
 
   /**

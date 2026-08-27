@@ -14,7 +14,6 @@
 import { InputValidator as IInputValidator, ValidationResult } from '../types';
 import { Logger } from '../logger';
 import * as path from 'path';
-import * as vm from 'vm';
 
 const logger = new Logger('InputValidator');
 
@@ -83,7 +82,7 @@ export class InputValidator implements IInputValidator {
    * Validate CSS selector
    * 
    * Requirement 4: Input Validation for CSS Selectors
-   * - Verify syntax by parsing in sandboxed VM context
+   * - Fast syntax validation (balanced brackets, quotes, no invalid delimiters)
    * - Reject selectors longer than 500 characters
    * - Reject selectors containing script injection patterns
    * 
@@ -113,9 +112,10 @@ export class InputValidator implements IInputValidator {
     }
 
     // Check for script injection patterns
-    const dangerousPatterns = ['<script>', 'javascript:', 'eval('];
+    const dangerousPatterns = ['<script', 'javascript:', 'eval(', 'expression(', 'onload=', 'onerror=', 'vbscript:'];
+    const lower = selector.toLowerCase();
     for (const pattern of dangerousPatterns) {
-      if (selector.toLowerCase().includes(pattern)) {
+      if (lower.includes(pattern)) {
         logger.warn('Selector validation failed: script injection attempt', { 
           selector: selector.substring(0, 50) + '...',
           pattern 
@@ -127,39 +127,74 @@ export class InputValidator implements IInputValidator {
       }
     }
 
-    // Verify selector syntax in sandboxed VM context
-    try {
-      const sandbox = {
-        document: {
-          querySelectorAll: (_sel: string) => {
-            // This is a mock implementation that just validates syntax
-            // The actual validation happens when the VM tries to parse the selector
-            return [];
-          }
-        }
-      };
-
-      const context = vm.createContext(sandbox);
-      const script = new vm.Script(`document.querySelectorAll(${JSON.stringify(selector)})`);
-      
-      // Run with timeout to prevent infinite loops
-      script.runInContext(context, { timeout: 100 });
-
-      logger.debug('Selector validated successfully', { selector });
-      return {
-        isValid: true,
-        sanitized: selector
-      };
-    } catch (error) {
-      logger.warn('Selector validation failed: invalid syntax', { 
-        selector: selector.substring(0, 50) + '...',
-        error: error instanceof Error ? error.message : String(error)
-      });
+    // Check for HTML tags or braces (<, {, })
+    if (/[<{}]/.test(selector)) {
+      logger.warn('Selector validation failed: contains illegal characters (<, {, })', { selector });
       return {
         isValid: false,
         error: 'Invalid selector'
       };
     }
+
+    // Verify balanced quotes and brackets without VM overhead
+    const stack: string[] = [];
+    let inDoubleQuote = false;
+    let inSingleQuote = false;
+    let isEscaped = false;
+
+    for (let i = 0; i < selector.length; i++) {
+      const char = selector[i];
+
+      if (isEscaped) {
+        isEscaped = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        isEscaped = true;
+        continue;
+      }
+
+      if (char === '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        continue;
+      }
+
+      if (char === "'" && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+        continue;
+      }
+
+      if (inDoubleQuote || inSingleQuote) {
+        continue;
+      }
+
+      if (char === '[' || char === '(') {
+        stack.push(char);
+      } else if (char === ']') {
+        if (stack.pop() !== '[') {
+          return { isValid: false, error: 'Invalid selector' };
+        }
+      } else if (char === ')') {
+        if (stack.pop() !== '(') {
+          return { isValid: false, error: 'Invalid selector' };
+        }
+      }
+    }
+
+    if (inDoubleQuote || inSingleQuote || stack.length > 0 || isEscaped) {
+      logger.warn('Selector validation failed: unbalanced brackets/quotes or trailing escape', { selector });
+      return {
+        isValid: false,
+        error: 'Invalid selector'
+      };
+    }
+
+    logger.debug('Selector validated successfully', { selector });
+    return {
+      isValid: true,
+      sanitized: selector
+    };
   }
 
   /**

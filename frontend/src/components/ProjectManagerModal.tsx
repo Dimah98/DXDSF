@@ -89,7 +89,7 @@ const ProjectRow = ({
     {/* Кнопка історії запусків (синя) */}
     <button
       onClick={e => { e.stopPropagation(); onOpenSettings('runs'); }}
-      className="p-1.5 bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 rounded-lg transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+      className="p-1.5 bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 rounded-lg transition-colors shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100"
       title="Історія запусків"
     >
       <ScrollText size={12} />
@@ -98,7 +98,7 @@ const ProjectRow = ({
     {/* Кнопка статистики (рожева) */}
     <button
       onClick={e => { e.stopPropagation(); onOpenSettings('stats'); }}
-      className="p-1.5 bg-pink-500/20 hover:bg-pink-500/40 text-pink-400 rounded-lg transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+      className="p-1.5 bg-pink-500/20 hover:bg-pink-500/40 text-pink-400 rounded-lg transition-colors shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100"
       title="Статистика"
     >
       <TrendingUp size={12} />
@@ -107,7 +107,7 @@ const ProjectRow = ({
     {/* Кнопка налаштувань (фіолетова) */}
     <button
       onClick={e => { e.stopPropagation(); onOpenSettings('settings'); }}
-      className="p-1.5 bg-purple-500/20 hover:bg-purple-500/40 text-purple-400 rounded-lg transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+      className="p-1.5 bg-purple-500/20 hover:bg-purple-500/40 text-purple-400 rounded-lg transition-colors shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100"
       title="Налаштування проекту"
     >
       <Settings size={12} />
@@ -122,7 +122,7 @@ const ProjectRow = ({
       className={`p-1.5 rounded-lg transition-all shrink-0 ${
         isBrowserOpen
           ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-[0_0_16px_rgba(16,185,129,1)] border border-emerald-300 ring-2 ring-emerald-400 opacity-100 animate-pulse font-bold scale-105'
-          : 'bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 opacity-0 group-hover:opacity-100'
+          : 'bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 opacity-100 md:opacity-0 md:group-hover:opacity-100'
       }`}
       title={isBrowserOpen ? "Браузер проекту запущений! (Клікніть для перегляду)" : "Відкрити браузер проекту"}
     >
@@ -132,7 +132,7 @@ const ProjectRow = ({
     {/* Кнопка завантаження в активний редактор (синя) */}
     <button
       onClick={e => { e.stopPropagation(); onLoad(); }}
-      className="p-1.5 bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 rounded-lg transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+      className="p-1.5 bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 rounded-lg transition-colors shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100"
       title="Завантажити в редактор"
     >
       <ChevronRight size={12} />
@@ -498,17 +498,17 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
     >
       {/* Контейнер двох блоків */}
       <div
-        className="flex gap-4 w-full max-w-5xl h-[80vh] animate-in zoom-in-95 duration-300"
+        className="flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-5xl h-[94vh] md:h-[80vh] p-2 md:p-0 animate-in zoom-in-95 duration-300 overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
 
         {/* ═══════════════════════════════════════════
             ЛІВИЙ БЛОК — Список проектів
         ═══════════════════════════════════════════ */}
-        <div className="flex flex-col flex-1 rounded-2xl border bg-[var(--interface-bg)] border-[var(--interface-border)] backdrop-blur-md overflow-hidden">
+        <div className="flex flex-col flex-1 rounded-2xl border bg-[var(--interface-bg)] border-[var(--interface-border)] backdrop-blur-md overflow-hidden min-h-0">
 
           {/* Шапка з кнопками */}
-          <div className="flex items-center gap-2 border-b border-white/10 shrink-0 p-3">
+          <div className="flex flex-wrap items-center gap-1.5 md:gap-2 border-b border-white/10 shrink-0 p-2.5 md:p-3">
             {/* Зберегти (зелена) */}
             <button
               onClick={() => onSave(false)}
@@ -747,7 +747,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
         {/* ═══════════════════════════════════════════
             ПРАВИЙ БЛОК — Налаштування (відкривається кнопкою)
         ═══════════════════════════════════════════ */}
-        <div className={`flex flex-col rounded-2xl border bg-[var(--interface-bg)] border-[var(--interface-border)] backdrop-blur-md overflow-hidden transition-all duration-300 ${rightPanelOpen ? 'w-96 opacity-100' : 'w-0 opacity-0 border-0'}`}>
+        <div className={`flex flex-col rounded-2xl border bg-[var(--interface-bg)] border-[var(--interface-border)] backdrop-blur-md overflow-hidden transition-all duration-300 ${rightPanelOpen ? 'w-full md:w-96 opacity-100 max-h-[45vh] md:max-h-none shrink-0' : 'hidden md:flex w-0 opacity-0 border-0'}`}>
           {rightPanelOpen && (
             <>
               {/* Шапка правої панелі */}

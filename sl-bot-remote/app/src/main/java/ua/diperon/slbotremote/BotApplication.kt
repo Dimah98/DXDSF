@@ -14,6 +14,11 @@ import java.util.concurrent.TimeUnit
  */
 class BotApplication : Application(), ImageLoaderFactory {
     
+    override fun onCreate() {
+        super.onCreate()
+        NotificationSyncWorker.schedule(this)
+    }
+
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .components {

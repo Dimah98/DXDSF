@@ -20,7 +20,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   title,
   icon,
   maxWidth = 'max-w-5xl',
-  maxHeight = 'h-[85vh]',
+  maxHeight = 'h-[94vh] md:h-[85vh]',
   showCloseButton = true,
   zIndex = 'z-[var(--z-modal-high)]'
 }) => {
@@ -28,7 +28,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200`}
+      className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/85 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200`}
       onClick={onClose}
     >
       <div

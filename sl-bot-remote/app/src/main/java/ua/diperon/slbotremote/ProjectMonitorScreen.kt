@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.padding // Маргінальні вн
 import androidx.compose.foundation.layout.size // Геометричні лінійні розміри
 import androidx.compose.foundation.layout.width // Фіксована ширина компонента
 import androidx.compose.foundation.lazy.LazyColumn // Високопродуктивний прокручувальний вертикальний список
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.foundation.lazy.items // Ітератор наповнення елементів для лінивого списку
 import androidx.compose.foundation.lazy.rememberLazyListState // Кешування станів прокрутки списку
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -59,6 +60,9 @@ import androidx.compose.material.icons.filled.CalendarMonth // Іконка ка
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.filled.Delete // Кошик видалення логів
 import androidx.compose.material.icons.filled.Edit // Редагування
+import androidx.compose.material.icons.filled.History // Історія запусків
+import androidx.compose.material.icons.filled.Description // Файл збереження
+import androidx.compose.material.icons.filled.Search // Пошук
 import androidx.compose.material.icons.filled.Map // Карта острова
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info // Інформаційна кругла бірка
@@ -73,6 +77,32 @@ import androidx.compose.material.icons.filled.PlayArrow // Символ запу
 import androidx.compose.material.icons.filled.Refresh // Кнопка синхронізації метрик
 import androidx.compose.material.icons.filled.Stop // Квадрат термінового зупинення двигуна
 import androidx.compose.material.icons.filled.Download // Завантаження історії
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.filled.UnfoldLess
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.ZoomOut
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.PanTool
+import androidx.compose.material.icons.filled.Mouse
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.KeyboardReturn
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import android.widget.Toast
+import org.json.JSONObject
+import org.json.JSONArray
+import org.json.JSONTokener
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import androidx.compose.material.icons.filled.Tv // Екран увімкненої трансляції
 import androidx.compose.material.icons.filled.TvOff // Екран вимкненої трансляції
 import androidx.compose.material3.Button // Класична кнопка у Material 3
@@ -86,9 +116,12 @@ import androidx.compose.material3.Icon // Матеріальна векторн�
 import androidx.compose.material3.IconButton // Кругла кнопка що оперує векторною іконкою
 import androidx.compose.material3.MaterialTheme // Шкала стилістики поточної теми додатку
 import androidx.compose.material3.OutlinedButton // Контурна кнопка
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold // Фундаментальна трирівнева основа розмітки
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text // Рендерер текстових полів
 import androidx.compose.material3.TopAppBar // Комплект верхнього шапкового меню дій
 import androidx.compose.material3.TopAppBarDefaults // Кольори оформлення шапки екрану
@@ -122,6 +155,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.tooling.preview.Preview
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableLongStateOf
 import ua.diperon.slbotremote.ui.theme.*
 
 /**
@@ -142,6 +177,7 @@ fun ProjectMonitorScreen(
     // Збір реактивних потоків даних із нашої ViewModel
     val currentProjectName by viewModel.projectName.collectAsState() // Стейт поточного імені проекту у роботі
     val isRunning by viewModel.isBotRunning.collectAsState() // Стейт роботи скрипта бота в реальному часі
+    val activeNodeTitle by viewModel.activeExecutingNodeTitle.collectAsState() // Активна нода, що виконується
     val isStreaming by viewModel.isStreamingGrid.collectAsState() // Стейт активності трансляції потокового відео
     val latestFrame by viewModel.latestFrame.collectAsState() // Стейт останнього графічного фрейма трансляції
     val logs by viewModel.consoleLogs.collectAsState() // Стейт списку логів командного рядка
@@ -156,6 +192,13 @@ fun ProjectMonitorScreen(
     val markedDeliveries by viewModel.markedDeliveries.collectAsState() // Відмічені доставки
     val projectContainers by viewModel.projectContainers.collectAsState() // Контейнери проекту
     val isLoadingContainers by viewModel.isLoadingContainers.collectAsState() // Стан завантаження контейнерів
+    val projectRuns by viewModel.projectRuns.collectAsState()
+    val selectedRunId by viewModel.selectedRunId.collectAsState()
+    val selectedRunLogs by viewModel.selectedRunLogs.collectAsState()
+    val isLoadingRuns by viewModel.isLoadingRuns.collectAsState()
+    val isLoadingRunLogs by viewModel.isLoadingRunLogs.collectAsState()
+    val projectSaveRawJson by viewModel.projectSaveRawJson.collectAsState()
+    val isLoadingProjectSave by viewModel.isLoadingProjectSave.collectAsState()
 
     val context = LocalContext.current
     val inventoryPrefs = remember { InventoryPreferences(context) }
@@ -186,6 +229,7 @@ fun ProjectMonitorScreen(
         snackbarHostState = snackbarHostState,
         currentProjectName = currentProjectName,
         isRunning = isRunning,
+        activeNodeTitle = activeNodeTitle,
         isStreaming = isStreaming,
         isBrowserOpen = isBrowserOpen,
         latestFrame = latestFrame,
@@ -201,6 +245,13 @@ fun ProjectMonitorScreen(
         markedDeliveries = markedDeliveries,
         containers = projectContainers,
         isLoadingContainers = isLoadingContainers,
+        projectRuns = projectRuns,
+        selectedRunId = selectedRunId,
+        selectedRunLogs = selectedRunLogs,
+        isLoadingRuns = isLoadingRuns,
+        isLoadingRunLogs = isLoadingRunLogs,
+        projectSaveRawJson = projectSaveRawJson,
+        isLoadingProjectSave = isLoadingProjectSave,
         onBackClick = onBackClick,
         onNavigateToEditor = onNavigateToEditor,
         onNavigateToMap = onNavigateToMap,
@@ -217,8 +268,28 @@ fun ProjectMonitorScreen(
         onDeleteScreenshot = { viewModel.deleteScreenshot(it) },
         onToggleGallery = { viewModel.toggleGallery() },
         onSetViewMode = { viewModel.setViewMode(it) },
+        onSelectRun = { viewModel.selectRun(it) },
+        onRefreshRuns = { viewModel.fetchProjectRuns() },
+        onRefreshProjectSave = { viewModel.fetchProjectSaveRaw() },
         onSendMouseClick = { x, y, w, h -> viewModel.sendMouseClick(x, y, w, h) },
         onSendScroll = { dx, dy -> viewModel.sendScroll(dx, dy) },
+        onSendMouseDown = { rx, ry, btn -> viewModel.sendMouseDown(rx, ry, btn) },
+        onSendMouseMove = { rx, ry -> viewModel.sendMouseMove(rx, ry) },
+        onSendMouseUp = { rx, ry, btn -> viewModel.sendMouseUp(rx, ry, btn) },
+        onSendDoubleClick = { rx, ry -> viewModel.sendDoubleClick(rx, ry) },
+        onSendRightClick = { rx, ry -> viewModel.sendRightClick(rx, ry) },
+        onSendScrollUp = { viewModel.sendScrollUp() },
+        onSendScrollDown = { viewModel.sendScrollDown() },
+        onSendKeyPress = { key -> viewModel.sendKeyPress(key) },
+        onSendTypeText = { txt, enter -> viewModel.sendTypeText(txt, enter) },
+        onSendEsc = { viewModel.sendEsc() },
+        onSendEnter = { viewModel.sendEnter() },
+        onSendBackspace = { viewModel.sendBackspace() },
+        onSendTab = { viewModel.sendTab() },
+        onRefreshBrowserPage = { viewModel.refreshBrowserPage() },
+        onNavigateToUrl = { url -> viewModel.navigateToUrl(url) },
+        onGoBack = { viewModel.goBack() },
+        onGoForward = { viewModel.goForward() },
         onToggleDeliveryMark = { deliveryId -> viewModel.toggleDeliveryMark(deliveryId) },
         onRefreshContainers = { viewModel.fetchContainers() },
         onRunContainer = { container -> viewModel.runContainer(container) }
@@ -232,6 +303,7 @@ fun ProjectMonitorContent(
     projectName: String,
     currentProjectName: String,
     isRunning: Boolean,
+    activeNodeTitle: String? = null,
     isStreaming: Boolean,
     isBrowserOpen: Boolean,
     latestFrame: Bitmap?,
@@ -247,6 +319,13 @@ fun ProjectMonitorContent(
     markedDeliveries: Set<String> = emptySet(),
     containers: List<FlowNodeData> = emptyList(),
     isLoadingContainers: Boolean = false,
+    projectRuns: List<RunRecordItem> = emptyList(),
+    selectedRunId: String? = null,
+    selectedRunLogs: String? = null,
+    isLoadingRuns: Boolean = false,
+    isLoadingRunLogs: Boolean = false,
+    projectSaveRawJson: String? = null,
+    isLoadingProjectSave: Boolean = false,
     onBackClick: () -> Unit,
     onNavigateToEditor: (String) -> Unit,
     onNavigateToMap: (String) -> Unit,
@@ -263,8 +342,28 @@ fun ProjectMonitorContent(
     onDeleteScreenshot: (String) -> Unit,
     onToggleGallery: () -> Unit,
     onSetViewMode: (ViewMode) -> Unit,
+    onSelectRun: (String?) -> Unit = {},
+    onRefreshRuns: () -> Unit = {},
+    onRefreshProjectSave: () -> Unit = {},
     onSendMouseClick: (Float, Float, Int, Int) -> Unit,
     onSendScroll: (Float, Float) -> Unit,
+    onSendMouseDown: (Float, Float, String) -> Unit = { _, _, _ -> },
+    onSendMouseMove: (Float, Float) -> Unit = { _, _ -> },
+    onSendMouseUp: (Float, Float, String) -> Unit = { _, _, _ -> },
+    onSendDoubleClick: (Float, Float) -> Unit = { _, _ -> },
+    onSendRightClick: (Float, Float) -> Unit = { _, _ -> },
+    onSendScrollUp: () -> Unit = {},
+    onSendScrollDown: () -> Unit = {},
+    onSendKeyPress: (String) -> Unit = {},
+    onSendTypeText: (String, Boolean) -> Unit = { _, _ -> },
+    onSendEsc: () -> Unit = {},
+    onSendEnter: () -> Unit = {},
+    onSendBackspace: () -> Unit = {},
+    onSendTab: () -> Unit = {},
+    onRefreshBrowserPage: () -> Unit = {},
+    onNavigateToUrl: (String) -> Unit = {},
+    onGoBack: () -> Unit = {},
+    onGoForward: () -> Unit = {},
     onToggleDeliveryMark: (String) -> Unit = {},
     onRefreshContainers: () -> Unit = {},
     onRunContainer: (FlowNodeData) -> Unit = {}
@@ -394,6 +493,7 @@ fun ProjectMonitorContent(
                         isStreamingActive = isStreaming,
                         frameBitmap = latestFrame,
                         isBotRunning = isRunning,
+                        activeNodeTitle = activeNodeTitle,
                         onToggleStream = onToggleStream,
                         onFullScreenClick = { isFullScreenStream = true }
                     )
@@ -483,6 +583,32 @@ fun ProjectMonitorContent(
                             onSetViewMode = onSetViewMode
                         )
                     }
+                    ViewMode.RUN_HISTORY -> {
+                        RunHistoryComponent(
+                            modifier = bottomModeModifier,
+                            projectName = projectName,
+                            runs = projectRuns,
+                            selectedRunId = selectedRunId,
+                            selectedRunLogs = selectedRunLogs,
+                            isLoadingRuns = isLoadingRuns,
+                            isLoadingLogs = isLoadingRunLogs,
+                            onSelectRun = onSelectRun,
+                            onRefreshRuns = onRefreshRuns,
+                            viewMode = viewMode,
+                            onSetViewMode = onSetViewMode
+                        )
+                    }
+                    ViewMode.SAVE_FILE -> {
+                        SaveFileViewerComponent(
+                            modifier = bottomModeModifier,
+                            projectName = projectName,
+                            rawJson = projectSaveRawJson,
+                            isLoading = isLoadingProjectSave,
+                            onRefresh = onRefreshProjectSave,
+                            viewMode = viewMode,
+                            onSetViewMode = onSetViewMode
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -491,9 +617,29 @@ fun ProjectMonitorContent(
         if (isFullScreenStream) {
             FullScreenStreamDialog(
                 frameBitmap = latestFrame,
+                isBrowserOpen = isBrowserOpen,
+                activeNodeTitle = activeNodeTitle,
                 onDismiss = { isFullScreenStream = false },
-                onSendClick = onSendMouseClick,
-                onSendScroll = onSendScroll
+                onToggleBrowser = onToggleBrowser,
+                onSendClick = { rx, ry, btn -> onSendMouseClick(rx, ry, 1, 1) },
+                onSendMouseDown = onSendMouseDown,
+                onSendMouseMove = onSendMouseMove,
+                onSendMouseUp = onSendMouseUp,
+                onSendDoubleClick = onSendDoubleClick,
+                onSendRightClick = onSendRightClick,
+                onSendScroll = onSendScroll,
+                onSendScrollUp = onSendScrollUp,
+                onSendScrollDown = onSendScrollDown,
+                onSendKeyPress = onSendKeyPress,
+                onSendTypeText = onSendTypeText,
+                onSendEsc = onSendEsc,
+                onSendEnter = onSendEnter,
+                onSendBackspace = onSendBackspace,
+                onSendTab = onSendTab,
+                onRefreshBrowser = onRefreshBrowserPage,
+                onNavigateToUrl = onNavigateToUrl,
+                onGoBack = onGoBack,
+                onGoForward = onGoForward
             )
         }
 
@@ -554,11 +700,12 @@ fun LiveStreamComponent(
     isStreamingActive: Boolean,
     frameBitmap: Bitmap?,
     isBotRunning: Boolean,
+    activeNodeTitle: String? = null,
     onToggleStream: () -> Unit,
     onFullScreenClick: () -> Unit
 ) {
     val aspectRatio = remember(frameBitmap) {
-        if (frameBitmap != null && frameBitmap.height > 0) {
+        if (frameBitmap != null && !frameBitmap.isRecycled && frameBitmap.height > 0) {
             frameBitmap.width.toFloat() / frameBitmap.height.toFloat()
         } else {
             16f / 9f
@@ -584,10 +731,10 @@ fun LiveStreamComponent(
                 .padding(8.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(GlassTerminal)
-                .clickable { if (isStreamingActive && frameBitmap != null) onFullScreenClick() },
+                .clickable { if (isStreamingActive && frameBitmap != null && !frameBitmap.isRecycled) onFullScreenClick() },
             contentAlignment = Alignment.Center
         ) {
-            if (isStreamingActive && frameBitmap != null) {
+            if (isStreamingActive && frameBitmap != null && !frameBitmap.isRecycled) {
                 Image(
                     bitmap = frameBitmap.asImageBitmap(),
                     contentDescription = "Пряма трансляція",
@@ -597,6 +744,35 @@ fun LiveStreamComponent(
                         .clip(RoundedCornerShape(18.dp)),
                     contentScale = ContentScale.Fit
                 )
+
+                if (isBotRunning && !activeNodeTitle.isNullOrBlank()) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(10.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.Black.copy(alpha = 0.75f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF22C55E))
+                            )
+                            Text(
+                                text = activeNodeTitle,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
             } else {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -1064,6 +1240,38 @@ fun BottomViewModeSwitcher(
                 imageVector = Icons.Default.Widgets,
                 contentDescription = "Контейнери",
                 tint = if (viewMode == ViewMode.CONTAINERS) GlassGem else Color.White.copy(alpha = 0.4f),
+                modifier = Modifier.size(15.dp)
+            )
+        }
+
+        // Історія запусків
+        IconButton(
+            onClick = { onSetViewMode(ViewMode.RUN_HISTORY) },
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (viewMode == ViewMode.RUN_HISTORY) GlassGem.copy(alpha = 0.25f) else Color.Transparent)
+        ) {
+            Icon(
+                imageVector = Icons.Default.History,
+                contentDescription = "Історія запусків",
+                tint = if (viewMode == ViewMode.RUN_HISTORY) GlassGem else Color.White.copy(alpha = 0.4f),
+                modifier = Modifier.size(15.dp)
+            )
+        }
+
+        // Файл збереження (_save.json)
+        IconButton(
+            onClick = { onSetViewMode(ViewMode.SAVE_FILE) },
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (viewMode == ViewMode.SAVE_FILE) GlassGem.copy(alpha = 0.25f) else Color.Transparent)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Description,
+                contentDescription = "Файл збереження",
+                tint = if (viewMode == ViewMode.SAVE_FILE) GlassGem else Color.White.copy(alpha = 0.4f),
                 modifier = Modifier.size(15.dp)
             )
         }
@@ -1760,14 +1968,56 @@ fun StatsDetailsDialog(
     }
 }
 
+enum class AndroidStreamMode(val label: String) {
+    DIRECT("Пряме"),
+    DRAG("Перетягування"),
+    CLICK("Клік"),
+    SCROLL("Скрол")
+}
+
+data class StreamTouchRipple(
+    val id: Long,
+    val x: Float,
+    val y: Float
+)
+
 @Composable
 fun FullScreenStreamDialog(
     frameBitmap: android.graphics.Bitmap?,
+    isBrowserOpen: Boolean,
+    activeNodeTitle: String? = null,
     onDismiss: () -> Unit,
-    onSendClick: (x: Float, y: Float, width: Int, height: Int) -> Unit,
-    onSendScroll: (deltaX: Float, deltaY: Float) -> Unit
+    onToggleBrowser: () -> Unit,
+    onSendClick: (relX: Float, relY: Float, button: String) -> Unit,
+    onSendMouseDown: (relX: Float, relY: Float, button: String) -> Unit,
+    onSendMouseMove: (relX: Float, relY: Float) -> Unit,
+    onSendMouseUp: (relX: Float, relY: Float, button: String) -> Unit,
+    onSendDoubleClick: (relX: Float, relY: Float) -> Unit,
+    onSendRightClick: (relX: Float, relY: Float) -> Unit,
+    onSendScroll: (deltaX: Float, deltaY: Float) -> Unit,
+    onSendScrollUp: () -> Unit,
+    onSendScrollDown: () -> Unit,
+    onSendKeyPress: (key: String) -> Unit,
+    onSendTypeText: (text: String, pressEnter: Boolean) -> Unit,
+    onSendEsc: () -> Unit,
+    onSendEnter: () -> Unit,
+    onSendBackspace: () -> Unit,
+    onSendTab: () -> Unit,
+    onRefreshBrowser: () -> Unit,
+    onNavigateToUrl: (url: String) -> Unit,
+    onGoBack: () -> Unit,
+    onGoForward: () -> Unit
 ) {
     if (frameBitmap == null) return
+
+    var mode by remember { mutableStateOf(AndroidStreamMode.DIRECT) }
+    var textInput by remember { mutableStateOf("") }
+    var pressEnterAfterType by remember { mutableStateOf(true) }
+    var showNavToolbar by remember { mutableStateOf(false) }
+    var navUrl by remember { mutableStateOf("https://sunflower-land.com/play/") }
+    var lastTouchCoords by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    val ripples = remember { mutableStateListOf<StreamTouchRipple>() }
+    var lastDragTime by remember { mutableLongStateOf(0L) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1782,7 +2032,42 @@ fun FullScreenStreamDialog(
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
-            var boxSize by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
+            var boxSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
+
+            fun getRelCoords(touchX: Float, touchY: Float): Pair<Float, Float>? {
+                val imgW = frameBitmap.width.toFloat()
+                val imgH = frameBitmap.height.toFloat()
+                val boxW = boxSize.width
+                val boxH = boxSize.height
+
+                if (boxW <= 0 || boxH <= 0 || imgW <= 0 || imgH <= 0) return null
+
+                val imgAspect = imgW / imgH
+                val boxAspect = boxW / boxH
+
+                val drawW: Float
+                val drawH: Float
+                val offsetX: Float
+                val offsetY: Float
+                if (boxAspect > imgAspect) {
+                    val h = boxH
+                    val w = h * imgAspect
+                    drawW = w; drawH = h; offsetX = (boxW - w) / 2f; offsetY = 0f
+                } else {
+                    val w = boxW
+                    val h = w / imgAspect
+                    drawW = w; drawH = h; offsetX = 0f; offsetY = (boxH - h) / 2f
+                }
+
+                val tapX = touchX - offsetX
+                val tapY = touchY - offsetY
+
+                if (drawW <= 0f || drawH <= 0f) return null
+
+                val relX = (tapX / drawW).coerceIn(0f, 1f)
+                val relY = (tapY / drawH).coerceIn(0f, 1f)
+                return Pair(relX, relY)
+            }
 
             Image(
                 bitmap = frameBitmap.asImageBitmap(),
@@ -1795,71 +2080,422 @@ fun FullScreenStreamDialog(
                             coordinates.size.height.toFloat()
                         )
                     }
-                    .pointerInput(Unit) {
+                    .pointerInput(mode) {
                         detectTapGestures(
                             onTap = { offset ->
-                                val imgW = frameBitmap.width.toFloat()
-                                val imgH = frameBitmap.height.toFloat()
-                                val boxW = boxSize.width
-                                val boxH = boxSize.height
-
-                                if (boxW <= 0 || boxH <= 0) return@detectTapGestures
-
-                                val imgAspect = imgW / imgH
-                                val boxAspect = boxW / boxH
-
-                                var drawW = boxW
-                                var drawH = boxH
-                                var offsetX = 0f
-                                var offsetY = 0f
-
-                                if (boxAspect > imgAspect) {
-                                    // letterbox: чорні смуги зліва/справа
-                                    drawH = boxH
-                                    drawW = drawH * imgAspect
-                                    offsetX = (boxW - drawW) / 2f
-                                } else {
-                                    // pillarbox: чорні смуги зверху/знизу
-                                    drawW = boxW
-                                    drawH = drawW / imgAspect
-                                    offsetY = (boxH - drawH) / 2f
-                                }
-
-                                val tapX = offset.x - offsetX
-                                val tapY = offset.y - offsetY
-
-                                if (tapX >= 0 && tapX <= drawW && tapY >= 0 && tapY <= drawH) {
-                                    val relX = tapX / drawW
-                                    val relY = tapY / drawH
-
-                                    val finalX = relX * imgW
-                                    val finalY = relY * imgH
-
-                                    onSendClick(finalX, finalY, imgW.toInt(), imgH.toInt())
-                                }
+                                val coords = getRelCoords(offset.x, offset.y) ?: return@detectTapGestures
+                                val (relX, relY) = coords
+                                lastTouchCoords = Pair((relX * 1280).toInt(), (relY * 720).toInt())
+                                ripples.add(StreamTouchRipple(System.currentTimeMillis(), offset.x, offset.y))
+                                onSendClick(relX, relY, "left")
+                            },
+                            onDoubleTap = { offset ->
+                                val coords = getRelCoords(offset.x, offset.y) ?: return@detectTapGestures
+                                val (relX, relY) = coords
+                                onSendDoubleClick(relX, relY)
+                            },
+                            onLongPress = { offset ->
+                                val coords = getRelCoords(offset.x, offset.y) ?: return@detectTapGestures
+                                val (relX, relY) = coords
+                                onSendRightClick(relX, relY)
                             }
                         )
                     }
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            // Передача жестів прокрутки. Playwright scroll delta:
-                            onSendScroll(-dragAmount.x, -dragAmount.y)
-                        }
+                    .pointerInput(mode) {
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                val coords = getRelCoords(offset.x, offset.y) ?: return@detectDragGestures
+                                val (relX, relY) = coords
+                                lastTouchCoords = Pair((relX * 1280).toInt(), (relY * 720).toInt())
+                                if (mode == AndroidStreamMode.DIRECT || mode == AndroidStreamMode.DRAG) {
+                                    onSendMouseDown(relX, relY, "left")
+                                }
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                val coords = getRelCoords(change.position.x, change.position.y) ?: return@detectDragGestures
+                                val (relX, relY) = coords
+                                lastTouchCoords = Pair((relX * 1280).toInt(), (relY * 720).toInt())
+                                val now = System.currentTimeMillis()
+                                if (mode == AndroidStreamMode.SCROLL) {
+                                    if (now - lastDragTime > 30) {
+                                        lastDragTime = now
+                                        onSendScroll(-dragAmount.x, -dragAmount.y)
+                                    }
+                                } else if (mode == AndroidStreamMode.DIRECT || mode == AndroidStreamMode.DRAG) {
+                                    if (now - lastDragTime > 30) {
+                                        lastDragTime = now
+                                        onSendMouseMove(relX, relY)
+                                    }
+                                }
+                            },
+                            onDragEnd = {
+                                if (mode == AndroidStreamMode.DIRECT || mode == AndroidStreamMode.DRAG) {
+                                    val (relX, relY) = lastTouchCoords?.let {
+                                        Pair(it.first / 1280f, it.second / 720f)
+                                    } ?: Pair(0.5f, 0.5f)
+                                    onSendMouseUp(relX, relY, "left")
+                                }
+                            },
+                            onDragCancel = {
+                                if (mode == AndroidStreamMode.DIRECT || mode == AndroidStreamMode.DRAG) {
+                                    val (relX, relY) = lastTouchCoords?.let {
+                                        Pair(it.first / 1280f, it.second / 720f)
+                                    } ?: Pair(0.5f, 0.5f)
+                                    onSendMouseUp(relX, relY, "left")
+                                }
+                            }
+                        )
                     },
                 contentScale = ContentScale.Fit
             )
 
-            // Кнопка закриття
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-            ) {
-                Icon(Icons.Default.Close, contentDescription = "Закрити", tint = Color.White)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                ripples.forEach { rip ->
+                    drawCircle(
+                        color = Color(0x9922C55E),
+                        radius = 24.dp.toPx(),
+                        center = androidx.compose.ui.geometry.Offset(rip.x, rip.y),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx())
+                    )
+                }
             }
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter),
+                color = Color(0xCC111827),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AndroidStreamMode.entries.forEach { m ->
+                            val isSelected = mode == m
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) Color(0xFF10B981) else Color.White.copy(alpha = 0.1f),
+                                modifier = Modifier.clickable { mode = m }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = when (m) {
+                                            AndroidStreamMode.DIRECT -> Icons.Default.TouchApp
+                                            AndroidStreamMode.DRAG -> Icons.Default.PanTool
+                                            AndroidStreamMode.CLICK -> Icons.Default.Mouse
+                                            AndroidStreamMode.SCROLL -> Icons.Default.UnfoldMore
+                                        },
+                                        contentDescription = null,
+                                        tint = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = m.label,
+                                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isBrowserOpen) Color(0xFFDC2626) else Color(0xFF16A34A),
+                            modifier = Modifier.clickable { onToggleBrowser() }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isBrowserOpen) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = if (isBrowserOpen) "Стоп" else "Старт",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Закрити", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 56.dp, start = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xCCDC2626),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color.White))
+                        Text(text = "LIVE", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
+                if (!activeNodeTitle.isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xCC000000),
+                        border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.6f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF10B981)))
+                            Text(text = activeNodeTitle, color = Color.White, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
+                lastTouchCoords?.let { coords ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0x99000000)
+                    ) {
+                        Text(
+                            text = "${coords.first}, ${coords.second}",
+                            color = Color.White.copy(alpha = 0.8f),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter),
+                color = Color(0xEE111827),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = textInput,
+                            onValueChange = { textInput = it },
+                            placeholder = {
+                                Text("Введіть текст...", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.4f))
+                            },
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            singleLine = true,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                                unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                                focusedBorderColor = Color(0xFF10B981),
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.15f)
+                            ),
+                            textStyle = MaterialTheme.typography.bodySmall
+                        )
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.White.copy(alpha = 0.08f),
+                            modifier = Modifier.clickable { pressEnterAfterType = !pressEnterAfterType }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Checkbox(
+                                    checked = pressEnterAfterType,
+                                    onCheckedChange = { pressEnterAfterType = it },
+                                    modifier = Modifier.size(18.dp),
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFF10B981),
+                                        uncheckedColor = Color.White.copy(alpha = 0.4f)
+                                    )
+                                )
+                                Text(text = "+↵", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
+                            }
+                        }
+
+                        IconButton(
+                            onClick = {
+                                if (textInput.isNotBlank()) {
+                                    onSendTypeText(textInput, pressEnterAfterType)
+                                    textInput = ""
+                                }
+                            },
+                            enabled = textInput.isNotBlank(),
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(if (textInput.isNotBlank()) Color(0xFF10B981) else Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = "Надіслати", tint = Color.White, modifier = Modifier.size(18.dp))
+                        }
+
+                        IconButton(
+                            onClick = { showNavToolbar = !showNavToolbar },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(if (showNavToolbar) Color(0xFF4F46E5) else Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(Icons.Default.Language, contentDescription = "URL", tint = Color.White, modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    AnimatedVisibility(visible = showNavToolbar) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = navUrl,
+                                onValueChange = { navUrl = it },
+                                placeholder = {
+                                    Text("https://sunflower-land.com/play/", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.4f))
+                                },
+                                modifier = Modifier.weight(1f).height(46.dp),
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                                    unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                                    focusedBorderColor = Color(0xFF4F46E5),
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.15f)
+                                ),
+                                textStyle = MaterialTheme.typography.bodySmall
+                            )
+                            Button(
+                                onClick = {
+                                    if (navUrl.isNotBlank()) {
+                                        onNavigateToUrl(navUrl)
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F46E5)),
+                                modifier = Modifier.height(46.dp)
+                            ) {
+                                Text("Перейти", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        QuickKeyPill(text = "↵ Enter", color = Color.White.copy(alpha = 0.15f)) { onSendEnter() }
+                        QuickKeyPill(text = "ESC", color = Color(0xFFE11D48)) { onSendEsc() }
+                        QuickKeyPill(text = "Tab", color = Color.White.copy(alpha = 0.15f)) { onSendTab() }
+                        QuickKeyPill(text = "⌫ Backspace", color = Color.White.copy(alpha = 0.15f)) { onSendBackspace() }
+                        QuickKeyPill(text = "Space", color = Color.White.copy(alpha = 0.15f)) { onSendTypeText(" ", false) }
+
+                        Box(modifier = Modifier.size(1.dp, 16.dp).background(Color.White.copy(alpha = 0.2f)))
+
+                        QuickKeyPill(text = "←", color = Color.White.copy(alpha = 0.15f)) { onSendKeyPress("ArrowLeft") }
+                        QuickKeyIconPill(icon = Icons.Default.KeyboardArrowUp) { onSendKeyPress("ArrowUp") }
+                        QuickKeyIconPill(icon = Icons.Default.KeyboardArrowDown) { onSendKeyPress("ArrowDown") }
+                        QuickKeyPill(text = "→", color = Color.White.copy(alpha = 0.15f)) { onSendKeyPress("ArrowRight") }
+
+                        Box(modifier = Modifier.size(1.dp, 16.dp).background(Color.White.copy(alpha = 0.2f)))
+
+                        QuickKeyIconPill(icon = Icons.AutoMirrored.Filled.ArrowBack, tooltip = "Назад") { onGoBack() }
+                        QuickKeyIconPill(icon = Icons.AutoMirrored.Filled.ArrowForward, tooltip = "Вперед") { onGoForward() }
+                        QuickKeyPill(text = "↻ Оновити", color = Color.White.copy(alpha = 0.15f)) { onRefreshBrowser() }
+                        QuickKeyIconPill(icon = Icons.Default.KeyboardArrowUp, tooltip = "Скрол вгору") { onSendScrollUp() }
+                        QuickKeyIconPill(icon = Icons.Default.KeyboardArrowDown, tooltip = "Скрол вниз") { onSendScrollDown() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickKeyPill(text: String, color: Color = Color.White.copy(alpha = 0.15f), onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = color,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun QuickKeyIconPill(icon: androidx.compose.ui.graphics.vector.ImageVector, tooltip: String? = null, onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color.White.copy(alpha = 0.15f),
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Box(modifier = Modifier.padding(6.dp), contentAlignment = Alignment.Center) {
+            Icon(imageVector = icon, contentDescription = tooltip, tint = Color.White, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -2625,6 +3261,8 @@ fun ProjectContainersComponent(
                     }
                 }
             } else {
+                var expandedContainerId by remember { mutableStateOf<String?>(null) }
+
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2635,77 +3273,627 @@ fun ProjectContainersComponent(
                         val label = container.data["label"] as? String
                             ?: container.data["name"] as? String
                             ?: "Контейнер #${container.id.takeLast(6)}"
-                        val subNodesCount = (container.data["subNodes"] as? List<*>)?.size ?: 0
+                        val subNodesList = container.data["subNodes"] as? List<*>
+                        val subNodesCount = subNodesList?.size ?: 0
                         val configId = container.data["configId"] as? String
+                        val isExpanded = expandedContainerId == container.id
 
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(GlassBg, RoundedCornerShape(12.dp))
-                                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .border(
+                                    BorderStroke(
+                                        1.dp,
+                                        if (isExpanded) GlassGem.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.12f)
+                                    ),
+                                    RoundedCornerShape(12.dp)
+                                )
                         ) {
+                            // Container header row
                             Row(
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { expandedContainerId = if (isExpanded) null else container.id }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(GlassGem.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
-                                    contentAlignment = Alignment.Center
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Widgets,
-                                        contentDescription = null,
-                                        tint = GlassGem,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(
+                                                if (isExpanded) GlassGem.copy(alpha = 0.3f) else GlassGem.copy(alpha = 0.15f),
+                                                RoundedCornerShape(10.dp)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.Widgets,
+                                            contentDescription = null,
+                                            tint = GlassGem,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = label,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = buildString {
+                                                append("Тип: ${container.type}")
+                                                if (subNodesCount > 0) append(" · $subNodesCount нод")
+                                                if (!configId.isNullOrBlank()) append(" · Конфіг: $configId")
+                                            },
+                                            fontSize = 11.sp,
+                                            color = Color.White.copy(alpha = 0.5f)
+                                        )
+                                    }
                                 }
-                                Spacer(Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        text = label,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        text = buildString {
-                                            append("Тип: ${container.type}")
-                                            if (subNodesCount > 0) append(" · $subNodesCount нод")
-                                            if (!configId.isNullOrBlank()) append(" · Конфіг: $configId")
-                                        },
-                                        fontSize = 11.sp,
-                                        color = Color.White.copy(alpha = 0.5f)
-                                    )
+
+                                Spacer(Modifier.width(8.dp))
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Button(
+                                        onClick = { onRunContainer(container) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = GlassSuccess),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.PlayArrow,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                text = "Запустити",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
-                            Spacer(Modifier.width(8.dp))
-
-                            Button(
-                                onClick = { onRunContainer(container) },
-                                colors = ButtonDefaults.buttonColors(containerColor = GlassSuccess),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(Modifier.width(4.dp))
+                            // Expanded: subnodes list
+                            AnimatedVisibility(visible = isExpanded) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                                        .padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
                                     Text(
-                                        text = "Запустити",
-                                        fontSize = 12.sp,
+                                        text = "Ноди контейнера",
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.White
+                                        color = GlassGem.copy(alpha = 0.9f),
+                                        modifier = Modifier.padding(bottom = 4.dp)
+                                    )
+
+                                    if (subNodesList.isNullOrEmpty()) {
+                                        Text(
+                                            text = "Ноди відсутні або не завантажені",
+                                            fontSize = 11.sp,
+                                            color = Color.White.copy(alpha = 0.4f)
+                                        )
+                                    } else {
+                                        subNodesList.forEachIndexed { idx, rawNode ->
+                                            val nodeMap = rawNode as? Map<*, *>
+                                            val nodeId = nodeMap?.get("id") as? String ?: "node_$idx"
+                                            val nodeType = nodeMap?.get("type") as? String ?: "unknown"
+                                            val nodeDataMap = nodeMap?.get("data") as? Map<*, *>
+                                            val nodeLabel = nodeDataMap?.get("label") as? String
+                                                ?: nodeDataMap?.get("name") as? String
+                                                ?: nodeType
+
+                                            val nodeColor = NODE_TYPES.find { it.type == nodeType }?.color ?: 0xFF6B7280
+
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(8.dp))
+                                                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), RoundedCornerShape(8.dp))
+                                                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(8.dp)
+                                                            .background(Color(nodeColor), CircleShape)
+                                                    )
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Column {
+                                                        Text(
+                                                            text = nodeLabel,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.Medium,
+                                                            color = Color.White,
+                                                            maxLines = 1
+                                                        )
+                                                        Text(
+                                                            text = nodeType,
+                                                            fontSize = 10.sp,
+                                                            color = Color.White.copy(alpha = 0.4f)
+                                                        )
+                                                    }
+                                                }
+
+                                                // Show editable fields based on node type
+                                                if (nodeDataMap != null) {
+                                                    val selector = nodeDataMap["selector"] as? String
+                                                    val delay = nodeDataMap["delay"]
+                                                    val value = nodeDataMap["value"] as? String
+                                                    Row(
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        if (!selector.isNullOrBlank()) {
+                                                            Surface(
+                                                                shape = RoundedCornerShape(6.dp),
+                                                                color = GlassIndigo.copy(alpha = 0.15f)
+                                                            ) {
+                                                                Text(
+                                                                    text = selector.take(20) + if (selector.length > 20) "…" else "",
+                                                                    fontSize = 9.sp,
+                                                                    color = GlassIndigoLight,
+                                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                                                    maxLines = 1
+                                                                )
+                                                            }
+                                                        }
+                                                        if (delay != null) {
+                                                            Surface(
+                                                                shape = RoundedCornerShape(6.dp),
+                                                                color = Color(0xFFF59E0B).copy(alpha = 0.15f)
+                                                            ) {
+                                                                Text(
+                                                                    text = "${delay}ms",
+                                                                    fontSize = 9.sp,
+                                                                    color = Color(0xFFF59E0B),
+                                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                        if (!value.isNullOrBlank()) {
+                                                            Surface(
+                                                                shape = RoundedCornerShape(6.dp),
+                                                                color = GlassSuccess.copy(alpha = 0.15f)
+                                                            ) {
+                                                                Text(
+                                                                    text = value.take(15) + if (value.length > 15) "…" else "",
+                                                                    fontSize = 9.sp,
+                                                                    color = GlassSuccess,
+                                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RunHistoryComponent(
+    modifier: Modifier = Modifier,
+    projectName: String,
+    runs: List<RunRecordItem>,
+    selectedRunId: String?,
+    selectedRunLogs: String?,
+    isLoadingRuns: Boolean,
+    isLoadingLogs: Boolean,
+    onSelectRun: (String?) -> Unit,
+    onRefreshRuns: () -> Unit,
+    viewMode: ViewMode = ViewMode.RUN_HISTORY,
+    onSetViewMode: (ViewMode) -> Unit = {}
+) {
+    var isMinimalMode by remember { mutableStateOf(true) }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (selectedRunId != null) {
+                        IconButton(
+                            onClick = { onSelectRun(null) },
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Назад",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = null,
+                            tint = GlassGem,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = if (selectedRunId != null) "Логи запуску" else "Історія запусків",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(
+                        onClick = onRefreshRuns,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Оновити",
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (selectedRunId != null) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isMinimalMode) GlassIndigo.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.08f))
+                                .clickable { isMinimalMode = !isMinimalMode }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isMinimalMode) "⚡ Мінімалізм: ON" else "📄 Повні логи",
+                                color = if (isMinimalMode) GlassIndigoLight else Color.White.copy(alpha = 0.6f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    BottomViewModeSwitcher(viewMode = viewMode, onSetViewMode = onSetViewMode)
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Body
+            if (selectedRunId == null) {
+                // List of runs
+                if (isLoadingRuns && runs.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = GlassIndigo, modifier = Modifier.size(28.dp))
+                    }
+                } else if (runs.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Немає збережених запусків",
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontSize = 12.sp,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(runs, key = { it.runId }) { r ->
+                            val startTimeStr = remember(r.startTime) {
+                                val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault())
+                                sdf.format(java.util.Date(r.startTime))
+                            }
+                            val durationStr = remember(r.startTime, r.endTime) {
+                                if (r.endTime != null && r.endTime > r.startTime) {
+                                    val sec = (r.endTime - r.startTime) / 1000.0
+                                    String.format(Locale.US, "%.1fс", sec)
+                                } else null
+                            }
+
+                            val statusBg = when (r.status) {
+                                "success" -> GlassSuccess.copy(alpha = 0.15f)
+                                "error" -> Color(0xFFEF4444).copy(alpha = 0.15f)
+                                else -> GlassIndigo.copy(alpha = 0.15f)
+                            }
+                            val statusColor = when (r.status) {
+                                "success" -> GlassSuccess
+                                "error" -> Color(0xFFEF4444)
+                                else -> GlassIndigoLight
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.White.copy(alpha = 0.04f))
+                                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                                    .clickable { onSelectRun(r.runId) }
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = startTimeStr,
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (durationStr != null) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = "Тривалість: $durationStr",
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(statusBg)
+                                        .border(1.dp, statusColor.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = r.status,
+                                        color = statusColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Logs of selected run
+                if (isLoadingLogs) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = GlassIndigo, modifier = Modifier.size(28.dp))
+                    }
+                } else if (selectedRunLogs.isNullOrBlank()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Файл логів порожній",
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontSize = 12.sp
+                        )
+                    }
+                } else {
+                    val parsedLogs = remember(selectedRunLogs) {
+                        parseRunLogs(selectedRunLogs)
+                    }
+
+                    if (isMinimalMode) {
+                        val minimalItems = remember(parsedLogs) {
+                            buildMinimalLogItems(parsedLogs)
+                        }
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.Black.copy(alpha = 0.4f))
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(minimalItems, key = { it.id }) { item ->
+                                when (item) {
+                                    is MinimalLogItem.ContainerCard -> {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(GlassIndigo.copy(alpha = 0.1f))
+                                                .border(1.dp, GlassIndigo.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                                .padding(10.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .background(GlassIndigoLight, CircleShape)
+                                                )
+                                                Text(
+                                                    text = item.title,
+                                                    color = GlassIndigoLight,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            Spacer(Modifier.height(4.dp))
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(start = 6.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .width(2.dp)
+                                                        .height(20.dp)
+                                                        .background(GlassIndigo.copy(alpha = 0.4f))
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    text = item.summary,
+                                                    color = if (item.isError) Color(0xFFEF4444) else Color.White.copy(alpha = 0.85f),
+                                                    fontSize = 11.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontWeight = if (item.isError) FontWeight.Bold else FontWeight.Normal
+                                                )
+                                            }
+                                        }
+                                    }
+                                    is MinimalLogItem.NodeRow -> {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (item.hasError) Color(0xFFEF4444).copy(alpha = 0.12f) else Color.White.copy(alpha = 0.04f))
+                                                .border(
+                                                    1.dp,
+                                                    if (item.hasError) Color(0xFFEF4444).copy(alpha = 0.25f) else Color.White.copy(alpha = 0.06f),
+                                                    RoundedCornerShape(8.dp)
+                                                )
+                                                .padding(horizontal = 10.dp, vertical = 7.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                modifier = Modifier.weight(1f, fill = false)
+                                            ) {
+                                                Text(
+                                                    text = if (item.hasError) "❌" else "✅",
+                                                    fontSize = 12.sp
+                                                )
+                                                Text(
+                                                    text = item.title,
+                                                    color = if (item.hasError) Color(0xFFEF4444) else GlassSuccess,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                if (item.errorMsg != null) {
+                                                    Text(
+                                                        text = item.errorMsg,
+                                                        color = Color.White.copy(alpha = 0.6f),
+                                                        fontSize = 10.sp,
+                                                        maxLines = 1
+                                                    )
+                                                }
+                                            }
+                                            if (item.duration != null) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(Color.Black.copy(alpha = 0.3f))
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text(
+                                                        text = item.duration,
+                                                        color = Color.White.copy(alpha = 0.5f),
+                                                        fontSize = 10.sp,
+                                                        fontFamily = FontFamily.Monospace
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    is MinimalLogItem.Standalone -> {
+                                        Text(
+                                            text = item.message,
+                                            color = Color.White.copy(alpha = 0.45f),
+                                            fontSize = 11.sp,
+                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Full log mode
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.Black.copy(alpha = 0.4f))
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            items(parsedLogs, key = { it.id }) { log ->
+                                val textColor = when {
+                                    log.isError -> Color(0xFFEF4444)
+                                    log.level == "SUCCESS" || log.message.contains("✅") -> GlassSuccess
+                                    log.level == "WARN" || log.message.contains("⚠️") -> GlassWarning
+                                    log.level == "INFO" -> GlassIndigoLight
+                                    else -> Color.White.copy(alpha = 0.85f)
+                                }
+
+                                val timeStr = if (log.timestamp.isNotEmpty()) {
+                                    val parts = log.timestamp.split("T")
+                                    if (parts.size > 1) parts[1].replace("Z", "") else log.timestamp
+                                } else ""
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    if (timeStr.isNotEmpty()) {
+                                        Text(
+                                            text = "[$timeStr] ",
+                                            color = Color.White.copy(alpha = 0.35f),
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                    Text(
+                                        text = if (timeStr.isNotEmpty() && log.raw.contains("] ")) log.raw.substringAfter("] ") else log.raw,
+                                        color = textColor,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        lineHeight = 15.sp
                                     )
                                 }
                             }
@@ -2716,4 +3904,645 @@ fun ProjectContainersComponent(
         }
     }
 }
+
+private data class ParsedRunLog(
+    val id: String,
+    val timestamp: String,
+    val level: String,
+    val container: String?,
+    val node: String?,
+    val message: String,
+    val raw: String,
+    val isError: Boolean
+)
+
+private sealed class MinimalLogItem(val id: String) {
+    class Standalone(id: String, val message: String) : MinimalLogItem(id)
+    class ContainerCard(id: String, val title: String, val summary: String, val isError: Boolean) : MinimalLogItem(id)
+    class NodeRow(id: String, val title: String, val hasError: Boolean, val errorMsg: String?, val duration: String?) : MinimalLogItem(id)
+}
+
+private val LOG_LINE_REGEX = Regex("""^\[(.*?)\] \[(.*?)\] (?:\[(.*?)\] )?(?:  ↳ \[(.*?)\] )?(.*)$""")
+
+private fun parseRunLogs(rawLogs: String): List<ParsedRunLog> {
+    if (rawLogs.isBlank()) return emptyList()
+    val lines = rawLogs.split('\n').filter { it.trim().isNotEmpty() }
+    val result = mutableListOf<ParsedRunLog>()
+
+    for (i in lines.indices) {
+        val line = lines[i]
+        val match = LOG_LINE_REGEX.find(line)
+        if (match != null) {
+            val ts = match.groupValues[1]
+            val lvl = match.groupValues[2]
+            var container = match.groupValues[3].ifEmpty { null }
+            val node = match.groupValues[4].ifEmpty { null }
+            val msg = match.groupValues[5]
+
+            var virtualNode = node
+            if (node == null && container != null) {
+                if (msg.contains("↳ ⏱️ Затримка")) {
+                    virtualNode = msg.replace("↳ ", "").trim()
+                } else if (msg.contains("Підпрограма завершена") || msg.contains(Regex("""^🏁 \d+мс"""))) {
+                    virtualNode = "$container (Завершення)"
+                } else {
+                    virtualNode = container
+                    container = null
+                }
+            }
+
+            result.add(
+                ParsedRunLog(
+                    id = "log_$i",
+                    timestamp = ts,
+                    level = lvl,
+                    container = container,
+                    node = virtualNode,
+                    message = msg,
+                    raw = line,
+                    isError = lvl == "ERROR" || msg.contains("❌") || msg.contains("error", ignoreCase = true) || msg.contains("Помилка", ignoreCase = true)
+                )
+            )
+        } else {
+            result.add(
+                ParsedRunLog(
+                    id = "log_$i",
+                    timestamp = "",
+                    level = "",
+                    container = null,
+                    node = null,
+                    message = line,
+                    raw = line,
+                    isError = line.contains("❌") || line.contains("error", ignoreCase = true) || line.contains("Помилка", ignoreCase = true)
+                )
+            )
+        }
+    }
+    return result
+}
+
+private fun summarizeRunLogs(logs: List<ParsedRunLog>): Pair<String, Boolean> {
+    val err = logs.firstOrNull { it.isError && !it.message.contains("Результат") && !it.message.contains("Конфіг") }
+    if (err != null) return err.message to true
+
+    val schedule = logs.firstOrNull { it.message.contains("📅") }
+    if (schedule != null) return schedule.message to false
+
+    val pass = logs.firstOrNull { it.message.contains("Конфіг TRUE") || it.message.contains("Конфіг «") }
+    if (pass != null) {
+        val countLog = logs.firstOrNull { it.message.contains("Запуск підпрограми") }
+        if (countLog != null) {
+            val m = Regex("""\(\d+ нод\)""").find(countLog.message)
+            if (m != null) return "✅ Умови виконано — запуск ${m.value}" to false
+        }
+        if (pass.message.contains("TRUE")) return "✅ Умови виконано" to false
+        if (pass.message.contains("FALSE")) {
+            val reason = logs.firstOrNull { it.message.contains("→ false") }
+            if (reason != null) return "❌ Пропущено: ${reason.message.replace(" → false", "")}" to true
+            return "❌ Пропущено (умови не виконані)" to true
+        }
+    }
+
+    val resLog = logs.firstOrNull { it.message.contains("Результат «") }
+    if (resLog != null) {
+        if (resLog.message.contains("TRUE")) return "✅ Умови виконано" to false
+        if (resLog.message.contains("FALSE")) {
+            val reason = logs.firstOrNull { it.message.contains("→ false") }
+            if (reason != null) return "❌ Пропущено: ${reason.message.replace(" → false", "")}" to true
+            return "❌ Пропущено (умови не виконані)" to true
+        }
+    }
+
+    val action = logs.asReversed().firstOrNull { !it.message.contains("▶️ Старт") && !it.message.matches(Regex("""^🏁.*""")) }
+    if (action != null) return action.message to action.isError
+
+    return (logs.firstOrNull()?.message ?: "") to (logs.firstOrNull()?.isError ?: false)
+}
+
+private fun buildMinimalLogItems(parsedLogs: List<ParsedRunLog>): List<MinimalLogItem> {
+    val items = mutableListOf<MinimalLogItem>()
+    var currentNodeKey: String? = null
+    val currentNodeLogs = mutableListOf<ParsedRunLog>()
+    var isCurrentNodeContainer = false
+
+    fun flushNode() {
+        if (currentNodeLogs.isEmpty()) return
+        if (isCurrentNodeContainer) {
+            val (summary, isErr) = summarizeRunLogs(currentNodeLogs)
+            items.add(
+                MinimalLogItem.ContainerCard(
+                    id = "cnt_${currentNodeLogs[0].id}",
+                    title = currentNodeKey ?: "Підпрограма",
+                    summary = summary,
+                    isError = isErr
+                )
+            )
+        } else {
+            val hasError = currentNodeLogs.any { it.isError }
+            val errorLog = currentNodeLogs.firstOrNull { it.isError }
+            val durationLog = currentNodeLogs.firstOrNull { it.message.contains(Regex("""🏁 \d+мс""")) }
+            var duration: String? = null
+            if (durationLog != null) {
+                val m = Regex("""🏁 (\d+мс)""").find(durationLog.message)
+                if (m != null) duration = m.groupValues[1]
+            }
+
+            val nodeName = currentNodeKey?.split(" ↳ ")?.lastOrNull() ?: currentNodeKey ?: "Система"
+            items.add(
+                MinimalLogItem.NodeRow(
+                    id = "node_${currentNodeLogs[0].id}",
+                    title = nodeName,
+                    hasError = hasError,
+                    errorMsg = if (hasError) errorLog?.message else null,
+                    duration = duration
+                )
+            )
+        }
+        currentNodeLogs.clear()
+    }
+
+    parsedLogs.forEach { log ->
+        if (log.node == null && log.container == null) {
+            flushNode()
+            items.add(MinimalLogItem.Standalone(id = log.id, message = log.message))
+            return@forEach
+        }
+
+        val key = if (log.container != null) "${log.container} ↳ ${log.node}" else log.node
+
+        if (key != currentNodeKey) {
+            flushNode()
+            currentNodeKey = key
+            isCurrentNodeContainer = (log.container == null)
+        }
+        currentNodeLogs.add(log)
+    }
+    flushNode()
+
+    return items
+}
+
+// ----------------------------------------------------
+// SAVE FILE JSON TREE VIEWER
+// ----------------------------------------------------
+
+private sealed class JsonTreeNode(
+    val key: String,
+    val fullPath: String
+) {
+    class ObjectNode(
+        key: String,
+        fullPath: String,
+        val children: List<JsonTreeNode>
+    ) : JsonTreeNode(key, fullPath)
+
+    class ArrayNode(
+        key: String,
+        fullPath: String,
+        val children: List<JsonTreeNode>
+    ) : JsonTreeNode(key, fullPath)
+
+    class LeafNode(
+        key: String,
+        fullPath: String,
+        val value: Any?,
+        val valueType: String
+    ) : JsonTreeNode(key, fullPath)
+}
+
+private fun parseJsonTreeNode(key: String, path: String, value: Any?): JsonTreeNode {
+    return when (value) {
+        is Map<*, *> -> {
+            val children = value.entries.mapNotNull { entry ->
+                val k = entry.key?.toString() ?: return@mapNotNull null
+                val childPath = if (path.isEmpty()) k else "$path.$k"
+                parseJsonTreeNode(k, childPath, entry.value)
+            }
+            JsonTreeNode.ObjectNode(key, path, children)
+        }
+        is List<*> -> {
+            val children = value.mapIndexed { i, item ->
+                val childPath = "$path[$i]"
+                parseJsonTreeNode("[$i]", childPath, item)
+            }
+            JsonTreeNode.ArrayNode(key, path, children)
+        }
+        is JSONObject -> {
+            val keyList = mutableListOf<String>()
+            val it = value.keys()
+            while (it.hasNext()) {
+                keyList.add(it.next())
+            }
+            val children = keyList.map { k ->
+                val childPath = if (path.isEmpty()) k else "$path.$k"
+                parseJsonTreeNode(k, childPath, value.opt(k))
+            }
+            JsonTreeNode.ObjectNode(key, path, children)
+        }
+        is JSONArray -> {
+            val children = (0 until value.length()).map { i ->
+                val childPath = "$path[$i]"
+                parseJsonTreeNode("[$i]", childPath, value.opt(i))
+            }
+            JsonTreeNode.ArrayNode(key, path, children)
+        }
+        is String -> JsonTreeNode.LeafNode(key, path, value, "string")
+        is Number -> {
+            val formatted = if (value is Double && value % 1.0 == 0.0 && value <= Long.MAX_VALUE && value >= Long.MIN_VALUE) {
+                value.toLong()
+            } else {
+                value
+            }
+            JsonTreeNode.LeafNode(key, path, formatted, "number")
+        }
+        is Boolean -> JsonTreeNode.LeafNode(key, path, value, "boolean")
+        else -> JsonTreeNode.LeafNode(key, path, if (value == JSONObject.NULL) null else value, "null")
+    }
+}
+
+private fun collectAllExpandablePaths(node: JsonTreeNode, out: MutableSet<String>) {
+    when (node) {
+        is JsonTreeNode.ObjectNode -> {
+            if (node.fullPath.isNotEmpty()) out.add(node.fullPath)
+            node.children.forEach { collectAllExpandablePaths(it, out) }
+        }
+        is JsonTreeNode.ArrayNode -> {
+            if (node.fullPath.isNotEmpty()) out.add(node.fullPath)
+            node.children.forEach { collectAllExpandablePaths(it, out) }
+        }
+        else -> Unit
+    }
+}
+
+@Composable
+fun SaveFileViewerComponent(
+    modifier: Modifier = Modifier,
+    projectName: String,
+    rawJson: String?,
+    isLoading: Boolean,
+    onRefresh: () -> Unit,
+    viewMode: ViewMode = ViewMode.SAVE_FILE,
+    onSetViewMode: (ViewMode) -> Unit = {}
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var isSearchOpen by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
+    val rootNode = remember(rawJson) {
+        if (rawJson.isNullOrBlank()) null
+        else {
+            try {
+                val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+                val parsed = moshi.adapter(Any::class.java).fromJson(rawJson)
+                parseJsonTreeNode("", "", parsed)
+            } catch (e: Exception) {
+                try {
+                    val tokener = JSONTokener(rawJson)
+                    val rootVal = tokener.nextValue()
+                    parseJsonTreeNode("", "", rootVal)
+                } catch (e2: Exception) {
+                    null
+                }
+            }
+        }
+    }
+
+    val expandedPaths = remember { mutableStateOf(setOf<String>()) }
+
+    // Початкове розкриття кореневих об'єктів
+    LaunchedEffect(rootNode) {
+        if (rootNode != null) {
+            val initialSet = mutableSetOf<String>()
+            when (rootNode) {
+                is JsonTreeNode.ObjectNode -> {
+                    rootNode.children.forEach { child ->
+                        if (child is JsonTreeNode.ObjectNode || child is JsonTreeNode.ArrayNode) {
+                            initialSet.add(child.fullPath)
+                        }
+                    }
+                }
+                is JsonTreeNode.ArrayNode -> {
+                    initialSet.add(rootNode.fullPath)
+                }
+                else -> Unit
+            }
+            expandedPaths.value = initialSet
+        }
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null,
+                        tint = GlassGem,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "${projectName}_save.json",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    IconButton(
+                        onClick = onRefresh,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Оновити",
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = { isSearchOpen = !isSearchOpen },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Пошук",
+                            tint = if (isSearchOpen) GlassIndigoLight else Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    if (rootNode != null) {
+                        // Кнопка перемикання формату часу (Unix → читабельний)
+                        var humanTimeFormat by remember { mutableStateOf(true) }
+                        IconButton(
+                            onClick = { humanTimeFormat = !humanTimeFormat },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (humanTimeFormat) Icons.Default.AccessTime else Icons.Default.Code,
+                                contentDescription = if (humanTimeFormat) "Unix час" else "Читабельний час",
+                                tint = if (humanTimeFormat) GlassGem else Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        // Кнопка скачування JSON
+                        IconButton(
+                            onClick = {
+                                try {
+                                    val filename = "${projectName}_save.json"
+                                    val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                                    val file = java.io.File(downloadsDir, filename)
+                                    file.writeText(rawJson ?: "")
+                                    Toast.makeText(context, "Збережено: $filename", android.widget.Toast.LENGTH_SHORT).show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Помилка: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "Скачати JSON",
+                                tint = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                }
+
+                BottomViewModeSwitcher(viewMode = viewMode, onSetViewMode = onSetViewMode)
+            }
+
+            if (isSearchOpen) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Пошук по ключу або значенню...", fontSize = 11.sp) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GlassIndigo,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    singleLine = true
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Body
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = GlassIndigo, modifier = Modifier.size(28.dp))
+                }
+            } else if (rawJson.isNullOrBlank() || rootNode == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Файл збереження не знайдено або порожній",
+                        color = Color.White.copy(alpha = 0.4f),
+                        fontSize = 12.sp
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
+                ) {
+                    item {
+                        JsonNodeTreeRenderer(
+                            node = rootNode,
+                            depth = 0,
+                            expandedPaths = expandedPaths.value,
+                            onToggleExpand = { path ->
+                                if (expandedPaths.value.contains(path)) {
+                                    expandedPaths.value = expandedPaths.value - path
+                                } else {
+                                    expandedPaths.value = expandedPaths.value + path
+                                }
+                            },
+                            onCopyPath = { path ->
+                                if (path.isNotEmpty()) {
+                                    clipboardManager.setText(AnnotatedString(path))
+                                    Toast.makeText(context, "Скопійовано шлях:\n$path", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            searchQuery = searchQuery
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun JsonNodeTreeRenderer(
+    node: JsonTreeNode,
+    depth: Int,
+    expandedPaths: Set<String>,
+    onToggleExpand: (String) -> Unit,
+    onCopyPath: (String) -> Unit,
+    searchQuery: String
+) {
+    val isExpanded = expandedPaths.contains(node.fullPath) || (node.fullPath.isEmpty() && depth == 0)
+
+    val matchesSearch = remember(node, searchQuery) {
+        if (searchQuery.isBlank()) true
+        else {
+            node.key.contains(searchQuery, ignoreCase = true) ||
+            (node is JsonTreeNode.LeafNode && node.value.toString().contains(searchQuery, ignoreCase = true)) ||
+            node.fullPath.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (node.key.isNotEmpty() || node.fullPath.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = (depth * 12).dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .combinedClickable(
+                        onClick = {
+                            if (node is JsonTreeNode.ObjectNode || node is JsonTreeNode.ArrayNode) {
+                                onToggleExpand(node.fullPath)
+                            }
+                        },
+                        onLongClick = {
+                            onCopyPath(node.fullPath)
+                        }
+                    )
+                    .background(if (searchQuery.isNotBlank() && matchesSearch) GlassIndigo.copy(alpha = 0.2f) else Color.Transparent)
+                    .padding(vertical = 3.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                when (node) {
+                    is JsonTreeNode.ObjectNode -> {
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = GlassIndigoLight,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = if (node.key.isNotEmpty()) "${node.key}: " else "",
+                            color = GlassIndigoLight,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "{ ${node.children.size} }",
+                            color = Color.White.copy(alpha = 0.45f),
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    is JsonTreeNode.ArrayNode -> {
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = GlassIndigoLight,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = if (node.key.isNotEmpty()) "${node.key}: " else "",
+                            color = GlassIndigoLight,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "[ ${node.children.size} ]",
+                            color = Color.White.copy(alpha = 0.45f),
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    is JsonTreeNode.LeafNode -> {
+                        Spacer(Modifier.width(20.dp))
+                        Text(
+                            text = "${node.key}: ",
+                            color = GlassIndigoLight,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        val valueColor = when (node.valueType) {
+                            "string" -> GlassSuccess
+                            "number" -> GlassWarning
+                            "boolean" -> GlassBalance
+                            else -> Color.White.copy(alpha = 0.5f)
+                        }
+                        val displayValue = if (node.valueType == "string") "\"${node.value}\"" else "${node.value}"
+                        Text(
+                            text = displayValue,
+                            color = valueColor,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 3
+                        )
+                    }
+                }
+            }
+        }
+
+        if (isExpanded) {
+            when (node) {
+                is JsonTreeNode.ObjectNode -> {
+                    node.children.forEach { child ->
+                        JsonNodeTreeRenderer(
+                            node = child,
+                            depth = if (node.key.isNotEmpty() || node.fullPath.isNotEmpty()) depth + 1 else depth,
+                            expandedPaths = expandedPaths,
+                            onToggleExpand = onToggleExpand,
+                            onCopyPath = onCopyPath,
+                            searchQuery = searchQuery
+                        )
+                    }
+                }
+                is JsonTreeNode.ArrayNode -> {
+                    node.children.forEach { child ->
+                        JsonNodeTreeRenderer(
+                            node = child,
+                            depth = if (node.key.isNotEmpty() || node.fullPath.isNotEmpty()) depth + 1 else depth,
+                            expandedPaths = expandedPaths,
+                            onToggleExpand = onToggleExpand,
+                            onCopyPath = onCopyPath,
+                            searchQuery = searchQuery
+                        )
+                    }
+                }
+                else -> Unit
+            }
+        }
+    }
+}
+
+
 

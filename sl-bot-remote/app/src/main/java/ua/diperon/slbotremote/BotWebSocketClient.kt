@@ -33,8 +33,16 @@ enum class ConnectionState {
 sealed class BotWsMessage {
     data class BotRunningState(val isRunning: Boolean) : BotWsMessage()
     data class ConsoleLog(val message: String, val logType: String) : BotWsMessage()
-    data class StreamFrame(val frameBase64: String) : BotWsMessage()
-    object BotFinished : BotWsMessage()
+    data class StreamFrame(
+        val frameBase64: String,
+        val deviceWidth: Int? = null,
+        val deviceHeight: Int? = null
+    ) : BotWsMessage()
+    data class NodeExecuting(val nodeId: String, val nodeTitle: String? = null) : BotWsMessage()
+    data class NodeDataUpdate(val nodeId: String, val data: Map<String, Any?>) : BotWsMessage()
+    data class GlobalVariablesUpdate(val variables: Map<String, Any?>) : BotWsMessage()
+    data class ScreenshotSaved(val filename: String, val projectName: String) : BotWsMessage()
+    data class BotFinished(val status: String? = null, val error: String? = null) : BotWsMessage()
 }
 
 /**
@@ -198,24 +206,129 @@ class BotWebSocketClient {
     }
 
     /**
+     * Generic method to send any browser interaction payload.
+     */
+    fun sendBrowserInteraction(
+        action: String,
+        relX: Float? = null,
+        relY: Float? = null,
+        x: Float? = null,
+        y: Float? = null,
+        button: String = "left",
+        deltaX: Float? = null,
+        deltaY: Float? = null,
+        key: String? = null,
+        text: String? = null,
+        url: String? = null
+    ) {
+        val payload = mutableMapOf<String, Any>(
+            "type" to "INTERACT_BROWSER",
+            "action" to action
+        )
+        relX?.let { payload["relX"] = it }
+        relY?.let { payload["relY"] = it }
+        x?.let { payload["x"] = it }
+        y?.let { payload["y"] = it }
+        payload["button"] = button
+        deltaX?.let { payload["deltaX"] = it }
+        deltaY?.let { payload["deltaY"] = it }
+        key?.let { payload["key"] = it }
+        text?.let { payload["text"] = it }
+        url?.let { payload["url"] = it }
+
+        val json = moshi.adapter(Map::class.java).toJson(payload)
+        sendMessage(json)
+    }
+
+    /**
      * Sends mouse click coordinates to interact with the Playwright browser.
      */
-    fun sendMouseClick(x: Float, y: Float, width: Int, height: Int) {
-        sendMessage("{\"type\": \"INTERACT_BROWSER\", \"action\": \"click\", \"x\": $x, \"y\": $y}")
+    fun sendMouseClick(relX: Float, relY: Float, button: String = "left") {
+        sendBrowserInteraction("click", relX = relX, relY = relY, button = button)
     }
 
-    /**
-     * Оновлює сторінку в браузері.
-     */
-    fun refreshPage() {
-        sendMessage("{\"type\": \"INTERACT_BROWSER\", \"action\": \"refresh\", \"x\": 0, \"y\": 0}")
+    fun sendMouseDown(relX: Float, relY: Float, button: String = "left") {
+        sendBrowserInteraction("mousedown", relX = relX, relY = relY, button = button)
     }
 
-    /**
-     * Відправляє жест прокрутки.
-     */
+    fun sendMouseMove(relX: Float, relY: Float) {
+        sendBrowserInteraction("mousemove", relX = relX, relY = relY)
+    }
+
+    fun sendMouseUp(relX: Float, relY: Float, button: String = "left") {
+        sendBrowserInteraction("mouseup", relX = relX, relY = relY, button = button)
+    }
+
+    fun sendDoubleClick(relX: Float, relY: Float) {
+        sendBrowserInteraction("double_click", relX = relX, relY = relY)
+    }
+
+    fun sendRightClick(relX: Float, relY: Float) {
+        sendBrowserInteraction("right_click", relX = relX, relY = relY)
+    }
+
     fun sendScroll(deltaX: Float, deltaY: Float) {
-        sendMessage("{\"type\": \"INTERACT_BROWSER\", \"action\": \"scroll\", \"x\": 0, \"y\": 0, \"deltaX\": ${deltaX.toInt()}, \"deltaY\": ${deltaY.toInt()}}")
+        sendBrowserInteraction("scroll", deltaX = deltaX, deltaY = deltaY)
+    }
+
+    fun sendScrollUp(delta: Int = 500) {
+        sendBrowserInteraction("scroll_up", deltaY = delta.toFloat())
+    }
+
+    fun sendScrollDown(delta: Int = 500) {
+        sendBrowserInteraction("scroll_down", deltaY = delta.toFloat())
+    }
+
+    fun sendKeyPress(key: String) {
+        sendBrowserInteraction("keypress", key = key)
+    }
+
+    fun sendTypeText(text: String, pressEnter: Boolean = false) {
+        sendBrowserInteraction("type_text", text = text)
+        if (pressEnter) {
+            sendBrowserInteraction("enter")
+        }
+    }
+
+    fun sendEsc() {
+        sendBrowserInteraction("esc")
+    }
+
+    fun sendEnter() {
+        sendBrowserInteraction("enter")
+    }
+
+    fun sendBackspace() {
+        sendBrowserInteraction("backspace")
+    }
+
+    fun sendTab() {
+        sendBrowserInteraction("tab")
+    }
+
+    fun refreshPage() {
+        sendBrowserInteraction("reload")
+    }
+
+    fun navigateToUrl(url: String) {
+        sendBrowserInteraction("navigate", url = url)
+    }
+
+    fun goBack() {
+        sendBrowserInteraction("go_back")
+    }
+
+    fun goForward() {
+        sendBrowserInteraction("go_forward")
+    }
+
+    /**
+     * Backward-compatible helper with absolute coordinates.
+     */
+    fun sendMouseClick(x: Float, y: Float, width: Int, height: Int) {
+        val relX = if (width > 0) x / width.toFloat() else 0f
+        val relY = if (height > 0) y / height.toFloat() else 0f
+        sendMouseClick(relX, relY)
     }
 
     /**
@@ -233,29 +346,66 @@ class BotWebSocketClient {
      */
     private fun parseMessage(jsonString: String) {
         try {
-            // First parse the message into a generic map to determine its "type" field
-            val mapAdapter = moshi.adapter(Map::class.java)
-            val rawMap = mapAdapter.fromJson(jsonString) as? Map<*, *> ?: return
-            
-            val type = rawMap["type"] as? String ?: return
-            Log.d(TAG, "Parsing WS event of type: $type")
+            val jsonObject = org.json.JSONObject(jsonString)
+            val type = jsonObject.optString("type")
+            if (type.isBlank()) return
 
             val message: BotWsMessage? = when (type) {
+                "STREAM_FRAME" -> {
+                    val frame = jsonObject.optString("frame", "")
+                    val meta = jsonObject.optJSONObject("metadata")
+                    val deviceWidth = meta?.optInt("deviceWidth")?.takeIf { it > 0 }
+                    val deviceHeight = meta?.optInt("deviceHeight")?.takeIf { it > 0 }
+                    BotWsMessage.StreamFrame(frame, deviceWidth, deviceHeight)
+                }
                 "BOT_RUNNING_STATE" -> {
-                    val isRunning = rawMap["isRunning"] as? Boolean ?: false
+                    val isRunning = jsonObject.optBoolean("isRunning", false)
                     BotWsMessage.BotRunningState(isRunning)
                 }
                 "CONSOLE_LOG" -> {
-                    val msg = rawMap["message"] as? String ?: ""
-                    val logType = rawMap["logType"] as? String ?: "info"
+                    val msg = jsonObject.optString("message", "")
+                    val logType = jsonObject.optString("logType", "info")
                     BotWsMessage.ConsoleLog(msg, logType)
                 }
-                "STREAM_FRAME" -> {
-                    val frame = rawMap["frame"] as? String ?: ""
-                    BotWsMessage.StreamFrame(frame)
+                "NODE_EXECUTING" -> {
+                    val nodeId = jsonObject.optString("nodeId", "")
+                    val nodeTitle = jsonObject.optString("nodeTitle", "").takeIf { it.isNotBlank() }
+                    BotWsMessage.NodeExecuting(nodeId, nodeTitle)
+                }
+                "NODE_DATA_UPDATE", "UPDATE_NODE_DATA" -> {
+                    val nodeId = jsonObject.optString("nodeId", "")
+                    val dataObj = jsonObject.optJSONObject("newData") ?: jsonObject.optJSONObject("data")
+                    val map = mutableMapOf<String, Any?>()
+                    dataObj?.let { obj ->
+                        val keys = obj.keys()
+                        while (keys.hasNext()) {
+                            val k = keys.next()
+                            map[k] = obj.opt(k)
+                        }
+                    }
+                    BotWsMessage.NodeDataUpdate(nodeId, map)
+                }
+                "GLOBAL_VARIABLES_UPDATE" -> {
+                    val varsObj = jsonObject.optJSONObject("variables")
+                    val map = mutableMapOf<String, Any?>()
+                    varsObj?.let { obj ->
+                        val keys = obj.keys()
+                        while (keys.hasNext()) {
+                            val k = keys.next()
+                            map[k] = obj.opt(k)
+                        }
+                    }
+                    BotWsMessage.GlobalVariablesUpdate(map)
+                }
+                "SCREENSHOT_SAVED" -> {
+                    val filename = jsonObject.optString("filename", "")
+                    val projectName = jsonObject.optString("projectName", "")
+                    BotWsMessage.ScreenshotSaved(filename, projectName)
                 }
                 "BOT_FINISHED" -> {
-                    BotWsMessage.BotFinished
+                    val status = jsonObject.optString("status", "").takeIf { it.isNotBlank() }
+                    val error = jsonObject.optString("error", "").takeIf { it.isNotBlank() }
+                    BotWsMessage.BotFinished(status, error)
                 }
                 else -> {
                     Log.w(TAG, "Unknown message type discovered: $type")
@@ -264,8 +414,10 @@ class BotWebSocketClient {
             }
 
             message?.let {
-                scope.launch {
-                    _messages.emit(it)
+                if (!_messages.tryEmit(it)) {
+                    scope.launch {
+                        _messages.emit(it)
+                    }
                 }
             }
         } catch (e: Exception) {

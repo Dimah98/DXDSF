@@ -41,6 +41,26 @@
       "image": "Water Well.png"
     },
     {
+      "id": "buildings_Kitchen_9aac7885",
+      "name": "Kitchen",
+      "type": "building",
+      "x": -5,
+      "y": 5,
+      "w": 4,
+      "h": 3,
+      "image": "Kitchen.png"
+    },
+    {
+      "id": "buildings_Compost Bin_f4830084",
+      "name": "Compost Bin",
+      "type": "building",
+      "x": -5,
+      "y": -6,
+      "w": 2,
+      "h": 2,
+      "image": "Compost Bin.png"
+    },
+    {
       "id": "buildings_Aging Shed_b15d5b3c",
       "name": "Aging Shed",
       "type": "building",
@@ -64,7 +84,7 @@
       "id": "collectibles_Basic Scarecrow_71ba50d7",
       "name": "Basic Scarecrow",
       "type": "collectible",
-      "x": 1,
+      "x": 2,
       "y": 3,
       "w": 1,
       "h": 1,
@@ -79,6 +99,26 @@
       "w": 2,
       "h": 2,
       "image": "Big Orange.png"
+    },
+    {
+      "id": "collectibles_Blossombeard_2a478c5b",
+      "name": "Blossombeard",
+      "type": "collectible",
+      "x": 5,
+      "y": 5,
+      "w": 1,
+      "h": 1,
+      "image": "Blossombeard.png"
+    },
+    {
+      "id": "collectibles_Scary Mike_d804d074",
+      "name": "Scary Mike",
+      "type": "collectible",
+      "x": 1,
+      "y": 3,
+      "w": 1,
+      "h": 1,
+      "image": "Scary Mike.png"
     },
     {
       "id": "crops_crops_035d37fb",
@@ -431,6 +471,26 @@
       "image": "Crop Plot.png"
     },
     {
+      "id": "crops_crops_5af6d9ef",
+      "name": "crops",
+      "type": "crops",
+      "x": -1,
+      "y": -3,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
+      "id": "crops_crops_765c9b4e",
+      "name": "crops",
+      "type": "crops",
+      "x": -2,
+      "y": -3,
+      "w": 1,
+      "h": 1,
+      "image": "Crop Plot.png"
+    },
+    {
       "id": "trees_trees_1",
       "name": "trees",
       "type": "trees",
@@ -574,8 +634,58 @@
       "id": "stones_stones_2",
       "name": "stones",
       "type": "stones",
-      "x": -9,
-      "y": 4,
+      "x": -8,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_9f530ccf",
+      "name": "stones",
+      "type": "stones",
+      "x": -7,
+      "y": 3,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_c1e2122d",
+      "name": "stones",
+      "type": "stones",
+      "x": -6,
+      "y": 3,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_1e5a1aec",
+      "name": "stones",
+      "type": "stones",
+      "x": -6,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_9560f889",
+      "name": "stones",
+      "type": "stones",
+      "x": -6,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_6b76249b",
+      "name": "stones",
+      "type": "stones",
+      "x": -8,
+      "y": 2,
       "w": 1,
       "h": 1,
       "image": "Stone Rock.png"
@@ -585,7 +695,7 @@
       "name": "stones",
       "type": "stones",
       "x": -7,
-      "y": 4,
+      "y": 2,
       "w": 1,
       "h": 1,
       "image": "Stone Rock.png"
@@ -594,8 +704,8 @@
       "id": "stones_stones_f36ae688",
       "name": "stones",
       "type": "stones",
-      "x": -8,
-      "y": 4,
+      "x": -7,
+      "y": 1,
       "w": 1,
       "h": 1,
       "image": "Stone Rock.png"
@@ -614,8 +724,18 @@
       "id": "stones_stones_6b5512fe",
       "name": "stones",
       "type": "stones",
-      "x": -7,
-      "y": 3,
+      "x": -9,
+      "y": 2,
+      "w": 1,
+      "h": 1,
+      "image": "Stone Rock.png"
+    },
+    {
+      "id": "stones_stones_dd5a845a",
+      "name": "stones",
+      "type": "stones",
+      "x": -9,
+      "y": 1,
       "w": 1,
       "h": 1,
       "image": "Stone Rock.png"
@@ -624,8 +744,38 @@
       "id": "iron_iron_30383748",
       "name": "iron",
       "type": "iron",
-      "x": -9,
-      "y": 2,
+      "x": -3,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Iron Rock.png"
+    },
+    {
+      "id": "iron_iron_5b0880a6",
+      "name": "iron",
+      "type": "iron",
+      "x": -4,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Iron Rock.png"
+    },
+    {
+      "id": "iron_iron_66e6a4aa",
+      "name": "iron",
+      "type": "iron",
+      "x": -5,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Iron Rock.png"
+    },
+    {
+      "id": "iron_iron_a3bda013",
+      "name": "iron",
+      "type": "iron",
+      "x": -5,
+      "y": -1,
       "w": 1,
       "h": 1,
       "image": "Iron Rock.png"
@@ -634,8 +784,18 @@
       "id": "iron_iron_2f90ecfe",
       "name": "iron",
       "type": "iron",
-      "x": -8,
-      "y": 2,
+      "x": -3,
+      "y": -1,
+      "w": 1,
+      "h": 1,
+      "image": "Iron Rock.png"
+    },
+    {
+      "id": "iron_iron_f5e9bf89",
+      "name": "iron",
+      "type": "iron",
+      "x": -4,
+      "y": -1,
       "w": 1,
       "h": 1,
       "image": "Iron Rock.png"
@@ -644,8 +804,8 @@
       "id": "gold_gold_06a415c3",
       "name": "gold",
       "type": "gold",
-      "x": -9,
-      "y": 1,
+      "x": -6,
+      "y": 0,
       "w": 1,
       "h": 1,
       "image": "Gold Rock.png"
@@ -654,8 +814,8 @@
       "id": "gold_gold_da194201",
       "name": "gold",
       "type": "gold",
-      "x": -7,
-      "y": 1,
+      "x": -6,
+      "y": -1,
       "w": 1,
       "h": 1,
       "image": "Gold Rock.png"
@@ -664,8 +824,18 @@
       "id": "gold_gold_b13c4bff",
       "name": "gold",
       "type": "gold",
-      "x": -8,
-      "y": 1,
+      "x": -7,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "image": "Gold Rock.png"
+    },
+    {
+      "id": "gold_gold_a57f185a",
+      "name": "gold",
+      "type": "gold",
+      "x": -7,
+      "y": -1,
       "w": 1,
       "h": 1,
       "image": "Gold Rock.png"
@@ -721,11 +891,21 @@
       "image": "Fruit Patch.png"
     },
     {
+      "id": "fruitPatches_fruitPatches_6f27cc70",
+      "name": "fruitPatches",
+      "type": "fruitPatches",
+      "x": -9,
+      "y": 5,
+      "w": 2,
+      "h": 2,
+      "image": "Fruit Patch.png"
+    },
+    {
       "id": "beehives_beehives_0",
       "name": "beehives",
       "type": "beehives",
-      "x": -5,
-      "y": -2,
+      "x": -6,
+      "y": -3,
       "w": 1,
       "h": 1,
       "image": "Beehive.png"
@@ -735,150 +915,184 @@
       "name": "flowerBeds",
       "type": "flowerBeds",
       "x": -9,
-      "y": -2,
+      "y": -3,
       "w": 3,
       "h": 1,
       "image": "Flower Bed.png"
-    },
-    {
-      "id": "buildings_gold_inv_1786803464705",
-      "name": "gold",
-      "type": "resource",
-      "x": -7,
-      "y": 1,
-      "w": 1,
-      "h": 1,
-      "image": "Gold Rock.png"
-    },
-    {
-      "id": "buildings_Basic Scarecrow_inv_1786803494293",
-      "name": "Basic Scarecrow",
-      "type": "building",
-      "x": 1,
-      "y": 3,
-      "w": 1,
-      "h": 1,
-      "image": "Basic Scarecrow.png"
-    },
-    {
-      "id": "buildings_Big Orange_inv_1786803502677",
-      "name": "Big Orange",
-      "type": "building",
-      "x": 5,
-      "y": -1,
+    }
+  ],
+  "buildingTypes": {
+    "trees": {
       "w": 2,
       "h": 2,
-      "image": "Big Orange.png"
+      "mapImage": "Tree.png",
+      "inventoryImage": "tree",
+      "inventoryName": "Tree"
     },
-    {
-      "id": "buildings_crops_inv_1786803514633",
-      "name": "crops",
-      "type": "resource",
-      "x": 4,
-      "y": 2,
+    "fruitPatches": {
+      "w": 2,
+      "h": 2,
+      "mapImage": "Fruit Patch.png",
+      "inventoryImage": "fruit_patch",
+      "inventoryName": "Fruit Patch"
+    },
+    "crops": {
       "w": 1,
       "h": 1,
-      "image": "Crop Plot.png"
+      "mapImage": "Crop Plot.png",
+      "inventoryImage": "plot",
+      "inventoryName": "Crop Plot"
     },
-    {
-      "id": "buildings_crops_inv_1786803515343",
-      "name": "crops",
-      "type": "resource",
-      "x": 4,
-      "y": 1,
+    "Water Well": {
+      "w": 2,
+      "h": 2,
+      "mapImage": "water well.png",
+      "inventoryImage": "well"
+    },
+    "stones": {
       "w": 1,
       "h": 1,
-      "image": "Crop Plot.png"
+      "mapImage": "Stone Rock.png",
+      "inventoryImage": "stone_small",
+      "inventoryName": "Stone Rock"
     },
-    {
-      "id": "buildings_crops_inv_1786803516318",
-      "name": "crops",
-      "type": "resource",
-      "x": 4,
-      "y": 0,
+    "iron": {
       "w": 1,
       "h": 1,
-      "image": "Crop Plot.png"
+      "mapImage": "Iron Rock.png",
+      "inventoryImage": "iron_small",
+      "inventoryName": "Iron Rock"
     },
-    {
-      "id": "buildings_crops_inv_1786803517073",
-      "name": "crops",
-      "type": "resource",
-      "x": 4,
-      "y": -1,
+    "gold": {
       "w": 1,
       "h": 1,
-      "image": "Crop Plot.png"
+      "mapImage": "Gold Rock.png",
+      "inventoryImage": "gold_small",
+      "inventoryName": "Gold Rock"
     },
-    {
-      "id": "buildings_Aging Shed_inv_1786803544657",
-      "name": "Aging Shed",
-      "type": "building",
-      "x": -5,
-      "y": 2,
+    "Basic Scarecrow": {
+      "w": 1,
+      "h": 1,
+      "mapImage": "Basic Scarecrow.png",
+      "inventoryImage": "Z6UAAAASdEVYdEVYSUY6T3JpZW50YXRpb24AMYRY7O8AAAAOZVhJZk1NACoAAAAIAAAAAAAAANJTkwAAAABJRU5ErkJggg",
+      "inventoryName": "Basic Scarecrow"
+    },
+    "Scary Mike": {
+      "w": 1,
+      "h": 1,
+      "mapImage": "Scary Mike.png",
+      "inventoryImage": "wnQlVKOwyTLcWhVHAYK8AvGLOkzwXUnjwAAABJ0RVh0RVhJRjpPcmllbnRhdGlvbgAxhFjs7wAAAA5lWElmTU0AKgAAAAgAAAAAAAAA0lOTAAAAAElFTkSuQmCC",
+      "inventoryName": "Scary Mike"
+    },
+    "Barn": {
+      "w": 4,
+      "h": 4,
+      "mapImage": "Barn.png",
+      "inventoryName": "Barn"
+    },
+    "Big Orange": {
+      "w": 2,
+      "h": 2,
+      "mapImage": "Big Orange.png",
+      "inventoryImage": "JU1WWVJtsw2fRpvbEODXH4pAA",
+      "inventoryName": "Big Orange"
+    },
+    "Big Apple": {
+      "w": 2,
+      "h": 2,
+      "mapImage": "",
+      "inventoryImage": "0GcXdNm9M6rH5FFpMeEsvww",
+      "inventoryName": ""
+    },
+    "beehives": {
+      "w": 1,
+      "h": 1,
+      "mapImage": "Beehive.png",
+      "inventoryImage": "5OhNAI",
+      "inventoryName": "Beehive"
+    },
+    "flowerBeds": {
+      "w": 3,
+      "h": 1,
+      "mapImage": "Flower Bed.png",
+      "inventoryImage": "dVreMCmOXAA",
+      "inventoryName": "Flower Bed"
+    },
+    "crimstones": {
+      "w": 2,
+      "h": 2,
+      "mapImage": "Crimstone Rock.png",
+      "inventoryImage": "rzX41iWSt5LPzV0t2cndbOt752a2z8qamQE",
+      "inventoryName": "Crimstone Rock"
+    },
+    "sunstones": {
+      "w": 2,
+      "h": 2,
+      "mapImage": "",
+      "inventoryImage": "BR1OR4DgBu3dhpwjQ7a3XjcAQAA",
+      "inventoryName": ""
+    },
+    "Squirrel": {
+      "w": 2,
+      "h": 1,
+      "mapImage": "",
+      "inventoryImage": "LadkNrDSx7QyqdKEPYbOxTVTMRNtqmMrblJpaXScZGm1FsUF3NzA8xJRhBJAg",
+      "inventoryName": ""
+    },
+    "Stone Beetle": {
+      "w": 1,
+      "h": 2,
+      "mapImage": "",
+      "inventoryImage": "wEA",
+      "inventoryName": ""
+    },
+    "Tiki Totem": {
+      "w": 1,
+      "h": 1,
+      "mapImage": "",
+      "inventoryImage": "7IXNAgL6e5OyeTSIGS0zQyaihkA",
+      "inventoryName": ""
+    },
+    "Farmer's Monument": {
+      "w": 3,
+      "h": 3,
+      "mapImage": "",
+      "inventoryImage": "9tn6pU7kN",
+      "inventoryName": ""
+    },
+    "Aging Shed": {
       "w": 3,
       "h": 2,
-      "image": "Aging Shed.png"
+      "mapImage": "Aging Shed.png",
+      "inventoryImage": "aging_shed",
+      "inventoryName": "Aging Shed"
     },
-    {
-      "id": "buildings_iron_inv_1786831030996",
-      "name": "iron",
-      "type": "building",
-      "x": -7,
-      "y": 0,
+    "Kitchen": {
+      "w": 4,
+      "h": 3,
+      "mapImage": "kitchen.png",
+      "inventoryImage": "kitchen_icon",
+      "inventoryName": "kitchen"
+    },
+    "Turbo Composter": {
+      "w": 2,
+      "h": 2,
+      "mapImage": "Turbo Composter.png",
+      "inventoryImage": "composter_advanced",
+      "inventoryName": "Turbo Composter"
+    },
+    "Compost Bin": {
+      "w": 2,
+      "h": 2,
+      "mapImage": "Compost Bin.png",
+      "inventoryImage": "composter_basic",
+      "inventoryName": "Compost Bin"
+    },
+    "Blossombeard": {
       "w": 1,
       "h": 1,
-      "image": "Iron Rock.png"
-    },
-    {
-      "id": "buildings_iron_inv_1786831036816",
-      "name": "iron",
-      "type": "building",
-      "x": -7,
-      "y": -1,
-      "w": 1,
-      "h": 1,
-      "image": "Iron Rock.png"
-    },
-    {
-      "id": "buildings_stones_inv_1786831041982",
-      "name": "stones",
-      "type": "building",
-      "x": -7,
-      "y": 2,
-      "w": 1,
-      "h": 1,
-      "image": "Stone Rock.png"
-    },
-    {
-      "id": "buildings_stones_inv_1786831049162",
-      "name": "stones",
-      "type": "building",
-      "x": -9,
-      "y": 5,
-      "w": 1,
-      "h": 1,
-      "image": "Stone Rock.png"
-    },
-    {
-      "id": "buildings_stones_inv_1786831055690",
-      "name": "stones",
-      "type": "building",
-      "x": -8,
-      "y": 5,
-      "w": 1,
-      "h": 1,
-      "image": "Stone Rock.png"
-    },
-    {
-      "id": "buildings_stones_inv_1786831059708",
-      "name": "stones",
-      "type": "building",
-      "x": -7,
-      "y": 5,
-      "w": 1,
-      "h": 1,
-      "image": "Stone Rock.png"
+      "mapImage": "Blossombeard.png",
+      "inventoryName": "Blossombeard"
     }
-  ]
+  }
 }

@@ -2,6 +2,7 @@
 import { Logger } from '../logger';
 import { NodeHandlerParams } from './types';
 import { inputValidator } from '../validation/InputValidator';
+import { PROJECTS_DIR } from '../constants';
 import fs from 'fs';
 import path from 'path';
 
@@ -39,13 +40,9 @@ export const screenshotNodeHandler = async ({
     const finalFilename = filename.endsWith('.png') ? filename : `${filename}.png`;
 
     // Визначаємо директорію для збереження скріншотів проекту
-    const projectsDir = path.join(__dirname, '../../projects');
-    const screenshotsDir = path.join(projectsDir, `${projectName}_screenshots`);
+    const screenshotsDir = path.join(PROJECTS_DIR, `${projectName}_screenshots`);
 
-    // Якщо директорія не існує — створюємо її рекурсивно
-    if (!fs.existsSync(screenshotsDir)) {
-      fs.mkdirSync(screenshotsDir, { recursive: true });
-    }
+    await fs.promises.mkdir(screenshotsDir, { recursive: true });
 
     // Формуємо повний шлях збереження скріншоту
     const screenshotPath = path.join(screenshotsDir, finalFilename);

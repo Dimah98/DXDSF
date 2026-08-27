@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { Settings, CheckCircle, XCircle } from 'lucide-react';
 import BaseNode, { getHandleStyle } from './BaseNode';
+import { useUIStore } from '../../store/useUIStore';
 
 interface SavedConfigLite {
   id: string;
@@ -42,6 +43,7 @@ const ConfigNode = memo(({ id, data }: any) => {
   }, []);
 
   const onOpenManager = () => {
+    useUIStore.getState().openConfigManager();
     window.dispatchEvent(new CustomEvent('open-config-manager'));
   };
 

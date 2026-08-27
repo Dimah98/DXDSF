@@ -182,16 +182,12 @@ export default function ScheduleManager({ isOpen, onClose }: { isOpen: boolean, 
   return (
     // Затемнений напівпрозорий фон, клік на який викликає закриття вікна
     <div 
-      // Класи заднього фону, розмиття та анімації плавного відображення
-      className="fixed inset-0 z-[var(--z-panel)] bg-black/60 backdrop-blur-xs flex items-center justify-center p-6 animate-in fade-in duration-200"
-      // Клік поза вікном закриває модальне вікно
+      className="fixed inset-0 z-[var(--z-panel)] bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200"
       onClick={onClose}
     >
       {/* Головний контейнер модального вікна із вертикальним flex-позиціонуванням */}
       <div 
-        // Стилізація вікна з використанням тем із CSS-персоналізації
-        className="w-full max-w-5xl h-[80vh] flex flex-col bg-[var(--interface-bg)] border border-[var(--interface-border)] backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-300"
-        // Зупиняємо спливання подій кліку, щоб вікно не закривалося при натисканні всередині
+        className="w-full max-w-5xl h-[94vh] md:h-[80vh] flex flex-col bg-[var(--interface-bg)] border border-[var(--interface-border)] backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Шапка модального вікна */}

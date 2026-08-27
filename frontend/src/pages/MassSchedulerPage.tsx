@@ -272,18 +272,18 @@ const MassSchedulerPage: React.FC<{currentView: any, setCurrentView: any}> = ({s
   };
 
   return (
-    <div className="w-full h-full bg-background overflow-y-auto p-8 custom-scrollbar relative flex flex-col text-white">
-      <button onClick={() => setCurrentView('editor')} className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors shadow-lg border border-slate-700">
-        <ArrowLeft size={18} />
+    <div className="w-full h-full bg-background overflow-y-auto p-3 sm:p-6 md:p-8 custom-scrollbar relative flex flex-col text-white">
+      <button onClick={() => setCurrentView('editor')} className="sticky sm:absolute top-2 left-2 sm:top-6 sm:left-6 z-50 flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors shadow-lg border border-slate-700 text-xs sm:text-sm self-start mb-2 sm:mb-0">
+        <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
         До Редактора
       </button>
 
-      <div className="max-w-4xl mx-auto w-full space-y-6 mt-8">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <CalendarClock size={32} className="text-blue-500" />
+      <div className="max-w-4xl mx-auto w-full space-y-4 sm:space-y-6 mt-2 sm:mt-8">
+        <h1 className="text-xl sm:text-3xl font-bold flex items-center gap-2 sm:gap-3">
+          <CalendarClock size={24} className="text-blue-500 sm:w-8 sm:h-8" />
           Масовий Планувальник Задач
         </h1>
-        <p className="text-slate-400">Цей інструмент дозволяє масово запланувати виконання специфічних контейнерів на різних проектах щоденно у вказаний час, або динамічно на основі міток часу з файлів збереження (_save.json).</p>
+        <p className="text-xs sm:text-sm text-slate-400">Цей інструмент дозволяє масово запланувати виконання специфічних контейнерів на різних проектах щоденно у вказаний час, або динамічно на основі міток часу з файлів збереження (_save.json).</p>
         
         {!isAdding ? (
           <div className="space-y-4">

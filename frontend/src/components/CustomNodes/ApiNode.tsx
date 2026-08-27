@@ -1,8 +1,8 @@
 // Нода API запиту — отримує дані від Sunflower Land або інших серверів
 import { memo, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import * as LucideIcons from 'lucide-react';
 import { CloudDownload, Key, Database, ChevronRight, ChevronDown, Copy, Check, Globe, Download, Radio, Settings } from 'lucide-react';
+import { getDynamicIcon } from '../../utils/dynamicIcon';
 import { Input } from '../ui/input';
 import BaseNode, { getHandleStyle } from './BaseNode';
 
@@ -104,9 +104,7 @@ const JsonTree = ({ data, path = '', depth = 0 }: { data: any, path?: string, de
 };
 
 const ApiNode = memo(({ id, data }: { id: string, data: any }) => {
-  const IconComponent = data.customIcon && (LucideIcons as any)[data.customIcon] 
-    ? (LucideIcons as any)[data.customIcon] 
-    : CloudDownload;
+  const IconComponent = getDynamicIcon(data.customIcon) || CloudDownload;
 
   // Поточний режим: 'manual' або 'intercept'
   const mode = data.mode || 'manual';

@@ -1,11 +1,12 @@
-﻿import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { X, RefreshCw, FileText, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface RunRecord {
   runId: string;
   startTime: number;
   endTime?: number;
-  status: 'running' | 'success' | 'error';
+  status: 'running' | 'success' | 'error' | 'stopped';
+  error?: string;
 }
 
 interface RunHistoryModalProps {
@@ -256,17 +257,22 @@ const RunHistoryModal: React.FC<RunHistoryModalProps> = ({ isOpen, onClose, proj
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); onClose(); }}>
-      <div className="flex bg-[#0f111a] border border-slate-700/50 shadow-2xl rounded-2xl w-[1000px] h-[700px] overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+      <div className="flex flex-col md:flex-row bg-[#0f111a] border border-slate-700/50 shadow-2xl rounded-2xl w-full max-w-5xl h-[94vh] md:h-[700px] overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* Sidebar with runs */}
-        <div className="w-1/3 border-r border-white/10 flex flex-col bg-slate-900/80">
-          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/20">
-            <h3 className="text-slate-200 font-bold text-[14px]">Історія запусків</h3>
-            <button onClick={fetchRuns} className="p-1.5 hover:bg-indigo-500/20 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors">
-              <RefreshCw size={14} />
-            </button>
+        <div className={`w-full md:w-80 md:border-r border-white/10 flex flex-col bg-slate-900/80 ${selectedRun ? 'hidden md:flex' : 'flex flex-1 md:flex-initial'}`}>
+          <div className="flex items-center justify-between p-3 sm:p-4 border-b border-white/10 bg-black/20">
+            <h3 className="text-slate-200 font-bold text-xs sm:text-sm">Історія запусків ({projectName})</h3>
+            <div className="flex items-center gap-2">
+              <button onClick={fetchRuns} className="p-1.5 hover:bg-indigo-500/20 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors" title="Оновити список">
+                <RefreshCw size={14} />
+              </button>
+              <button onClick={onClose} className="md:hidden p-1.5 hover:bg-red-500/20 hover:text-red-400 rounded-lg text-slate-400 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2 custom-scrollbar">
             {runs.length === 0 ? (
               <div className="text-center text-slate-500 text-xs mt-10 italic">Немає збережених запусків</div>
             ) : (
@@ -274,19 +280,32 @@ const RunHistoryModal: React.FC<RunHistoryModalProps> = ({ isOpen, onClose, proj
                 <div
                   key={r.runId}
                   onClick={() => setSelectedRun(r.runId)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedRun === r.runId ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]' : 'bg-slate-800/40 border-slate-700/30 hover:bg-slate-800/80'}`}
+                  className={`p-2.5 sm:p-3 rounded-xl border cursor-pointer transition-all ${selectedRun === r.runId ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]' : 'bg-slate-800/40 border-slate-700/30 hover:bg-slate-800/80'}`}
                 >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className={`text-[12px] font-bold ${selectedRun === r.runId ? 'text-indigo-300' : 'text-slate-300'}`}>
+                  <div className="flex justify-between items-center mb-1.5 sm:mb-2">
+                    <span className={`text-[11px] sm:text-[12px] font-bold ${selectedRun === r.runId ? 'text-indigo-300' : 'text-slate-300'}`}>
                       {new Date(r.startTime).toLocaleString('uk-UA')}
                     </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${r.status === 'running' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : r.status === 'success' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
-                      {r.status}
+                    <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      r.status === 'running'
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        : r.status === 'success'
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : r.status === 'stopped'
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    }`}>
+                      {r.status === 'stopped' ? 'зупинено' : r.status === 'success' ? 'успішно' : r.status === 'error' ? 'помилка' : 'виконується'}
                     </span>
                   </div>
                   {r.endTime && (
-                    <div className="text-[11px] text-slate-500 font-mono">
+                    <div className="text-[10px] sm:text-[11px] text-slate-500 font-mono">
                       Тривалість: {((r.endTime - r.startTime) / 1000).toFixed(1)}с
+                    </div>
+                  )}
+                  {r.error && (
+                    <div className="text-[10px] sm:text-[11px] text-red-400/80 truncate mt-0.5" title={r.error}>
+                      ⚠️ {r.error}
                     </div>
                   )}
                 </div>
@@ -296,23 +315,31 @@ const RunHistoryModal: React.FC<RunHistoryModalProps> = ({ isOpen, onClose, proj
         </div>
 
         {/* Logs view */}
-        <div className="flex-1 flex flex-col relative bg-[#0b0c10]">
-          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/20">
-            <div className="flex items-center gap-3">
-              <FileText size={16} className="text-indigo-400" />
-              <h3 className="text-slate-200 font-bold text-[14px]">
+        <div className={`flex-1 flex flex-col relative bg-[#0b0c10] ${selectedRun ? 'flex' : 'hidden md:flex'}`}>
+          <div className="flex items-center justify-between p-3 sm:p-4 border-b border-white/10 bg-black/20">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {selectedRun && (
+                <button
+                  onClick={() => setSelectedRun(null)}
+                  className="md:hidden px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors"
+                >
+                  ← Назад
+                </button>
+              )}
+              <FileText size={16} className="text-indigo-400 shrink-0" />
+              <h3 className="text-slate-200 font-bold text-xs sm:text-sm truncate">
                 {selectedRun ? 'Логи запуску' : 'Виберіть запуск'}
               </h3>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {selectedRun && (
                 <button
                   onClick={() => setIsMinimalMode(!isMinimalMode)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${isMinimalMode ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
+                  className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border transition-all ${isMinimalMode ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}
                   title="Мінімалістичний режим"
                 >
                   {isMinimalMode ? <ToggleRight size={16} className="text-indigo-400" /> : <ToggleLeft size={16} />}
-                  <span className="text-[11px] font-bold">Мінімалізм</span>
+                  <span className="text-[10px] sm:text-[11px] font-bold">Мінімалізм</span>
                 </button>
               )}
               <button onClick={onClose} className="p-1.5 hover:bg-red-500/20 hover:text-red-400 rounded-lg text-slate-400 transition-colors">
@@ -320,7 +347,7 @@ const RunHistoryModal: React.FC<RunHistoryModalProps> = ({ isOpen, onClose, proj
               </button>
             </div>
           </div>
-          <div className="flex-1 p-4 overflow-y-auto">
+          <div className="flex-1 p-2 sm:p-4 overflow-y-auto custom-scrollbar">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="flex flex-col items-center gap-3">
@@ -335,7 +362,7 @@ const RunHistoryModal: React.FC<RunHistoryModalProps> = ({ isOpen, onClose, proj
             ) : (
               <div className="text-slate-500 italic flex flex-col h-full items-center justify-center gap-4">
                 <FileText size={48} className="text-slate-800" />
-                <span>Виберіть запуск зліва для перегляду логів</span>
+                <span className="text-xs sm:text-sm">Виберіть запуск для перегляду логів</span>
               </div>
             )}
           </div>

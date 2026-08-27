@@ -20,15 +20,14 @@ export const randomDelayNodeHandler = async ({
   logToClient(`⏳ Рандомна пауза: ${ms}ms (між ${minMs}–${maxMs})`, 'debug');
 
   // Надсилаємо поточну затримку на фронтенд для відображення
-  try {
-    ws.send(JSON.stringify({
-      type: 'NODE_DATA_UPDATE',
-      nodeId: currentNode.id,
-      data: { lastDelay: `${ms}ms` },
-    }));
-  } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    logToClient(`⚠️ Помилка відправки WebSocket повідомлення: ${errorMessage}`, 'error');
+  if (ws && typeof ws.send === 'function' && (ws.readyState === undefined || ws.readyState === 1)) {
+    try {
+      ws.send(JSON.stringify({
+        type: 'NODE_DATA_UPDATE',
+        nodeId: currentNode.id,
+        data: { lastDelay: `${ms}ms` },
+      }));
+    } catch {}
   }
 
   await smartSleep(ms, ws);

@@ -144,22 +144,20 @@ export class SessionPersister implements ISessionPersister {
    * Requirement 21.6: Fall back to empty state for missing/corrupted files
    */
   async loadState(): Promise<void> {
-    // Requirement 21.6: If file does not exist, start fresh
-    if (!fs.existsSync(this.sessionFile)) {
-      logger.info('No session state file found, starting with empty state', {
-        file: this.sessionFile,
-      });
-      return;
-    }
-
     let raw: string;
     try {
       raw = await fs.promises.readFile(this.sessionFile, 'utf-8');
-    } catch (err) {
-      logger.warn(
-        'Could not read session state file, starting with empty state',
-        { file: this.sessionFile, error: err instanceof Error ? err.message : String(err) }
-      );
+    } catch (err: any) {
+      if (err?.code === 'ENOENT') {
+        logger.info('No session state file found, starting with empty state', {
+          file: this.sessionFile,
+        });
+      } else {
+        logger.warn(
+          'Could not read session state file, starting with empty state',
+          { file: this.sessionFile, error: err instanceof Error ? err.message : String(err) }
+        );
+      }
       return;
     }
 

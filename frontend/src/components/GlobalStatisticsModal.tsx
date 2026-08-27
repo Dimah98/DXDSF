@@ -161,30 +161,30 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[var(--z-modal-high)] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-[var(--z-modal-high)] flex items-center justify-center bg-black/85 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in duration-200" onClick={onClose}>
       <div 
-        className="w-full max-w-5xl h-[85vh] flex flex-col bg-[var(--interface-bg)] border border-[var(--interface-border)] backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl"
+        className="w-full max-w-5xl h-[94vh] md:h-[85vh] flex flex-col bg-[var(--interface-bg)] border border-[var(--interface-border)] backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0 bg-white/5">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between p-3 md:p-4 gap-2 border-b border-white/10 shrink-0 bg-white/5">
+          <div className="flex items-center gap-2.5 md:gap-3">
             <div className="w-8 h-8 rounded-xl bg-[var(--accent-purple)]/20 flex items-center justify-center text-[var(--accent-purple)] border border-[var(--accent-purple)]/30 shadow-inner">
               <Globe size={16} />
             </div>
             <div>
               <p className="text-[10px] font-black uppercase text-[var(--accent-purple)] tracking-widest">Загальна Статистика</p>
-              <h2 className="text-[14px] font-bold text-[var(--interface-text-primary)] mt-0.5">Всі проекти</h2>
+              <h2 className="text-[13px] md:text-[14px] font-bold text-[var(--interface-text-primary)] mt-0.5">Всі проекти</h2>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 md:gap-4">
             {availableVars.length > 0 && (
-              <div className="flex items-center gap-3 bg-black/30 p-1.5 rounded-lg border border-white/5">
-                <div className="flex items-center gap-2 pl-2 border-r border-white/10 pr-3">
-                  <Filter size={14} className="text-slate-400" />
+              <div className="flex flex-wrap items-center gap-1.5 md:gap-3 bg-black/30 p-1 md:p-1.5 rounded-lg border border-white/5">
+                <div className="flex items-center gap-1.5 md:gap-2 pl-1.5 md:pl-2 border-r border-white/10 pr-2 md:pr-3">
+                  <Filter size={13} className="text-slate-400" />
                   <select
                     value={selectedVariable}
                     onChange={(e) => setSelectedVariable(e.target.value)}
-                    className="bg-transparent text-sm font-bold text-slate-200 outline-none cursor-pointer"
+                    className="bg-transparent text-xs md:text-sm font-bold text-slate-200 outline-none cursor-pointer max-w-[120px] sm:max-w-none"
                   >
                     <optgroup label="Змінні">
                       {availableVars.map(v => (
@@ -196,7 +196,7 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
                 <select
                   value={selectedPeriod}
                   onChange={(e) => setSelectedPeriod(e.target.value)}
-                  className="bg-transparent text-sm text-slate-300 outline-none pr-2 cursor-pointer"
+                  className="bg-transparent text-xs md:text-sm text-slate-300 outline-none pr-1.5 md:pr-2 cursor-pointer"
                 >
                   <option value="all" className="bg-slate-800">За весь час</option>
                   <option value="24h" className="bg-slate-800">Останні 24 години</option>
@@ -206,16 +206,16 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
               </div>
             )}
             
-            <button onClick={loadStats} className="p-2 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors" title="Оновити">
-              <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
+            <button onClick={loadStats} className="p-1.5 md:p-2 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors" title="Оновити">
+              <RefreshCcw size={15} className={loading ? 'animate-spin' : ''} />
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors bg-[var(--button-danger-bg)]/10 hover:bg-[var(--button-danger-bg)]/30 text-[var(--button-danger-bg)]">
-              <X size={16} />
+            <button onClick={onClose} className="p-1.5 md:p-2 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors bg-[var(--button-danger-bg)]/10 hover:bg-[var(--button-danger-bg)]/30 text-[var(--button-danger-bg)]">
+              <X size={15} />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 p-6 overflow-hidden flex flex-col gap-6 relative">
+        <div className="flex-1 p-3 md:p-6 overflow-hidden flex flex-col gap-4 md:gap-6 relative">
           {globalStats.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-4">
               <Calendar size={48} className="opacity-20" />

@@ -4,18 +4,119 @@
 // Весь аналіз пікселів виконується В NODE.JS без page.evaluate (щоб уникнути
 // помилки "Execution context was destroyed" при навігації/рендерингу гри).
 
+import fs from 'fs';
+import path from 'path';
 import { NodeHandlerParams } from './types'; // Імпорт типів параметрів обробника ноди
 import { Logger } from '../logger'; // Імпорт логера
 import { Page } from 'playwright'; // Імпорт типу сторінки Playwright
-import * as zlib from 'zlib'; // Імпорт zlib для розпакування PNG даних в Node.js
-import { promisify } from 'util'; // Імпорт утиліти для перетворення колбеків у проміси
 import type WebSocket from 'ws'; // Імпорт типу WebSocket для анотацій
+import { parsePng, encodePng } from '../utils/pngParser';
+import { MEMORY_INVALID_TEMPLATES_DIR } from '../constants';
 
 const logger = new Logger('MemoryGameNode'); // Ініціалізація логера
 
-// Промісифіковані версії zlib функцій для асинхронного розпакування
-const inflateRaw = promisify(zlib.inflateRaw); // Розпакування даних без заголовку zlib
-const inflate = promisify(zlib.inflate); // Розпакування даних зі заголовком zlib
+// ─── Шаблони некоректних / порожніх карток ──────────────────────────────────
+
+interface InvalidTemplate {
+  name: string;
+  fingerprint: string;
+}
+
+let cachedInvalidTemplates: InvalidTemplate[] | null = null;
+
+// Завантажує шаблони некоректних карток (напівповернуті, порожні місця, зниклі карти)
+async function loadInvalidTemplates(): Promise<InvalidTemplate[]> {
+  if (cachedInvalidTemplates && cachedInvalidTemplates.length > 0) {
+    return cachedInvalidTemplates;
+  }
+
+  const templates: InvalidTemplate[] = [];
+  try {
+    if (fs.existsSync(MEMORY_INVALID_TEMPLATES_DIR)) {
+      const files = fs.readdirSync(MEMORY_INVALID_TEMPLATES_DIR).filter(f => f.endsWith('.png'));
+      for (const file of files) {
+        const filePath = path.join(MEMORY_INVALID_TEMPLATES_DIR, file);
+        const buf = fs.readFileSync(filePath);
+        const pngData = await parsePng(buf);
+        if (pngData) {
+          const fp = await extractFingerprintFromPng(pngData);
+          if (fp) {
+            templates.push({ name: file, fingerprint: fp });
+          }
+        }
+      }
+      logger.info(`Завантажено ${templates.length} шаблонів некоректних карток`);
+    }
+  } catch (err) {
+    logger.warn('Помилка завантаження шаблонів некоректних карток', { error: String(err) });
+  }
+
+  cachedInvalidTemplates = templates;
+  return templates;
+}
+
+// Перевіряє чи відбиток картки схожий на один із шаблонів некоректних карток
+function checkInvalidCard(
+  fp: string,
+  invalidTemplates: InvalidTemplate[],
+  threshold = 0.70
+): { isInvalid: boolean; templateName?: string; similarity: number } {
+  if (!fp || invalidTemplates.length === 0) return { isInvalid: false, similarity: 0 };
+  for (const t of invalidTemplates) {
+    const sim = fingerprintSimilarity(fp, t.fingerprint);
+    if (sim >= threshold) {
+      return { isInvalid: true, templateName: t.name, similarity: sim };
+    }
+  }
+  return { isInvalid: false, similarity: 0 };
+}
+
+// ─── Допоміжні функції малювання для Фотодебагу ─────────────────────────────
+
+// Малює прямокутну рамку на RGBA пікселях
+function drawRect(pixels: Buffer, W: number, H: number, x0: number, y0: number, x1: number, y1: number, r: number, g: number, b: number, thickness = 2) {
+  const minX = Math.max(0, Math.min(x0, x1));
+  const maxX = Math.min(W - 1, Math.max(x0, x1));
+  const minY = Math.max(0, Math.min(y0, y1));
+  const maxY = Math.min(H - 1, Math.max(y0, y1));
+
+  for (let t = 0; t < thickness; t++) {
+    for (let x = minX; x <= maxX; x++) {
+      if (minY + t < H) {
+        const i1 = ((minY + t) * W + x) * 4;
+        pixels[i1] = r; pixels[i1 + 1] = g; pixels[i1 + 2] = b; pixels[i1 + 3] = 255;
+      }
+      if (maxY - t >= 0) {
+        const i2 = ((maxY - t) * W + x) * 4;
+        pixels[i2] = r; pixels[i2 + 1] = g; pixels[i2 + 2] = b; pixels[i2 + 3] = 255;
+      }
+    }
+    for (let y = minY; y <= maxY; y++) {
+      if (minX + t < W) {
+        const i1 = (y * W + (minX + t)) * 4;
+        pixels[i1] = r; pixels[i1 + 1] = g; pixels[i1 + 2] = b; pixels[i1 + 3] = 255;
+      }
+      if (maxX - t >= 0) {
+        const i2 = (y * W + (maxX - t)) * 4;
+        pixels[i2] = r; pixels[i2 + 1] = g; pixels[i2 + 2] = b; pixels[i2 + 3] = 255;
+      }
+    }
+  }
+}
+
+// Малює заповнену точку на RGBA пікселях
+function drawDot(pixels: Buffer, W: number, H: number, cx: number, cy: number, radius: number, r: number, g: number, b: number) {
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      const x = cx + dx;
+      const y = cy + dy;
+      if (x >= 0 && x < W && y >= 0 && y < H) {
+        const i = (y * W + x) * 4;
+        pixels[i] = r; pixels[i + 1] = g; pixels[i + 2] = b; pixels[i + 3] = 255;
+      }
+    }
+  }
+}
 
 // ─── Типи ───────────────────────────────────────────────────────────────────
 
@@ -34,121 +135,6 @@ interface GameCard { // Опис структури об'єкта картки
   fingerprint: string | null;  // Унікальний відбиток зображення карти (null якщо не відкривали)
   matched: boolean;  // Прапорець, який вказує чи знайдено пару для цієї карти
 } // Кінець опису структури картки
-
-// Результат розпарсеного PNG зображення
-interface PngData { // Структура даних розпарсеного PNG
-  width: number;  // Ширина зображення в пікселях
-  height: number; // Висота зображення в пікселях
-  pixels: Buffer; // Масив пікселів RGBA (4 байти на піксель)
-} // Кінець структури PngData
-
-// ─── PNG парсер в Node.js ──────────────────────────────────────────────────
-
-// Розпарсує PNG буфер і повертає масив пікселів RGBA без використання браузера
-async function parsePng(buf: Buffer): Promise<PngData | null> { // Асинхронна функція розпарсування PNG
-  try { // Блок перехоплення помилок
-    // Перевіряємо сигнатуру PNG файлу (перші 8 байт: 137 80 78 71 13 10 26 10)
-    if (buf[0] !== 137 || buf[1] !== 80 || buf[2] !== 78 || buf[3] !== 71) { // Перевірка magic bytes
-      return null; // Не є PNG файлом
-    } // Кінець перевірки сигнатури
-
-    let width = 0; // Ширина зображення
-    let height = 0; // Висота зображення
-    let bitDepth = 0; // Глибина кольору
-    let colorType = 0; // Тип кольору (2=RGB, 6=RGBA)
-    const idatChunks: Buffer[] = []; // Масив для збирання IDAT чанків
-
-    let offset = 8; // Початкова позиція (після сигнатури)
-
-    // Перебираємо всі чанки PNG файлу
-    while (offset < buf.length - 12) { // Цикл читання чанків
-      const chunkLen = buf.readUInt32BE(offset); // Довжина даних чанку
-      const chunkType = buf.slice(offset + 4, offset + 8).toString('ascii'); // Тип чанку
-
-      if (chunkType === 'IHDR') { // Заголовковий чанк з параметрами зображення
-        width = buf.readUInt32BE(offset + 8); // Ширина зображення
-        height = buf.readUInt32BE(offset + 12); // Висота зображення
-        bitDepth = buf[offset + 16]; // Глибина кольору в бітах
-        colorType = buf[offset + 17]; // Тип кольорового кодування
-      } else if (chunkType === 'IDAT') { // Чанк з даними зображення
-        idatChunks.push(buf.slice(offset + 8, offset + 8 + chunkLen)); // Збираємо частини даних
-      } else if (chunkType === 'IEND') { // Кінцевий чанк
-        break; // Завершуємо читання
-      } // Кінець перевірки типу чанку
-
-      offset += 12 + chunkLen; // Переміщуємося до наступного чанку
-    } // Кінець циклу чанків
-
-    // Підтримуємо лише 8-бітні RGB та RGBA PNG файли
-    if (bitDepth !== 8 || (colorType !== 2 && colorType !== 6)) { // Перевірка підтримуваного формату
-      return null; // Непідтримуваний формат
-    } // Кінець перевірки
-
-    const channels = colorType === 6 ? 4 : 3; // Кількість каналів на піксель (RGBA або RGB)
-    const rowSize = 1 + width * channels; // Розмір рядка з байтом фільтру
-
-    // Об'єднуємо та розпаковуємо всі IDAT чанки
-    const compressed = Buffer.concat(idatChunks); // Об'єднання стиснутих даних
-    let decompressed: Buffer; // Буфер для розпакованих даних
-    try { // Блок спроби розпакування
-      decompressed = await inflate(compressed) as Buffer; // Розпакування zlib стиснутих даних
-    } catch { // Якщо inflate не спрацював
-      decompressed = await inflateRaw(compressed) as Buffer; // Спроба розпакування без заголовку
-    } // Кінець блоку розпакування
-
-    // Реконструюємо масив пікселів RGBA з рядків PNG із застосуванням фільтрів
-    const pixels = Buffer.alloc(width * height * 4); // Виділяємо пам'ять для RGBA пікселів
-    const prev = Buffer.alloc(rowSize - 1, 0); // Буфер попереднього рядка (для фільтрів)
-
-    for (let y = 0; y < height; y++) { // Цикл по рядках зображення
-      const rowStart = y * rowSize; // Початок поточного рядка в деком. даних
-      const filterType = decompressed[rowStart]; // Тип PNG фільтру рядка
-      const row = decompressed.slice(rowStart + 1, rowStart + rowSize); // Дані рядка без байту фільтру
-      const recon = Buffer.alloc(row.length); // Буфер для реконструйованого рядка
-
-      for (let x = 0; x < row.length; x++) { // Цикл по байтах рядка
-        const raw = row[x]; // Поточний байт
-        const a = x >= channels ? recon[x - channels] : 0; // Лівий піксель (для фільтру Sub)
-        const b = prev[x]; // Верхній піксель (для фільтру Up)
-        const c = x >= channels ? prev[x - channels] : 0; // Верхній лівий піксель (для Paeth)
-
-        // Застосовуємо відповідний фільтр PNG рядка
-        switch (filterType) { // Вибір типу фільтру
-          case 0: recon[x] = raw; break; // None — без фільтру
-          case 1: recon[x] = (raw + a) & 0xff; break; // Sub — різниця з лівим
-          case 2: recon[x] = (raw + b) & 0xff; break; // Up — різниця з верхнім
-          case 3: recon[x] = (raw + Math.floor((a + b) / 2)) & 0xff; break; // Average
-          case 4: { // Paeth фільтр — предиктор Поета
-            const p = a + b - c; // Базовий предиктор
-            const pa = Math.abs(p - a); // Відстань до лівого
-            const pb = Math.abs(p - b); // Відстань до верхнього
-            const pc = Math.abs(p - c); // Відстань до верхнього лівого
-            recon[x] = (raw + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 0xff; // Вибір
-            break; // Кінець Paeth
-          } // Кінець case 4
-          default: recon[x] = raw; break; // Невідомий фільтр — без обробки
-        } // Кінець switch
-      } // Кінець циклу байтів
-
-      // Записуємо рядок в RGBA буфер
-      for (let x = 0; x < width; x++) { // Цикл по пікселях рядка
-        const srcIdx = x * channels; // Індекс у вихідних даних
-        const dstIdx = (y * width + x) * 4; // Індекс у вихідному RGBA буфері
-        pixels[dstIdx] = recon[srcIdx];         // Червоний канал
-        pixels[dstIdx + 1] = recon[srcIdx + 1]; // Зелений канал
-        pixels[dstIdx + 2] = recon[srcIdx + 2]; // Синій канал
-        pixels[dstIdx + 3] = channels === 4 ? recon[srcIdx + 3] : 255; // Альфа (або 255 для RGB)
-      } // Кінець циклу пікселів
-
-      recon.copy(prev); // Зберігаємо поточний рядок як попередній для наступного
-    } // Кінець циклу рядків
-
-    return { width, height, pixels }; // Повертаємо розпарсені дані
-  } catch (e) { // Обробка помилок парсингу
-    logger.error('PNG parse error', e instanceof Error ? e : new Error(String(e))); // Логуємо помилку
-    return null; // Повертаємо null при помилці
-  } // Кінець блоку перехоплення
-} // Кінець функції parsePng
 
 // ─── Допоміжні функції ──────────────────────────────────────────────────────
 
@@ -230,9 +216,6 @@ async function detectGrid( // Функція пошуку сітки карто�
   // Знімаємо скріншот з повторними спробами
   const buf = await screenshotWithRetry(activePage, screenshotOptions); // Отримуємо PNG буфер
 
-  // Надсилаємо скріншот у фотодебаг для діагностики
-  await sendDebugPhoto(ws, '📸 Поле карток (аналіз сітки)', nodeId, buf); // Відправка фото
-
   // Розпарсуємо PNG буфер повністю в Node.js — без page.evaluate
   const pngData = await parsePng(buf); // Розпарсування PNG
   if (!pngData) return null; // Якщо парсинг не вдався
@@ -292,9 +275,10 @@ async function detectGrid( // Функція пошуку сітки карто�
   const colPeaks = findPeaks(colDensity, W, Math.floor(W * 0.04)); // Піки стовпців
   const rowPeaks = findPeaks(rowDensity, H, Math.floor(H * 0.04)); // Піки рядків
 
-  const minCardDim = Math.min(W, H) * 0.025; // Мінімальний розмір картки
-  const filteredCols = colPeaks.filter(p => (p.end - p.start) > minCardDim); // Відфільтровані стовпці
-  const filteredRows = rowPeaks.filter(p => (p.end - p.start) > minCardDim); // Відфільтровані рядки
+  const minCardWidth = 50; // Мінімальна ширина картки 50 пікселів
+  const minCardHeight = 50; // Мінімальна висота картки 50 пікселів
+  const filteredCols = colPeaks.filter(p => (p.end - p.start) >= minCardWidth); // Відфільтровані стовпці (>= 50px)
+  const filteredRows = rowPeaks.filter(p => (p.end - p.start) >= minCardHeight); // Відфільтровані рядки (>= 50px)
 
   const rawCards: any[] = []; // Масив знайдених карток
   for (let r = 0; r < filteredRows.length; r++) { // Цикл по рядках
@@ -303,6 +287,8 @@ async function detectGrid( // Функція пошуку сітки карто�
       const cy = filteredRows[r].center; // Y центру картки
       const w = filteredCols[c].end - filteredCols[c].start; // Ширина картки
       const h = filteredRows[r].end - filteredRows[r].start; // Висота картки
+
+      if (w < minCardWidth || h < minCardHeight) continue; // Мінімальний розмір карти 50x50 пікселів
 
       let purpleCount = 0; // Лічильник фіолетових пікселів
       const sR = 5; // Радіус перевірки
@@ -325,6 +311,24 @@ async function detectGrid( // Функція пошуку сітки карто�
 
   if (rawCards.length === 0) return null; // Карток не знайдено
 
+  // ── Візуальна розмітка знайденої сітки для Фотодебагу ────────────────────
+  try {
+    const annotatedPx = Buffer.from(px); // Клонуємо пікселі
+    for (const c of rawCards) {
+      const halfW = Math.floor(c.w / 2);
+      const halfH = Math.floor(c.h / 2);
+      // Малюємо яскраву зелену рамку навколо кожної знайденої картки
+      drawRect(annotatedPx, W, H, c.cx - halfW, c.cy - halfH, c.cx + halfW, c.cy + halfH, 0, 255, 128, 3);
+      // Малюємо центральну точку картки
+      drawDot(annotatedPx, W, H, c.cx, c.cy, 3, 255, 255, 0);
+    }
+    const annotatedBuf = encodePng({ width: W, height: H, pixels: annotatedPx });
+    await sendDebugPhoto(ws, `🎯 Виявлена сітка (${rawCards.length} карток [${filteredRows.length}×${filteredCols.length}])`, nodeId, annotatedBuf);
+  } catch (annotErr) {
+    logger.warn('Failed to generate annotated grid debug photo', { error: String(annotErr) });
+    await sendDebugPhoto(ws, '📸 Поле карток (аналіз сітки)', nodeId, buf);
+  }
+
   const offsetX = useCropZone ? cropX : 0; // Зсув X для crop-зони
   const offsetY = useCropZone ? cropY : 0; // Зсув Y для crop-зони
 
@@ -345,57 +349,261 @@ async function detectGrid( // Функція пошуку сітки карто�
   }); // Кінець маппінгу
 } // Кінець detectGrid
 
-// Знімає «відбиток» (хеш) зображення картки після її перевертання
-// Аналіз пікселів повністю в Node.js без page.evaluate
-async function captureFingerprint( // Функція зняття відбитка картки
-  activePage: Page, // Сторінка Playwright
-  vpX: number, // X центру картки у viewport
-  vpY: number, // Y центру картки у viewport
-  vpW: number, // Ширина картки у viewport
-  vpH: number  // Висота картки у viewport
-): Promise<string> { // Повертає рядок відбитку
-  // Розраховуємо clip-область для скріншоту картки
-  const clip = { // Параметри обрізки
-    x: Math.max(0, vpX - Math.floor(vpW / 2)), // Лівий край
-    y: Math.max(0, vpY - Math.floor(vpH / 2)), // Верхній край
-    width: vpW,  // Ширина знімку
-    height: vpH  // Висота знімку
-  }; // Кінець clip
+// Повторно сканує всі збережені позиції початкової сітки карток (masterGrid)
+async function rescanMasterGrid(
+  activePage: Page,
+  masterGrid: GameCard[],
+  _dpr: number,
+  useCropZone: boolean,
+  cropX: number,
+  cropY: number,
+  cropW: number,
+  cropH: number,
+  ws?: WebSocket,
+  nodeId?: string
+): Promise<GameCard[]> {
+  const screenshotOptions: any = { type: 'png' };
+  if (useCropZone && cropW > 0 && cropH > 0) {
+    screenshotOptions.clip = { x: cropX, y: cropY, width: cropW, height: cropH };
+  }
 
-  // Знімаємо скріншот маленької області картки з повторними спробами
-  const buf = await screenshotWithRetry(activePage, { type: 'png', clip }); // Скріншот картки
+  const buf = await screenshotWithRetry(activePage, screenshotOptions);
+  const pngData = await parsePng(buf);
+  if (!pngData) return [];
 
-  // Розпарсуємо PNG в Node.js
-  const pngData = await parsePng(buf); // Розпарсування зображення
-  if (!pngData) return ''; // При помилці повертаємо порожній рядок
+  const { width: W, height: H, pixels: px } = pngData;
+  const activeRemainingCards: GameCard[] = [];
 
-  const { width: W, height: H, pixels: px } = pngData; // Деструктуризація
+  const isPurple = (idx: number): boolean => {
+    const r = px[idx];
+    const g = px[idx + 1];
+    const b = px[idx + 2];
+    return r > 30 && r < 190 && g < 120 && b > 55 && (b - g) > 10;
+  };
 
-  // Знімаємо сітку 6×6 зразків кольору з центральних 50% картки
-  const sampleSize = 6; // Розмір сітки зразків
-  const rW = Math.floor(W * 0.5); // Ширина зони зразків
-  const rH = Math.floor(H * 0.5); // Висота зони зразків
-  const startX = Math.floor(W / 2 - rW / 2); // Початок X
-  const startY = Math.floor(H / 2 - rH / 2); // Початок Y
-  const samples: number[] = []; // Масив зразків
+  const debugAnnotatedPx = Buffer.from(px);
 
-  for (let sy = 0; sy < sampleSize; sy++) { // Вертикальний цикл зразків
-    for (let sx = 0; sx < sampleSize; sx++) { // Горизонтальний цикл зразків
-      const ppx = startX + Math.floor(sx * rW / (sampleSize - 1)); // X точки
-      const ppy = startY + Math.floor(sy * rH / (sampleSize - 1)); // Y точки
-      if (ppx >= 0 && ppx < W && ppy >= 0 && ppy < H) { // Перевірка меж
-        const i = (ppy * W + ppx) * 4; // Індекс у пікселях
-        samples.push( // Квантовані значення каналів
-          Math.floor(px[i] / 32),     // Червоний (0-7)
-          Math.floor(px[i + 1] / 32), // Зелений (0-7)
-          Math.floor(px[i + 2] / 32)  // Синій (0-7)
-        ); // Кінець push
-      } // Кінець перевірки меж
-    } // Кінець горизонтального циклу
-  } // Кінець вертикального циклу
+  for (const masterCard of masterGrid) {
+    const cx = masterCard.sx;
+    const cy = masterCard.sy;
+    const halfW = Math.floor(masterCard.cardW / 2);
+    const halfH = Math.floor(masterCard.cardH / 2);
 
-  return samples.join(','); // Повертаємо відбиток як рядок
-} // Кінець captureFingerprint
+    let purpleCount = 0;
+    let totalSamples = 0;
+    const step = 2;
+    for (let dy = -Math.floor(halfH * 0.5); dy <= Math.floor(halfH * 0.5); dy += step) {
+      for (let dx = -Math.floor(halfW * 0.5); dx <= Math.floor(halfW * 0.5); dx += step) {
+        const sx = cx + dx;
+        const sy = cy + dy;
+        if (sx >= 0 && sx < W && sy >= 0 && sy < H) {
+          totalSamples++;
+          if (isPurple((sy * W + sx) * 4)) purpleCount++;
+        }
+      }
+    }
+
+    const purpleRatio = totalSamples > 0 ? (purpleCount / totalSamples) : 0;
+
+    // Якщо частка фіолетових пікселів > 20% — картка все ще присутня і закрита!
+    if (purpleRatio > 0.20) {
+      const remainingCard: GameCard = {
+        ...masterCard,
+        fingerprint: null,
+        matched: false
+      };
+      activeRemainingCards.push(remainingCard);
+
+      // Малюємо зелену рамку навколо знайденої активної картки
+      drawRect(debugAnnotatedPx, W, H, cx - halfW, cy - halfH, cx + halfW, cy + halfH, 0, 255, 128, 3);
+      drawDot(debugAnnotatedPx, W, H, cx, cy, 3, 255, 255, 0);
+    } else {
+      // Малюємо сіру рамку на вже зібраних/відкритих позиціях
+      drawRect(debugAnnotatedPx, W, H, cx - halfW, cy - halfH, cx + halfW, cy + halfH, 120, 120, 120, 1);
+    }
+  }
+
+  if (ws && nodeId) {
+    try {
+      const debugBuf = encodePng({ width: W, height: H, pixels: debugAnnotatedPx });
+      await sendDebugPhoto(ws, `🎯 Повторне сканування (${activeRemainingCards.length}/${masterGrid.length} закритих карток)`, nodeId, debugBuf);
+    } catch {}
+  }
+
+  return activeRemainingCards;
+}
+
+// Обчислює частку фіолетових пікселів на картці (високий відсоток = закрита сорочка, низький = відкрита картка)
+function calculatePurpleRatio(pngData: { width: number; height: number; pixels: Buffer }): number {
+  const { width: W, height: H, pixels: px } = pngData;
+  let purpleCount = 0;
+  let total = 0;
+  // Перевіряємо центральні 60% площі картки
+  const startX = Math.floor(W * 0.2);
+  const endX = Math.floor(W * 0.8);
+  const startY = Math.floor(H * 0.2);
+  const endY = Math.floor(H * 0.8);
+
+  for (let y = startY; y < endY; y += 2) {
+    for (let x = startX; x < endX; x += 2) {
+      const idx = (y * W + x) * 4;
+      const r = px[idx], g = px[idx + 1], b = px[idx + 2];
+      if (r > 30 && r < 190 && g < 120 && b > 55 && (b - g) > 10) {
+        purpleCount++;
+      }
+      total++;
+    }
+  }
+  return total > 0 ? purpleCount / total : 1.0;
+}
+
+// Витягує цифровий відбиток з розпарсованого знімку картки та надсилає анотований знімок
+async function extractFingerprintFromPng(
+  pngData: { width: number; height: number; pixels: Buffer },
+  ws?: WebSocket,
+  nodeId?: string,
+  label?: string
+): Promise<string> {
+  const { width: W, height: H, pixels: px } = pngData;
+
+  const sampleSize = 6;
+  const rW = Math.floor(W * 0.5);
+  const rH = Math.floor(H * 0.5);
+  const startX = Math.floor(W / 2 - rW / 2);
+  const startY = Math.floor(H / 2 - rH / 2);
+  const samples: number[] = [];
+  const samplePoints: { x: number; y: number }[] = [];
+
+  for (let sy = 0; sy < sampleSize; sy++) {
+    for (let sx = 0; sx < sampleSize; sx++) {
+      const ppx = startX + Math.floor(sx * rW / (sampleSize - 1));
+      const ppy = startY + Math.floor(sy * rH / (sampleSize - 1));
+      if (ppx >= 0 && ppx < W && ppy >= 0 && ppy < H) {
+        samplePoints.push({ x: ppx, y: ppy });
+        const i = (ppy * W + ppx) * 4;
+        samples.push(
+          Math.floor(px[i] / 32),
+          Math.floor(px[i + 1] / 32),
+          Math.floor(px[i + 2] / 32)
+        );
+      }
+    }
+  }
+
+  if (ws && nodeId && label) {
+    try {
+      const cardDebugBuf = encodePng({ width: W, height: H, pixels: px });
+      await sendDebugPhoto(ws, label, nodeId, cardDebugBuf);
+    } catch {}
+  }
+
+  return samples.join(',');
+}
+
+interface OpenCardResult {
+  fingerprint: string;
+  isInvalid: boolean;
+  invalidTemplate?: string;
+  similarityToInvalid?: number;
+}
+
+// Адаптивне відкриття картки: клікає та опитує стан кожні 80-100мс доки картка не повернеться обличчям
+async function openCardAndCaptureFingerprint(
+  activePage: Page,
+  card: GameCard,
+  ws: WebSocket | undefined,
+  nodeId: string,
+  label: string,
+  logToClient: (msg: string, level?: 'info' | 'error' | 'success' | 'debug') => void,
+  invalidTemplates: InvalidTemplate[] = [],
+  maxWaitMs = 1200
+): Promise<OpenCardResult> {
+  const clip = {
+    x: Math.max(0, card.vpX - Math.floor(card.vpW / 2)),
+    y: Math.max(0, card.vpY - Math.floor(card.vpH / 2)),
+    width: card.vpW,
+    height: card.vpH
+  };
+
+  // Клікаємо по картці
+  await activePage.mouse.click(card.vpX, card.vpY);
+
+  const startTime = Date.now();
+  let lastPngData: { width: number; height: number; pixels: Buffer } | null = null;
+  let attempts = 0;
+
+  // Адаптивне очікування відкриття
+  while (Date.now() - startTime < maxWaitMs) {
+    attempts++;
+    // Коротка пауза перед наступною перевіркою
+    await new Promise(r => setTimeout(r, attempts === 1 ? 180 : 80));
+
+    try {
+      const buf = await screenshotWithRetry(activePage, { type: 'png', clip }, 2, 100);
+      const pngData = await parsePng(buf);
+      if (pngData) {
+        lastPngData = pngData;
+        const purpleRatio = calculatePurpleRatio(pngData);
+
+        // Якщо частка фіолетових пікселів впала нижче 35% — картка відкривається або відкрита!
+        if (purpleRatio < 0.35) {
+          const fp = await extractFingerprintFromPng(pngData, ws, nodeId, label);
+          const invalidCheck = checkInvalidCard(fp, invalidTemplates, 0.72);
+
+          // Якщо відбиток збігається з шаблоном напівперевернутої карти і ще є час — чекаємо повного розвороту
+          if (invalidCheck.isInvalid && Date.now() - startTime < 600) {
+            logToClient(`⏳ Картка (${card.row},${card.col}) у процесі анімації (${invalidCheck.templateName}), очікую...`, 'debug');
+            continue;
+          }
+
+          const elapsed = Date.now() - startTime;
+          if (invalidCheck.isInvalid) {
+            logToClient(`🚫 Картка (${card.row},${card.col}) збігається з некоректним/порожнім шаблоном (${invalidCheck.templateName}, ${Math.round(invalidCheck.similarity * 100)}%)`, 'info');
+            return {
+              fingerprint: fp,
+              isInvalid: true,
+              invalidTemplate: invalidCheck.templateName,
+              similarityToInvalid: invalidCheck.similarity
+            };
+          }
+
+          logToClient(`👁️ Картка (${card.row},${card.col}) відкрита за ${elapsed}мс (фіолетового: ${Math.round(purpleRatio * 100)}%)`, 'debug');
+          return { fingerprint: fp, isInvalid: false };
+        }
+      }
+    } catch {}
+
+    // Якщо пройшло 500мс, а картка все ще фіолетова (> 50%) — можливо клік не зареєструвався через анімацію
+    if (Date.now() - startTime > 500 && attempts === 4) {
+      logToClient(`🔄 Повторний клік по (${card.row},${card.col}) через затримку анімації...`, 'debug');
+      try {
+        await activePage.mouse.click(card.vpX, card.vpY);
+      } catch {}
+    }
+  }
+
+  // Якщо час вичерпано, беремо останній знімок
+  if (lastPngData) {
+    const purpleRatio = calculatePurpleRatio(lastPngData);
+    const fp = await extractFingerprintFromPng(lastPngData, ws, nodeId, label);
+    const invalidCheck = checkInvalidCard(fp, invalidTemplates, 0.72);
+    if (invalidCheck.isInvalid) {
+      logToClient(`🚫 Картка (${card.row},${card.col}) збігається з некоректним/порожнім шаблоном (${invalidCheck.templateName}, ${Math.round(invalidCheck.similarity * 100)}%)`, 'info');
+      return {
+        fingerprint: fp,
+        isInvalid: true,
+        invalidTemplate: invalidCheck.templateName,
+        similarityToInvalid: invalidCheck.similarity
+      };
+    }
+    if (purpleRatio >= 0.40) {
+      logToClient(`⚠️ Картка (${card.row},${card.col}) схоже залишилась закритою (${Math.round(purpleRatio * 100)}% фіолетового)`, 'error');
+    }
+    return { fingerprint: fp, isInvalid: false };
+  }
+
+  return { fingerprint: '', isInvalid: false };
+}
 
 // ─── Головний обробник ноди ─────────────────────────────────────────────────
 
@@ -519,6 +727,12 @@ export const memoryGameNodeHandler = async ({ // Головна функція-�
 
   logToClient(`🎮 Гра на Пам'ять: старт...`, 'info'); // Старт гри
 
+  // Завантажуємо шаблони некоректних карток (напівповернуті, порожні тощо)
+  const invalidTemplates = await loadInvalidTemplates();
+  if (invalidTemplates.length > 0) {
+    logToClient(`🔍 Завантажено ${invalidTemplates.length} шаблонів некоректних карток`, 'debug');
+  }
+
   try { // Основний блок перехоплення помилок
 
     // ── ДІАГНОСТИКА: 2 скріншоти на початку ─────────────────────────────────
@@ -560,25 +774,27 @@ export const memoryGameNodeHandler = async ({ // Головна функція-�
 
     // Знаходимо сітку карток (скріншот + аналіз PNG в Node.js)
     logToClient(`📸 Аналіз сітки карток (dpr=${dpr})...`, 'debug'); // Початок аналізу
-    const cards = await detectGrid( // Виклик функції пошуку сітки
+    const initialCards = await detectGrid( // Виклик функції пошуку сітки
       activePage, dpr, useCropZone as boolean, cropX as number, cropY as number, cropW as number, cropH as number, // Параметри
       ws, currentNode.id // WebSocket та ID ноди
     ); // Кінець виклику
 
-    if (!cards || cards.length < 4) { // Якщо карток не знайдено
-      logToClient(`❌ Не вдалося знайти сітку карток (знайдено: ${cards?.length ?? 0})`, 'error'); // Помилка
+    if (!initialCards || initialCards.length < 4) { // Якщо карток не знайдено
+      logToClient(`❌ Не вдалося знайти сітку карток (знайдено: ${initialCards?.length ?? 0})`, 'error'); // Помилка
       return { data: context, nextHandle: ['error'] }; // Вихід через червоний порт
     } // Кінець перевірки
 
-    const totalCards = cards.length; // Загальна кількість карток
+    const masterGrid: GameCard[] = initialCards.map(c => ({ ...c })); // Зберігаємо початкову майстер-сітку
+    let cards: GameCard[] = initialCards;
+    const totalCards = masterGrid.length; // Загальна кількість карток
     const totalPairs = Math.floor(totalCards / 2); // Кількість пар
-    logToClient(`📐 Знайдено ${totalCards} карток, шукаємо ${totalPairs} пар.`, 'success'); // Успіх
+    logToClient(`📐 Знайдено ${totalCards} карток (${Math.max(...masterGrid.map(c => c.row)) + 1}×${Math.max(...masterGrid.map(c => c.col)) + 1}), шукаємо ${totalPairs} пар.`, 'success'); // Успіх
 
     // Пам'ять бота: індекс картки → відбиток зображення
     const cardFingerprints = new Map<number, string>(); // Map відбитків
     let matchedPairs = 0; // Знайдених пар
     let moveCount = 0; // Кількість ходів
-    const maxMoves = totalCards * 3; // Максимум ходів
+    const maxMoves = Math.max(totalCards * 4, 30); // Максимум ходів
 
     // Знаходить відому пару серед запам'ятованих карток
     const findKnownPair = (): [number, number] | null => { // Функція пошуку відомої пари
@@ -639,9 +855,9 @@ export const memoryGameNodeHandler = async ({ // Головна функція-�
         ); // Кінець лог
 
         await activePage.mouse.click(cards[idx1].vpX, cards[idx1].vpY); // Клік по першій картці
-        await smartSleep(flipDelay as number, ws); // Пауза анімації
+        await smartSleep(Math.min(flipDelay as number, 500), ws); // Пауза анімації
         await activePage.mouse.click(cards[idx2].vpX, cards[idx2].vpY); // Клік по другій картці
-        await smartSleep(flipDelay as number, ws); // Пауза анімації
+        await smartSleep(Math.min(flipDelay as number, 500), ws); // Пауза анімації
 
         cards[idx1].matched = true; // Позначаємо першу як зібрану
         cards[idx2].matched = true; // Позначаємо другу як зібрану
@@ -667,61 +883,117 @@ export const memoryGameNodeHandler = async ({ // Головна функція-�
           const knownUnmatched = cards // Відомі незібрані
             .map((c, i) => ({ card: c, idx: i }))
             .filter(({ card, idx: i }) => !card.matched && card.fingerprint !== null && i !== idx1);
-          if (knownUnmatched.length === 0) { // Нема партнера
-            logToClient(`⚠️ Не залишилось карток для дослідження`, 'error'); // Лог
-            break; // Виходимо з циклу
-          } // Кінець перевірки
+          if (knownUnmatched.length === 0) { // Нема партнера — оновлюємо сітку
+            logToClient(`🔄 Залишилась лише 1 невідома карта без пари — перевіряю всі початкові позиції (${masterGrid.length} шт.)...`, 'info');
+            cardFingerprints.clear();
+            await smartSleep(600, ws);
+            const refreshedCards = await rescanMasterGrid(
+              activePage, masterGrid, dpr, useCropZone as boolean, cropX as number, cropY as number, cropW as number, cropH as number,
+              ws, currentNode.id
+            );
+            if (refreshedCards && refreshedCards.length >= 2) {
+              cards = refreshedCards;
+              logToClient(`🎯 Повторне сканування: виявлено ${cards.length}/${masterGrid.length} закритих карток — починаю з початку!`, 'success');
+              continue;
+            } else {
+              logToClient(`🏁 Закритих карток більше не знайдено — завершення`, 'info');
+              break;
+            }
+          }
           idx2 = knownUnmatched[0].idx; // Відома незібрана як партнер
-        } else { // Всі вже переглянуті
-          logToClient(`🔄 Скидання пам'яті — повторний аналіз...`, 'info'); // Лог
-          cards.forEach(c => { if (!c.matched) c.fingerprint = null; }); // Скидаємо відбитки
-          cardFingerprints.clear(); // Очищаємо пам'ять
-          continue; // Повторний хід
-        } // Кінець розгалуження
+        } else {
+          // Пройдено всі карти 1 раз
+          logToClient(`🔄 Пройдено всі карти 1 раз — очищую пам'ять та перевіряю всі ${masterGrid.length} початкових позицій...`, 'info');
+          cardFingerprints.clear();
+          await smartSleep(600, ws);
 
-        // Клікаємо по першій картці
+          const refreshedCards = await rescanMasterGrid(
+            activePage, masterGrid, dpr, useCropZone as boolean, cropX as number, cropY as number, cropW as number, cropH as number,
+            ws, currentNode.id
+          );
+
+          if (refreshedCards && refreshedCards.length >= 2) {
+            cards = refreshedCards;
+            logToClient(`🎯 Повторне сканування: виявлено ${cards.length}/${masterGrid.length} закритих карток — починаю з початку!`, 'success');
+            continue; // Починаємо з початку на свіжій сітці
+          } else {
+            logToClient(`🏁 Закритих карток більше не виявлено — перевіряю кнопку завершення...`, 'info');
+            const finalExit = await checkExitButtons(true);
+            if (finalExit) {
+              logToClient(`🎉 Гру завершено! Кнопка "${finalExit}" знайдена`, 'success');
+            }
+            return {
+              data: { ...context, matchedPairs, moveCount, value: matchedPairs },
+              nextHandle: [null, undefined, 'success'],
+            };
+          }
+        }
+
+        // 1-ша картка: відкриваємо та адаптивно чекаємо появи зображення
         logToClient(`👆 Хід ${moveCount}: відкриваю (${cards[idx1].row},${cards[idx1].col})...`, 'debug');
-        await activePage.mouse.click(cards[idx1].vpX, cards[idx1].vpY); // Клік
-        await smartSleep(flipDelay as number, ws); // Очікуємо анімацію перевороту
+        const res1 = await openCardAndCaptureFingerprint(
+          activePage, cards[idx1], ws, currentNode.id,
+          `🃏 Картка (${cards[idx1].row},${cards[idx1].col})`,
+          logToClient, invalidTemplates, Math.max(flipDelay as number, 1200)
+        );
 
-        // Знімаємо відбиток першої картки (аналіз в Node.js)
-        const fp1 = await captureFingerprint( // Виклик функції відбитку
-          activePage, cards[idx1].vpX, cards[idx1].vpY, cards[idx1].vpW, cards[idx1].vpH
-        ); // Кінець виклику
-        cards[idx1].fingerprint = fp1; // Зберігаємо відбиток
-        cardFingerprints.set(idx1, fp1); // Записуємо в пам'ять
+        if (res1.isInvalid) {
+          cards[idx1].matched = true; // Позначаємо зібраною/порожньою
+          cards[idx1].fingerprint = null;
+          cardFingerprints.delete(idx1);
+          await smartSleep(mismatchDelay as number, ws);
+          continue; // Переходимо до наступного ходу
+        }
 
-        // Перевіряємо чи вже знаємо пару для цієї картки
-        const memoryMatch = findMatchInMemory(fp1, idx1); // Пошук в пам'яті
-        if (memoryMatch !== null) { // Знайшли в пам'яті
-          idx2 = memoryMatch; // Використовуємо відому пару
+        const fp1 = res1.fingerprint;
+        cards[idx1].fingerprint = fp1;
+        cardFingerprints.set(idx1, fp1);
+
+        // Перевіряємо чи вже знаємо пару для цієї картки у пам'яті
+        const memoryMatch = findMatchInMemory(fp1, idx1);
+        if (memoryMatch !== null) {
+          idx2 = memoryMatch;
           logToClient(`🧠 Знайшов пару в пам'яті! → (${cards[idx2].row},${cards[idx2].col})`, 'info');
-        } // Кінець перевірки пам'яті
+        }
 
-        // Клікаємо по другій картці
+        // Невелика пауза між кліками для надійності браузера
+        await smartSleep(150, ws);
+
+        // 2-га картка: відкриваємо та адаптивно зчитуємо відбиток у момент відкриття
         logToClient(`👆 Відкриваю (${cards[idx2].row},${cards[idx2].col})...`, 'debug');
-        await activePage.mouse.click(cards[idx2].vpX, cards[idx2].vpY); // Клік
-        await smartSleep(flipDelay as number, ws); // Очікуємо анімацію
+        const res2 = await openCardAndCaptureFingerprint(
+          activePage, cards[idx2], ws, currentNode.id,
+          `🃏 Картка (${cards[idx2].row},${cards[idx2].col})`,
+          logToClient, invalidTemplates, Math.max(flipDelay as number, 1200)
+        );
 
-        // Знімаємо відбиток другої картки
-        const fp2 = await captureFingerprint( // Виклик функції відбитку
-          activePage, cards[idx2].vpX, cards[idx2].vpY, cards[idx2].vpW, cards[idx2].vpH
-        ); // Кінець виклику
-        cards[idx2].fingerprint = fp2; // Зберігаємо відбиток
-        cardFingerprints.set(idx2, fp2); // Записуємо в пам'ять
+        if (res2.isInvalid) {
+          cards[idx2].matched = true; // Позначаємо зібраною/порожньою
+          cards[idx2].fingerprint = null;
+          cardFingerprints.delete(idx2);
+          await smartSleep(mismatchDelay as number, ws);
+          continue;
+        }
 
-        const similarity = fingerprintSimilarity(fp1, fp2); // Порівнюємо відбитки
+        const fp2 = res2.fingerprint;
+        cards[idx2].fingerprint = fp2;
+        cardFingerprints.set(idx2, fp2);
+
+        const similarity = fingerprintSimilarity(fp1, fp2);
 
         if (similarity >= MATCH_THRESHOLD) { // Збіг!
           cards[idx1].matched = true; // Перша зібрана
           cards[idx2].matched = true; // Друга зібрана
           matchedPairs++; // Збільшуємо лічильник
           logToClient(`✅ Збіг! Пара ${matchedPairs}/${totalPairs} (схожість: ${Math.round(similarity * 100)}%)`, 'success');
+          // Пауза анімації зникнення пари
+          await smartSleep(mismatchDelay as number, ws);
         } else { // Не збіг
           logToClient(`❌ Не збіг (${Math.round(similarity * 100)}%). Запам'ятовано.`, 'debug');
-        } // Кінець порівняння
+          // Чекаємо поки гра завершить анімацію перевертання карток назад, щоб уникнути animation lock
+          await smartSleep(Math.max(mismatchDelay as number, 1200), ws);
+        }
 
-        await smartSleep(mismatchDelay as number, ws); // Пауза анімації перевертання назад
       } // Кінець розгалуження відомих пар
 
       if (moveCount % 5 === 0) { // Кожні 5 ходів

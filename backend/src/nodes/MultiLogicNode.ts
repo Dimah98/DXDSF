@@ -1,4 +1,5 @@
 import { NodeHandlerParams } from './types'; // Імпортуємо інтерфейс параметрів обробника ноди
+import { getDayStart3AM, parseTimestampMs } from '../configs/ConfigEvaluator';
 
 export const multiLogicNodeHandler = async ({ currentNode, globalVariables, logToClient, context, targetHandle, ws }: NodeHandlerParams) => {
   const nodeData = currentNode.data as Record<string, unknown>;
@@ -28,7 +29,7 @@ export const multiLogicNodeHandler = async ({ currentNode, globalVariables, logT
       const evalSingleCondition = (part: string): boolean => {
         part = part.trim(); // Прибираємо зайві пробіли
         // Підтримувані оператори порівняння (від довших до коротших — важливо!)
-        const operators = ['>=', '<=', '!=', '==', '>', '<'];
+        const operators = ['time_is_today', 'time_not_today', '>=', '<=', '!=', '==', '>', '<'];
         for (const op of operators) {
           const idx = part.indexOf(op); // Шукаємо оператор у виразі
           if (idx === -1) continue; // Продовжуємо пошук якщо не знайдено
@@ -43,6 +44,18 @@ export const multiLogicNodeHandler = async ({ currentNode, globalVariables, logT
 
           logToClient(`🔍 Порівняння: [${leftClean}] ${op} [${rightClean}]`, 'debug'); // Логуємо хід порівняння
 
+          if (op === 'time_is_today') {
+            const ts = parseTimestampMs(leftClean);
+            const pass = ts > 0 && getDayStart3AM(ts) === getDayStart3AM(Date.now());
+            logToClient(`📅 ${ts > 0 ? new Date(ts).toLocaleString('uk-UA') : leftClean} є сьогодні (з 03:00) → ${pass}`, pass ? 'success' : 'error');
+            return pass;
+          }
+          if (op === 'time_not_today') {
+            const ts = parseTimestampMs(leftClean);
+            const pass = ts === 0 || getDayStart3AM(ts) !== getDayStart3AM(Date.now());
+            logToClient(`📅 ${ts > 0 ? new Date(ts).toLocaleString('uk-UA') : leftClean} не сьогодні (з 03:00) → ${pass}`, pass ? 'success' : 'error');
+            return pass;
+          }
           if (op === '>')  return useNum ? leftNum > rightNum  : leftClean > rightClean; // Більше
           if (op === '<')  return useNum ? leftNum < rightNum  : leftClean < rightClean; // Менше
           if (op === '>=') return useNum ? leftNum >= rightNum : leftClean >= rightClean; // Більше або дорівнює

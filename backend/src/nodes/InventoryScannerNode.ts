@@ -2,6 +2,7 @@ import { Logger } from '../logger';
 import { upsertInventoryItem } from '../db/schema';
 import { NodeHandlerParams, NodeResult, InventoryScannerNodeData, ScanResult, InventoryFile } from './types';
 import { inputValidator } from '../validation/InputValidator';
+import { PROJECTS_DIR } from '../constants';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -297,8 +298,7 @@ export const inventoryScannerNodeHandler = async ({
     }
     
     // Requirement 1.4: Save results to file system for persistence
-    const projectsDir = path.join(__dirname, '../../projects');
-    const inventoryFilePath = path.join(projectsDir, `${projectName}_inventory.json`);
+    const inventoryFilePath = path.join(PROJECTS_DIR, `${projectName}_inventory.json`);
     
     const inventoryData: InventoryFile = {
       projectName,

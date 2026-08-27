@@ -32,152 +32,90 @@ export const visualSearchNodeHandler = async ({
 
   // Requirement 13.1: Wrap async operations in try-catch with logging
   try {
-    // Перебираємо зображення по черзі, поки не знайдемо
-    for (const name of imageNames) {
-      logToClient(`🔍 Шукаємо: ${name}`, 'info');
-      
-      const results = await activePage.evaluate(({ name, selector, searchMode }: { name: string; selector: string | undefined; searchMode: string }) => {
-        console.log('DEBUG: Starting evaluate with:', { name, selector, searchMode });
-        
+    // Виконуємо оптимізований пошук у DOM браузера через IIFE строковий скрипт
+    const searchResult = await activePage.evaluate(
+      `((args) => {
+        const { names, selector, searchMode } = args;
         const roots = selector 
-          ? (searchMode === 'all' ? Array.from(document.querySelectorAll(selector)) : [document.querySelector(selector)].filter((r): r is Element => r !== null)) 
+          ? (searchMode === 'all' 
+              ? Array.from(document.querySelectorAll(selector)) 
+              : [document.querySelector(selector)].filter(Boolean)) 
           : [document];
         
-        console.log('DEBUG: Roots found:', roots.length);
-        if (roots.length === 0) return [];
-        
-        // Debug: log all images on page
-        const allImgs = Array.from(document.querySelectorAll('img'));
-        const imgSrcs = allImgs.map(img => img.src).filter(Boolean);
-        console.log('DEBUG: All image srcs:', imgSrcs);
-        console.log('DEBUG: Searching for name:', name);
-        console.log('DEBUG: Name includes check:', imgSrcs.some(src => src.includes(name)));
-        
-        // Also check background images
-        const allElements = Array.from(document.querySelectorAll('*'));
-        const bgImages = allElements.map(el => window.getComputedStyle(el).backgroundImage).filter(bg => bg && bg !== 'none');
-        console.log('DEBUG: All background images:', bgImages);
-        console.log('DEBUG: Background includes check:', bgImages.some(bg => bg.includes(name)));
-        
-        const found: { x: number, y: number }[] = [];
-        
-        roots.forEach((root) => {
-          // Якщо root — це document (nodeType=9), обробляємо його окремо:
-          // одразу шукаємо нащадків без перевірки nodeType та без звернення до .tagName
-          if (root.nodeType !== 1) {
-            // Це document — шукаємо серед всіх img та елементів з фоном
-            if (root.querySelectorAll) {
-              // Пошук по тегу img
-              const imgs = root.querySelectorAll(`img[src*="${name}"]`) as NodeListOf<HTMLImageElement>;
-              imgs.forEach((img) => {
-                const targetEl = img.parentElement || img;
-                const rect = (targetEl as HTMLElement).getBoundingClientRect();
-                // Беремо тільки видимі елементи (розмір > 0)
-                if (rect.width > 0 || rect.height > 0) {
-                  found.push({ x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY + rect.height / 2 });
-                }
-              });
-              // Пошук по background-image
-              const all = Array.from(root.querySelectorAll('*')) as HTMLElement[];
-              for (const el of all) {
+        if (roots.length === 0) return { foundName: '', items: [] };
+
+        const scrollX = window.scrollX || window.pageXOffset || 0;
+        const scrollY = window.scrollY || window.pageYOffset || 0;
+
+        for (const name of names) {
+          const foundCoords = [];
+          const seen = new Set();
+
+          function addCoord(el) {
+            const rect = el.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              const x = Math.round(rect.left + scrollX + rect.width / 2);
+              const y = Math.round(rect.top + scrollY + rect.height / 2);
+              const key = x + ',' + y;
+              if (!seen.has(key)) {
+                seen.add(key);
+                foundCoords.push({ x, y });
+              }
+            }
+          }
+
+          for (const root of roots) {
+            if (!root) continue;
+            // 1. Пряма перевірка чи сам root є шуканим <img>
+            if (root.tagName === 'IMG' && root.src && root.src.includes(name)) {
+              addCoord(root.parentElement || root);
+            }
+
+            // 2. Цільовий пошук усіх <img> нащадків за CSS селектором
+            const matchedImgs = root.querySelectorAll('img[src*="' + name + '"]');
+            for (let i = 0; i < matchedImgs.length; i++) {
+              const img = matchedImgs[i];
+              addCoord(img.parentElement || img);
+            }
+
+            // 3. Цільовий пошук елементів з inline style background
+            const matchedStyles = root.querySelectorAll('[style*="' + name + '"]');
+            for (let i = 0; i < matchedStyles.length; i++) {
+              addCoord(matchedStyles[i]);
+            }
+
+            // 4. Якщо нічого не знайдено, швидка перевірка елементів з background-image
+            if (foundCoords.length === 0) {
+              const bgCandidates = root.querySelectorAll('[class*="image"], [class*="icon"], [class*="sprite"], [class*="crop"], [class*="item"], [class*="inventory"], [class*="tile"], [data-image]');
+              for (let i = 0; i < bgCandidates.length; i++) {
+                const el = bgCandidates[i];
                 const bg = window.getComputedStyle(el).backgroundImage;
                 if (bg && bg !== 'none' && bg.includes(name)) {
-                  const rect = el.getBoundingClientRect();
-                  if (rect.width > 0 || rect.height > 0) {
-                    found.push({ x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY + rect.height / 2 });
-                  }
+                  addCoord(el);
                 }
               }
             }
-            return; // document оброблено — пропускаємо логіку для Element
-          }
 
-          // Звичайний Element (nodeType === 1)
-          const element = root as Element;
-          let foundInRoot = false;
-          const targetCoords: { x: number, y: number }[] = [];
-
-          // Якщо сам root є зображенням, яке шукаємо
-          if (element.tagName === 'IMG' && (element as HTMLImageElement).src && (element as HTMLImageElement).src.includes(name)) {
-            foundInRoot = true;
-            if (!selector) {
-              const targetEl = element.parentElement || element;
-              const rect = targetEl.getBoundingClientRect();
-              targetCoords.push({ x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY + rect.height / 2 });
-            }
-          }
-          
-          // Або якщо element має потрібний фон
-          if (!foundInRoot) {
-             const bg = window.getComputedStyle(element).backgroundImage;
-             if (bg && bg.includes(name)) {
-                foundInRoot = true;
-                if (!selector) {
-                  const rect = element.getBoundingClientRect();
-                  targetCoords.push({ x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY + rect.height / 2 });
-                }
-             }
-          }
-
-          // Перевірка нащадків
-          if (element.querySelectorAll) {
-            const imgs = element.querySelectorAll(`img[src*="${name}"]`);
-            if (imgs.length > 0) {
-              foundInRoot = true;
-              if (!selector) {
-                imgs.forEach((img: Element) => {
-                  const targetEl = img.parentElement || img;
-                  const rect = (targetEl as HTMLElement).getBoundingClientRect();
-                  targetCoords.push({ x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY + rect.height / 2 });
-                });
-              }
-            }
-
-            const all = Array.from(element.querySelectorAll('*')) as HTMLElement[];
-            for (const el of all) {
-              const bg = window.getComputedStyle(el).backgroundImage;
-              if (bg && bg.includes(name)) {
-                foundInRoot = true;
-                if (!selector) {
-                  const rect = el.getBoundingClientRect();
-                  targetCoords.push({ x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY + rect.height / 2 });
-                }
-              }
+            if (foundCoords.length > 0 && searchMode !== 'all') {
+              break;
             }
           }
 
-          // Визначаємо що повертати
-          if (foundInRoot) {
-            if (selector) {
-              const rect = element.getBoundingClientRect();
-              found.push({ x: rect.left + window.scrollX + rect.width / 2, y: rect.top + window.scrollY + rect.height / 2 });
-            } else {
-              found.push(...targetCoords);
-            }
+          if (foundCoords.length > 0) {
+            return { foundName: name, items: foundCoords };
           }
-        });
-
-        // Видалення дублікатів
-        const unique = [];
-        const seen = new Set();
-        for (const item of found) {
-           const key = `${Math.round(item.x)},${Math.round(item.y)}`;
-           if (!seen.has(key)) {
-               seen.add(key);
-               unique.push(item);
-           }
         }
-        return unique;
-      }, { name, selector, searchMode });
 
-      if (results.length > 0) {
-        domResults = results;
-        foundName = name;
-        logToClient(`✅ Знайдено зображення: ${name} (${results.length} об'єктів)`, 'success');
-        break; // Знайшли — зупиняємося
-      } else {
-        logToClient(`❌ Не знайдено: ${name}`, 'error');
-      }
+        return { foundName: '', items: [] };
+      })(${JSON.stringify({ names: imageNames, selector, searchMode })})`
+    ) as { foundName?: string; items?: { x: number; y: number }[] } | null | undefined;
+
+    if (searchResult && Array.isArray(searchResult.items) && searchResult.items.length > 0) {
+      domResults = searchResult.items;
+      foundName = searchResult.foundName || '';
+      logToClient(`✅ Знайдено зображення: ${foundName} (${domResults.length} об'єктів)`, 'success');
+    } else {
+      logToClient(`❌ Не знайдено жодного зображення зі списку`, 'error');
     }
   } catch (err: any) {
     logger.error(`VisualSearch evaluate failed for node ${currentNode.id}`, err instanceof Error ? err : new Error(String(err)), { imageName });

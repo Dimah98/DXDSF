@@ -20,7 +20,7 @@ export interface EngineParams {
   nodeHandlers: Record<string, unknown>;
   onNodeDisplayUpdate?: (nodeId: string, data: Record<string, unknown>) => void;
   onNodeExecuting?: (nodeId: string, nodeTitle?: string) => void;
-  onFinished?: () => void;
+  onFinished?: (status: 'success' | 'error' | 'stopped', errorMessage?: string) => void;
 }
 
 export interface QueueItem {
@@ -42,20 +42,53 @@ export class BotEngine {
   /**
    * Запускає виконання сценарію з початкової ноди або черги
    */
-  async run(startNodeId?: string, initialContext: NodeData = {}, initialQueue?: QueueItem[]): Promise<{ context: NodeData } | undefined> {
+  async run(startNodeId?: string, initialContext: NodeData = {}, initialQueue?: QueueItem[]): Promise<{ context: NodeData; status: 'success' | 'error' | 'stopped'; error?: string } | undefined> {
     const { nodes, edges, ws, logToClient, smartSleep, checkRunning } = this.params;
     const verbose = this.params.verboseLogs !== false;
     
+    // Попередня оптимізація: будуємо індекси Map для O(1) пошуку нод та вихідних ребер
+    const nodeMap = new Map<string, BaseNode>();
+    for (const n of nodes) {
+      nodeMap.set(n.id, n);
+    }
+
+    const outEdgesMap = new Map<string, BaseEdge[]>();
+    for (const e of edges) {
+      const list = outEdgesMap.get(e.source);
+      if (list) {
+        list.push(e);
+      } else {
+        outEdgesMap.set(e.source, [e]);
+      }
+    }
+
     let queue: QueueItem[] = initialQueue || [];
     
-    if (!initialQueue && startNodeId) {
-      queue.push({ nodeId: startNodeId, context: initialContext, delay: 0 });
+    if (!initialQueue) {
+      const resolvedStartId = startNodeId || nodes.find((n: BaseNode) => n.type === 'startNode' || n.type === 'subEntryNode')?.id;
+      if (resolvedStartId) {
+        queue.push({ nodeId: resolvedStartId, context: initialContext, delay: 0 });
+      } else {
+        logToClient('❌ Стартову ноду не знайдено', 'error');
+        if (this.params.onFinished) this.params.onFinished('error', 'Стартову ноду не знайдено');
+        return { context: initialContext, status: 'error', error: 'Стартову ноду не знайдено' };
+      }
     }
 
     const startTime = Date.now();
+    let executionStatus: 'success' | 'error' | 'stopped' = 'success';
+    let executionError: string | undefined = undefined;
+    let lastContext: NodeData = initialContext;
+
+    // Список типів легких обчислювальних нод, які не потребують 50мс паузи
+    const fastNodeTypes = new Set([
+      'calculatorNode', 'variableNode', 'valueLoopNode', 'compareNode', 
+      'multiLogicNode', 'commentNode', 'gateNode', 'displayNode', 'infoNode'
+    ]);
 
     while (queue.length > 0 && Date.now() - startTime <= this.executionTimeoutMs && checkRunning()) {
       const { nodeId, targetHandle, context, delay } = queue.shift()!;
+      lastContext = context;
 
       // 1. Очікування затримки лінії
       if (delay > 0) {
@@ -63,8 +96,8 @@ export class BotEngine {
         await smartSleep(delay, ws);
       }
 
-      // 2. Пошук ноди
-      const node = nodes.find((n: BaseNode) => n.id === nodeId);
+      // 2. Пошук ноди O(1)
+      const node = nodeMap.get(nodeId);
       if (!node) continue;
 
       const nodeTitle: string = String(node.data?.label || node.data?.title || node.type || '');
@@ -72,7 +105,7 @@ export class BotEngine {
       // 3. Спеціальна логіка для системних нод контейнера
       if (node.type === 'subExitNode') {
         logToClient(`📦 Вихід із підпрограми досягнуто`, 'success');
-        return { context }; // Повертаємо контекст для GroupNode
+        return { context, status: 'success' }; // Повертаємо контекст для GroupNode
       }
 
       // 4. Повідомляємо клієнта про виконання
@@ -96,9 +129,14 @@ export class BotEngine {
       const startedAt = Date.now();
       try {
         result = await this.executeNode(node, context, targetHandle);
+        if (result.data) {
+          lastContext = result.data;
+        }
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         logToClient(`❌ Помилка у ноді [${nodeTitle}]: ${errorMessage}`, 'error');
+        executionStatus = 'error';
+        executionError = errorMessage;
         break;
       }
       const durationMs = Date.now() - startedAt;
@@ -109,8 +147,8 @@ export class BotEngine {
         continue;
       }
 
-      // 6. Передача сигналу наступним нодам
-      const outEdges = edges.filter((e: BaseEdge) => e.source === nodeId);
+      // 6. Передача сигналу наступним нодам O(1)
+      const outEdges = outEdgesMap.get(nodeId) || [];
       const routedTitles: string[] = []; // Куди пішов сигнал — для детального логу
 
       for (const edge of outEdges) {
@@ -143,7 +181,7 @@ export class BotEngine {
             context: nextContext, 
             delay: edgeDelay 
           });
-          const targetNode = nodes.find((n: BaseNode) => n.id === edge.target);
+          const targetNode = nodeMap.get(edge.target);
           const targetTitle: string = String(targetNode?.data?.label || targetNode?.data?.title || targetNode?.type || edge.target || '');
           routedTitles.push(sourceHandle ? `${targetTitle} (${sourceHandle})` : targetTitle);
         }
@@ -158,16 +196,23 @@ export class BotEngine {
         logToClient(`[${nodeTitle}] 🏁 ${durationMs}мс ${routeInfo}`, 'debug', this.summarizeData(result.data));
       }
 
-      // Невелика пауза між нодами для запобігання 100% завантаженню CPU
-      await smartSleep(50, ws);
+      // Для важких DOM дій робимо невелику паузу, а для швидких обчислень передаємо квант подій
+      if (!fastNodeTypes.has(node.type)) {
+        await smartSleep(30, ws);
+      }
     }
 
-    if (Date.now() - startTime > this.executionTimeoutMs) {
+    if (!checkRunning() && executionStatus === 'success') {
+      executionStatus = 'stopped';
+      executionError = 'Зупинено користувачем';
+    } else if (Date.now() - startTime > this.executionTimeoutMs) {
       logToClient(`⚠️ Досягнуто ліміт часу виконання (${this.executionTimeoutMs / 1000}с). Можливий нескінченний цикл.`, 'error');
+      executionStatus = 'error';
+      executionError = `Досягнуто ліміт часу виконання (${this.executionTimeoutMs / 1000}с)`;
     }
 
-    this.params.onFinished?.();
-    return undefined;
+    this.params.onFinished?.(executionStatus, executionError);
+    return { context: lastContext, status: executionStatus, error: executionError };
   }
 
   /**

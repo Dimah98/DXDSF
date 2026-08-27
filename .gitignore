@@ -97,3 +97,11 @@ backend/temp_*/
 .obsidian/
 obsidian/
 
+# ─── Експортери та зовнішні інструменти ──────────────────────────────────────
+DiscordChatExporter.win-x64/
+Sunflower Land Discord/
+data/discord_exports/
+*.db-shm
+*.db-wal
+graphify-out/
+

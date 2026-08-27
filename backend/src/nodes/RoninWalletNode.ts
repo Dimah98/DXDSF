@@ -1,5 +1,5 @@
-﻿import { NodeHandlerParams } from "./types";
-import { RONIN_EXTENSION_ID } from "../index";
+import { NodeHandlerParams } from "./types";
+import { RONIN_EXTENSION_ID } from "../constants";
 import { Page } from "playwright";
 
 export const roninWalletNodeHandler = async ({
@@ -12,59 +12,80 @@ export const roninWalletNodeHandler = async ({
     return { data: { ...(context || {}), error: "Browser context not found" }, nextHandle: ["error"] };
   }
 
-  logToClient(`🦊 RoninWallet: Відкриваємо вікно гаманця...`, "info");
-  let popupPage;
+  const browserContext = (activePage as Page).context();
+  logToClient(`🦊 RoninWallet: Пошук або відкриття вікна гаманця...`, "info");
+  
+  let popupPage: Page | undefined;
+  let isNewlyCreated = false;
+
   try {
-    popupPage = await (activePage as Page).context().newPage();
-    const popupUrl = `chrome-extension://${RONIN_EXTENSION_ID}/src/pages/popup/popup.html`;
-    await popupPage.goto(popupUrl, { waitUntil: "networkidle" });
+    // 1. Шукаємо вже відкрите вікно розширення Ronin
+    popupPage = browserContext.pages().find(p => p.url().includes(RONIN_EXTENSION_ID));
+    
+    if (!popupPage) {
+      popupPage = await browserContext.newPage();
+      isNewlyCreated = true;
+      const popupUrl = `chrome-extension://${RONIN_EXTENSION_ID}/src/pages/popup/popup.html`;
+      await popupPage.goto(popupUrl, { waitUntil: "domcontentloaded", timeout: 10000 });
+    } else {
+      await popupPage.bringToFront().catch(() => {});
+    }
     
     let attempts = 0;
     let handled = false;
 
     while (attempts < maxAttempts && !handled) {
-      await popupPage.waitForTimeout(2000);
       attempts++;
       
-      const isLocked = await popupPage.evaluate(() => {
-        return !!document.querySelector("input[type=\"password\"]");
-      });
+      // Перевірка наявності поля розблокування
+      const passwordInput = popupPage.locator('input[type="password"]');
+      const isLocked = (await passwordInput.count() > 0) && (await passwordInput.first().isVisible().catch(() => false));
 
       if (isLocked) {
         logToClient(`🦊 RoninWallet: Знайдено поле пароля. Розблоковуємо...`, "info");
-        await popupPage.fill("input[type=\"password\"]", password);
-        await popupPage.click("text=\"Unlock\"");
-        await popupPage.waitForTimeout(3000);
+        await passwordInput.first().fill(password);
+        const unlockBtn = popupPage.locator('button:has-text("Unlock"), button:has-text("Розблокувати")');
+        if (await unlockBtn.count() > 0) {
+          await unlockBtn.first().click();
+        }
+        await popupPage.waitForTimeout(600);
         continue;
       }
 
-      const actionText = await popupPage.evaluate(() => {
-        const buttons = Array.from(document.querySelectorAll("button"));
-        for (const btn of buttons) {
-          const text = btn.innerText.trim().toLowerCase();
-          if (text === "confirm" || text === "approve" || text === "sign" || text === "next" || text === "connect") {
-            btn.click();
-            return text;
-          }
-        }
-        return null;
-      });
+      // Перевірка кнопок підтвердження/підпису дій
+      const actionLocators = popupPage.locator(
+        'button:has-text("Confirm"), button:has-text("Approve"), button:has-text("Sign"), button:has-text("Next"), button:has-text("Connect"), button:has-text("Підтвердити")'
+      );
 
-      if (actionText) {
-        logToClient(`🦊 RoninWallet: Натиснуто кнопку "${actionText}"`, "success");
-        handled = true;
-        await popupPage.waitForTimeout(3000);
-        break;
+      try {
+        await actionLocators.first().waitFor({ state: 'visible', timeout: 2000 });
+        const count = await actionLocators.count();
+        if (count > 0) {
+          const btn = actionLocators.first();
+          const actionText = (await btn.innerText().catch(() => 'Confirm')).trim();
+          await btn.click();
+          logToClient(`🦊 RoninWallet: Натиснуто кнопку "${actionText}"`, "success");
+          handled = true;
+          await popupPage.waitForTimeout(500);
+          break;
+        }
+      } catch (_) {
+        // Кнопка дії не з'явилась за таймаут
       }
 
-      logToClient(`🦊 RoninWallet: Активних запитів не знайдено.`, "info");
-      handled = true;
+      if (attempts >= maxAttempts) {
+        logToClient(`🦊 RoninWallet: Активних запитів не знайдено.`, "info");
+        handled = true;
+      }
     }
 
-    await popupPage.close();
+    if (isNewlyCreated && popupPage && !popupPage.isClosed()) {
+      await popupPage.close().catch(() => {});
+    }
+
     return { data: context, nextHandle: ["success"] };
   } catch (error) {
-    if (popupPage && !popupPage.isClosed()) {
+    if (isNewlyCreated && popupPage && !popupPage.isClosed()) {
       await popupPage.close().catch(() => {});
     }
     logToClient(`❌ RoninWallet: Помилка взаємодії: ${error}`, "error");

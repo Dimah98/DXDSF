@@ -32,6 +32,9 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -57,6 +60,14 @@ fun getDeliveryItemsSignature(delivery: Delivery?): String {
         .sortedBy { it.key ?: "" }
         .joinToString(",") { "${it.key ?: ""}:${it.value}" }
 }
+
+private data class ProjectDeliveryResult(
+    val name: String,
+    val deliveries: List<Delivery>?,
+    val items: List<InventoryItem>?,
+    val projData: ProjectData?,
+    val marked: Set<String>
+)
 
 /**
  * NPC selector item for horizontal NPC filter
@@ -415,67 +426,69 @@ fun AllDeliveriesScreen(
                 val projectDataMap = mutableMapOf<String, ProjectData?>()
                 val markedMap = mutableMapOf<String, Set<String>>()
 
-                for (name in projectNames) {
-                    try {
-                        val deliveryResponse = apiService.getDeliveries(name)
-                        android.util.Log.d("AllDeliveries", "Project $name has ${deliveryResponse.data.size} deliveries")
-                        if (deliveryResponse.data.isNotEmpty()) {
-                            deliveryMap[name] = deliveryResponse.data
-                            // Log delivery item names
-                            deliveryResponse.data.forEach { delivery ->
-                                android.util.Log.d("AllDeliveries", "Delivery ${delivery.id} items: ${delivery.items.keys}")
-                            }
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.d("AllDeliveries", "Error getting deliveries for $name: ${e.message}")
-                        // Skip projects without deliveries
-                    }
-                    try {
-                        val inventoryResponse = apiService.getInventory(name)
-                        android.util.Log.d("AllDeliveries", "Project $name has ${inventoryResponse.data.size} inventory items")
-                        // Log inventory item names
-                        inventoryResponse.data.forEach { item ->
-                            android.util.Log.d("AllDeliveries", "Inventory item: image=${item.image}, number=${item.number}")
-                        }
-                        inventoryMap[name] = inventoryResponse.data
-                    } catch (e: Exception) {
-                        android.util.Log.d("AllDeliveries", "Error getting inventory for $name: ${e.message}")
-                        // Skip projects without inventory
-                    }
-                    // Завантажуємо мітки для проекту
-                    try {
-                        val projResponse = apiService.getProject(name)
-                        if (projResponse.success && projResponse.data != null) {
-                            projectDataMap[name] = projResponse.data
-                            val variables = projResponse.data.variables
+                val results: List<ProjectDeliveryResult> = coroutineScope {
+                    projectNames.map { name ->
+                        async {
+                            var deliveries: List<Delivery>? = null
+                            var items: List<InventoryItem>? = null
+                            var projData: ProjectData? = null
                             val marked = mutableSetOf<String>()
 
-                            // Зворотна сумісність: масив __markedDeliveries
-                            val legacyRaw = variables[MARKED_KEY]
-                            if (legacyRaw is List<*>) {
-                                marked.addAll(legacyRaw.filterIsInstance<String>())
+                            try {
+                                val deliveryResponse = apiService.getDeliveries(name)
+                                if (deliveryResponse.data.isNotEmpty()) {
+                                    deliveries = deliveryResponse.data
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.d("AllDeliveries", "Error getting deliveries for $name: ${e.message}")
                             }
 
-                            // Новий формат: "назва": 1 (помічена) або 0 (не помічена)
-                            for ((key, value) in variables) {
-                                if (key == MARKED_KEY || key.startsWith("__markedItems_")) continue
-                                val numVal = when (value) {
-                                    is Number -> value.toInt()
-                                    is String -> value.toIntOrNull()
-                                    is Boolean -> if (value) 1 else 0
-                                    else -> null
-                                }
-                                if (numVal == 1) {
-                                    marked.add(key)
-                                } else if (numVal == 0) {
-                                    marked.remove(key)
-                                }
+                            try {
+                                val inventoryResponse = apiService.getInventory(name)
+                                items = inventoryResponse.data
+                            } catch (e: Exception) {
+                                android.util.Log.d("AllDeliveries", "Error getting inventory for $name: ${e.message}")
                             }
-                            markedMap[name] = marked
+
+                            try {
+                                val projResponse = apiService.getProject(name)
+                                if (projResponse.success && projResponse.data != null) {
+                                    projData = projResponse.data
+                                    val variables = projResponse.data.variables
+                                    val legacyRaw = variables[MARKED_KEY]
+                                    if (legacyRaw is List<*>) {
+                                        marked.addAll(legacyRaw.filterIsInstance<String>())
+                                    }
+                                    for ((key, value) in variables) {
+                                        if (key == MARKED_KEY || key.startsWith("__markedItems_")) continue
+                                        val numVal = when (value) {
+                                            is Number -> value.toInt()
+                                            is String -> value.toIntOrNull()
+                                            is Boolean -> if (value) 1 else 0
+                                            else -> null
+                                        }
+                                        if (numVal == 1) {
+                                            marked.add(key)
+                                        } else if (numVal == 0) {
+                                            marked.remove(key)
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.d("AllDeliveries", "Error getting project data for $name: ${e.message}")
+                            }
+
+                            ProjectDeliveryResult(name, deliveries, items, projData, marked)
                         }
-                    } catch (e: Exception) {
-                        android.util.Log.d("AllDeliveries", "Error getting project data for $name: ${e.message}")
-                    }
+                    }.awaitAll()
+                }
+
+                results.forEach { res ->
+                    val (name, deliveries, items, projData, marked) = res
+                    if (deliveries != null) deliveryMap[name] = deliveries
+                    if (items != null) inventoryMap[name] = items
+                    if (projData != null) projectDataMap[name] = projData
+                    if (marked.isNotEmpty()) markedMap[name] = marked
                 }
 
                 allDeliveries = deliveryMap

@@ -35,7 +35,7 @@
     "enabled": true,
     "id": "d700b2c4-2cfb-4ebc-8f04-ff8c9dfbbd5a",
     "createdAt": 1783289173168,
-    "updatedAt": 1787397811275,
+    "updatedAt": 1787711963808,
     "subConfigs": []
   },
   {
@@ -54,7 +54,7 @@
     "enabled": true,
     "id": "23af26eb-d973-410c-b4b7-70773bc7c265",
     "createdAt": 1783289235712,
-    "updatedAt": 1787603996273,
+    "updatedAt": 1787793120573,
     "subConfigs": []
   },
   {
@@ -286,10 +286,10 @@
         "required": true
       }
     ],
-    "enabled": true,
+    "enabled": false,
     "id": "8164a5ca-357e-407e-a880-e67d5acd0908",
     "createdAt": 1783290031231,
-    "updatedAt": 1786657079974
+    "updatedAt": 1787649113740
   },
   {
     "name": "досягнення",
@@ -304,10 +304,10 @@
         "required": true
       }
     ],
-    "enabled": true,
+    "enabled": false,
     "id": "bd9f5fd5-05ae-41c4-b095-9ac5e512d68a",
     "createdAt": 1783290062870,
-    "updatedAt": 1787164569156,
+    "updatedAt": 1787649100624,
     "subConfigs": []
   },
   {
@@ -323,10 +323,10 @@
         "required": true
       }
     ],
-    "enabled": true,
+    "enabled": false,
     "id": "fa02f5f3-eab3-44b5-8028-9470f18fcc33",
     "createdAt": 1783290098009,
-    "updatedAt": 1787427374816
+    "updatedAt": 1787649098349
   },
   {
     "name": "допомога",
@@ -344,7 +344,7 @@
     "enabled": true,
     "id": "4e8f57d3-0479-4f4f-96ef-cdf9075661e6",
     "createdAt": 1783290282248,
-    "updatedAt": 1785884098034
+    "updatedAt": 1787619610809
   },
   {
     "name": "скан інвентаря",
@@ -820,7 +820,7 @@
     "enabled": false,
     "id": "76cd1852-baeb-481c-959f-6fe2d3f89e9b",
     "createdAt": 1785450387144,
-    "updatedAt": 1785450397319
+    "updatedAt": 1787824234451
   },
   {
     "name": "фрукти",
@@ -2194,5 +2194,107 @@
     "id": "91538f67-bbab-4a75-aeb8-71527778b4b0",
     "createdAt": 1787383129822,
     "updatedAt": 1787383129822
+  },
+  {
+    "name": "0-10",
+    "enabled": true,
+    "rules": [
+      {
+        "id": "rule_1787656957666_1",
+        "file": "(save)",
+        "path": "$.visitedFarmState.island.type",
+        "operator": "contains",
+        "value": "spring",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "subConfigs": [],
+    "id": "b23d3fd8-bb42-486f-9b99-d543d1061bb0",
+    "createdAt": 1787656998256,
+    "updatedAt": 1787657311043
+  },
+  {
+    "name": "Нова LOVE1",
+    "enabled": true,
+    "rules": [
+      {
+        "id": "rule_1787660143747_1",
+        "file": "(save)",
+        "path": "$.visitedFarmState.floatingIsland.petalPuzzleSolvedAt",
+        "operator": "time_not_today",
+        "value": "",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "subConfigs": [],
+    "id": "be0143a2-9bb0-4ddf-a34e-b88a6c638b91",
+    "createdAt": 1787660146962,
+    "updatedAt": 1787660997147
+  },
+  {
+    "name": "Нова конфігурація123",
+    "enabled": true,
+    "rules": [
+      {
+        "id": "rule_1787668563805_269",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      },
+      {
+        "id": "rule_1787668577294_220",
+        "file": "(save)",
+        "path": "",
+        "operator": ">",
+        "value": "",
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "id": "7779e1ea-3cdc-4be4-a6d0-e11a287d1b18",
+    "createdAt": 1787668550201,
+    "updatedAt": 1787668553737
+  },
+  {
+    "name": "Нова конфігурація1336",
+    "enabled": true,
+    "rules": [
+      {
+        "id": "rule_1787668584278_321",
+        "file": "(save)",
+        "path": "$.visitedFarmState.inventory.Wood",
+        "operator": ">",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "id": "9d5759db-8751-42fd-9381-00d935788403",
+    "createdAt": 1787668563631,
+    "updatedAt": 1787668568756
+  },
+  {
+    "name": "міні mine",
+    "enabled": true,
+    "rules": [
+      {
+        "id": "rule_1787777032975_375",
+        "file": "(save)",
+        "path": "$.visitedFarmState.minigames.games[\"mine-whack\"].history[0].prizeClaimedAt",
+        "operator": "time_not_today",
+        "value": 50,
+        "rightType": "value",
+        "required": true
+      }
+    ],
+    "id": "9a985672-31b9-4206-948c-ddc93ebd09af",
+    "createdAt": 1787776999217,
+    "updatedAt": 1787777193067,
+    "subConfigs": []
   }
 ]

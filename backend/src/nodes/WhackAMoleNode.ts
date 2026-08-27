@@ -5,176 +5,102 @@
 import { NodeHandlerParams } from './types'; // Типи параметрів обробника
 import { Logger } from '../logger';           // Логер
 import { Page } from 'playwright';            // Тип сторінки Playwright
-import * as zlib from 'zlib';                 // Розпакування PNG
 import * as fs from 'fs';                     // Файлова система
 import * as path from 'path';                 // Шляхи
-import { promisify } from 'util';             // Утиліти
 import type WebSocket from 'ws';              // Тип WebSocket
+import { parsePng, encodePng, PngData } from '../utils/pngParser';
 
 const logger = new Logger('WhackAMoleNode'); // Ініціалізація логера
 
-const inflate = promisify(zlib.inflate);       // Промісифікований inflate
-const inflateRaw = promisify(zlib.inflateRaw); // Промісифікований inflateRaw
-
-// ─── Типи ────────────────────────────────────────────────────────────────────
-
-// Розпарсені дані PNG зображення (пікселі RGBA в Node.js)
-interface PngData {
-  width: number;   // Ширина зображення в пікселях
-  height: number;  // Висота зображення в пікселях
-  pixels: Buffer;  // Масив пікселів RGBA (4 байти на піксель)
+// Один завантажений шаблон крота з передпідрахованими непрозорими пікселями
+interface OpaquePixel {
+  tx: number;
+  ty: number;
+  g: number;
+  r: number;
+  g_val: number;
+  b: number;
 }
 
-// Один завантажений шаблон крота
 interface MoleTemplate {
-  name: string;    // Назва файлу шаблону
-  data: PngData;   // Розпарсені пікселі шаблону
+  name: string;
+  data: PngData;
+  opaque: OpaquePixel[];
+  n: number;
+  meanT: number;
+  stdT: number;
+  sampled: OpaquePixel[];
+  sn: number;
+  sMeanT: number;
+  sStdT: number;
 }
 
-// ─── PNG парсер (Node.js, без браузера) ─────────────────────────────────────
+// ─── Допоміжні функції малювання для Фотодебагу ─────────────────────────────
 
-// Розпарсує PNG буфер і повертає масив пікселів RGBA повністю в Node.js
-async function parsePng(buf: Buffer): Promise<PngData | null> { // Функція розпарсування PNG зображення повністю в Node.js
-  try { // Блок try для перехоплення можливих помилок парсингу
-    if (buf[0] !== 137 || buf[1] !== 80 || buf[2] !== 78 || buf[3] !== 71) { // Перевіряємо перші 4 магічні байти сигнатури PNG
-      return null; // Повертаємо null, якщо це не PNG файл
-    }
+// Малює прямокутну рамку на RGBA пікселях
+function drawRect(pixels: Buffer, W: number, H: number, x0: number, y0: number, x1: number, y1: number, r: number, g: number, b: number, thickness = 2) {
+  const minX = Math.max(0, Math.min(x0, x1));
+  const maxX = Math.min(W - 1, Math.max(x0, x1));
+  const minY = Math.max(0, Math.min(y0, y1));
+  const maxY = Math.min(H - 1, Math.max(y0, y1));
 
-    let width = 0, height = 0, bitDepth = 0, colorType = 0; // Оголошуємо змінні метаданих зображення (ширина, висота, глибина, тип)
-    const idatChunks: Buffer[] = []; // Створюємо масив для збирання фрагментів стиснених даних IDAT
-    const plte: Buffer[] = []; // Створюємо масив для зберігання фрагментів палітри PLTE
-    const trns: Buffer[] = []; // Створюємо масив для зберігання фрагментів прозорості tRNS
-    let offset = 8; // Починаємо читання після 8 байтів сигнатури PNG
-
-    while (offset < buf.length - 12) { // Цикл проходу по структурі чанків файлу до кінця
-      const chunkLen = buf.readUInt32BE(offset); // Зчитуємо 4 байти довжини поточного чанку
-      const chunkType = buf.slice(offset + 4, offset + 8).toString('ascii'); // Зчитуємо 4 байти імені типу чанку
-
-      if (chunkType === 'IHDR') { // Якщо тип чанку є заголовком IHDR
-        width = buf.readUInt32BE(offset + 8); // Зчитуємо 4 байти ширини зображення
-        height = buf.readUInt32BE(offset + 12); // Зчитуємо 4 байти висоти зображення
-        bitDepth = buf[offset + 16]; // Зчитуємо 1 байт глибини кольору (біт на канал)
-        colorType = buf[offset + 17]; // Зчитуємо 1 байт типу кодування кольору (2=RGB, 6=RGBA, 3=Indexed)
-      } else if (chunkType === 'PLTE') { // Якщо тип чанку є таблицею палітри PLTE
-        plte.push(buf.slice(offset + 8, offset + 8 + chunkLen)); // Зберігаємо фрагмент даних палітри у масив
-      } else if (chunkType === 'tRNS') { // Якщо тип чанку є даними прозорості tRNS
-        trns.push(buf.slice(offset + 8, offset + 8 + chunkLen)); // Зберігаємо фрагмент даних прозорості у масив
-      } else if (chunkType === 'IDAT') { // Якщо тип чанку є даними зображення IDAT
-        idatChunks.push(buf.slice(offset + 8, offset + 8 + chunkLen)); // Зберігаємо фрагмент стиснених даних у масив
-      } else if (chunkType === 'IEND') { // Якщо це кінцевий чанк IEND
-        break; // Негайно перериваємо цикл читання чанків
+  for (let t = 0; t < thickness; t++) {
+    for (let x = minX; x <= maxX; x++) {
+      if (minY + t < H) {
+        const i1 = ((minY + t) * W + x) * 4;
+        pixels[i1] = r; pixels[i1 + 1] = g; pixels[i1 + 2] = b; pixels[i1 + 3] = 255;
       }
-      offset += 12 + chunkLen; // Зсуваємо вказівник на початок наступного чанку (довжина + тип + дані + CRC)
-    }
-
-    const palette = plte.length > 0 ? Buffer.concat(plte) : null; // Об'єднуємо всі частини палітри в єдиний буфер
-    const transparency = trns.length > 0 ? Buffer.concat(trns) : null; // Об'єднуємо всі частини прозорості в єдиний буфер
-
-    if (colorType === 3 && !palette) { // Якщо колір зображення індексований, але чанк палітри PLTE відсутній
-      return null; // Повертаємо null, оскільки палітра критична для рендерингу
-    }
-
-    const channels = colorType === 6 ? 4 : (colorType === 2 ? 3 : 1); // Кількість каналів для дефільтрації (для палітри це завжди 1 канал індексів)
-    let rowBytes = 0; // Оголошуємо змінну для збереження ширини рядка у байтах
-
-    if (colorType === 3) { // Якщо тип кольору індексований (використовує палітру)
-      if (bitDepth === 8) { // Якщо глибина кольору становить 8 біт на піксель
-        rowBytes = width; // Кожен байт відповідає одному пікселю
-      } else if (bitDepth === 4) { // Якщо глибина кольору становить 4 біти на піксель
-        rowBytes = Math.ceil(width / 2); // Два пікселі пакуються в один байт
-      } else if (bitDepth === 2) { // Якщо глибина кольору становить 2 біти на піксель
-        rowBytes = Math.ceil(width / 4); // Чотири пікселі пакуються в один байт
-      } else if (bitDepth === 1) { // Якщо глибина кольору становить 1 біт на піксель
-        rowBytes = Math.ceil(width / 8); // Вісім пікселів пакуються в один байт
-      } else { // Будь-яке інше непідтримуване значення глибини
-        return null; // Непідтримувана глибина кольору для індексованих зображень
+      if (maxY - t >= 0) {
+        const i2 = ((maxY - t) * W + x) * 4;
+        pixels[i2] = r; pixels[i2 + 1] = g; pixels[i2 + 2] = b; pixels[i2 + 3] = 255;
       }
-    } else { // Для зображень RGB або RGBA
-      if (bitDepth !== 8) return null; // Підтримуємо тільки 8-бітові канали для прямого RGB/RGBA
-      rowBytes = width * channels; // Рядок займає ширина * кількість каналів байт
     }
-
-    const rowSize = 1 + rowBytes; // Довжина рядка в розпакованому буфері (1 байт типу фільтру + дані)
-
-    const compressed = Buffer.concat(idatChunks); // Об'єднуємо всі фрагменти IDAT у суцільний стиснутий буфер
-    let decompressed: Buffer; // Оголошуємо змінну під розпакований буфер
-    try { // Блок спроби розпакування за допомогою стандартного inflate
-      decompressed = await inflate(compressed) as Buffer; // Викликаємо розпакування inflate
-    } catch { // У разі виникнення помилки
-      decompressed = await inflateRaw(compressed) as Buffer; // Пробуємо варіант inflateRaw (без zlib заголовків)
-    }
-
-    const pixels = Buffer.alloc(width * height * 4); // Виділяємо буфер під результат у форматі RGBA (4 байти на піксель)
-    const prev = Buffer.alloc(rowBytes, 0); // Створюємо буфер для зберігання значень попереднього рядка при дефільтрації
-
-    for (let y = 0; y < height; y++) { // Цикл проходу по кожному рядку зображення по висоті
-      const rowStart = y * rowSize; // Розраховуємо індекс початку поточного рядка в розпакованому буфері
-      const filterType = decompressed[rowStart]; // Отримуємо перший байт рядка — це тип PNG фільтру
-      const row = decompressed.slice(rowStart + 1, rowStart + rowSize); // Отримуємо безпосередні дані рядка без типу фільтру
-      const recon = Buffer.alloc(row.length); // Створюємо буфер для відновлених (дефільтрованих) даних рядка
-
-      for (let x = 0; x < row.length; x++) { // Цикл обробки кожного байту в рядку
-        const raw = row[x]; // Поточне закодоване значення фільтром
-        const a = x >= channels ? recon[x - channels] : 0; // Отримуємо значення пікселя ліворуч (або 0, якщо це початок)
-        const b = prev[x]; // Отримуємо значення пікселя з попереднього рядка згори
-        const c = x >= channels ? prev[x - channels] : 0; // Отримуємо значення лівого верхнього пікселя з попереднього рядка
-
-        switch (filterType) { // Обробка байту залежно від типу фільтру PNG
-          case 0: recon[x] = raw; break; // Тип 0 (None) — значення залишається без змін
-          case 1: recon[x] = (raw + a) & 0xff; break; // Тип 1 (Sub) — додаємо значення лівого пікселя
-          case 2: recon[x] = (raw + b) & 0xff; break; // Тип 2 (Up) — додаємо значення верхнього пікселя
-          case 3: recon[x] = (raw + Math.floor((a + b) / 2)) & 0xff; break; // Тип 3 (Average) — додаємо середнє лівого та верхнього
-          case 4: { // Тип 4 (Paeth) — застосовуємо лінійну функцію прогнозування Paeth
-            const p = a + b - c; // Обчислюємо базове Paeth значення
-            const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c); // Рахуємо відстані до трьох сусідів
-            recon[x] = (raw + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 0xff; // Додаємо найближчий колір сусіднього пікселя
-            break; // Вихід з гілки case
-          }
-          default: recon[x] = raw; break; // За замовчуванням залишаємо як є
-        }
+    for (let y = minY; y <= maxY; y++) {
+      if (minX + t < W) {
+        const i1 = (y * W + (minX + t)) * 4;
+        pixels[i1] = r; pixels[i1 + 1] = g; pixels[i1 + 2] = b; pixels[i1 + 3] = 255;
       }
-
-      if (colorType === 3 && palette) { // Якщо використовується палітра кольорів
-        if (bitDepth === 8) { // Для 8-бітної палітри (кожен байт є індексом кольору)
-          for (let x = 0; x < width; x++) { // Проходимо по кожному пікселю рядка
-            const idx = recon[x]; // Отримуємо індекс кольору з відновленого буфера рядка
-            const pi = idx * 3; // Обчислюємо зміщення для трьох каналів у палітрі PLTE
-            const di = (y * width + x) * 4; // Обчислюємо зміщення для пікселя у фінальному буфері RGBA
-            pixels[di] = palette[pi] !== undefined ? palette[pi] : 0; // Записуємо червоний канал R
-            pixels[di + 1] = palette[pi + 1] !== undefined ? palette[pi + 1] : 0; // Записуємо зелений канал G
-            pixels[di + 2] = palette[pi + 2] !== undefined ? palette[pi + 2] : 0; // Записуємо синій канал B
-            pixels[di + 3] = transparency && idx < transparency.length ? transparency[idx] : 255; // Записуємо альфу (прозорість)
-          }
-        } else if (bitDepth === 4) { // Для 4-бітної палітри (два індекси пакуються в один байт)
-          for (let x = 0; x < width; x++) { // Проходимо по кожному пікселю рядка
-            const byteIdx = Math.floor(x / 2); // Знаходимо індекс байта у відновленому рядку
-            const shift = x % 2 === 0 ? 4 : 0; // Визначаємо зміщення (парні пікселі у старших 4 бітах, непарні в молодших)
-            const idx = (recon[byteIdx] >> shift) & 0x0f; // Отримуємо 4-бітне значення індексу палітри
-            const pi = idx * 3; // Обчислюємо індекс трійки RGB у палітрі
-            const di = (y * width + x) * 4; // Обчислюємо індекс у результуючому буфері RGBA
-            pixels[di] = palette[pi] !== undefined ? palette[pi] : 0; // Записуємо червоний канал R
-            pixels[di + 1] = palette[pi + 1] !== undefined ? palette[pi + 1] : 0; // Записуємо зелений канал G
-            pixels[di + 2] = palette[pi + 2] !== undefined ? palette[pi + 2] : 0; // Записуємо синій канал B
-            pixels[di + 3] = transparency && idx < transparency.length ? transparency[idx] : 255; // Записуємо альфу (прозорість)
-          }
-        }
-      } else { // Для прямих колірних моделей RGB (colorType 2) або RGBA (colorType 6)
-        for (let x = 0; x < width; x++) { // Проходимо по кожному пікселю рядка
-          const si = x * channels, di = (y * width + x) * 4; // Визначаємо індекс початку пікселя в джерелі та результаті
-          pixels[di] = recon[si]; // Записуємо червоний канал R
-          pixels[di + 1] = recon[si + 1]; // Записуємо зелений канал G
-          pixels[di + 2] = recon[si + 2]; // Записуємо синій канал B
-          pixels[di + 3] = channels === 4 ? recon[si + 3] : 255; // Записуємо альфу (прозорість з джерела або 255 за замовчуванням)
-        }
+      if (maxX - t >= 0) {
+        const i2 = (y * W + (maxX - t)) * 4;
+        pixels[i2] = r; pixels[i2 + 1] = g; pixels[i2 + 2] = b; pixels[i2 + 3] = 255;
       }
-
-      recon.copy(prev); // Копіюємо відновлений рядок у буфер prev для обробки наступного рядка
     }
+  }
+}
 
-    return { width, height, pixels }; // Повертаємо розпарсений об'єкт із шириною, висотою та пікселями зображення
-  } catch (e) { // У разі виникнення будь-якої помилки під час парсингу
-    logger.error('parsePng error', e instanceof Error ? e : new Error(String(e))); // Логуємо помилку у системний логер
-    return null; // Повертаємо null як ознаку помилки розбору файлу
+// Малює заповнену точку на RGBA пікселях
+function drawDot(pixels: Buffer, W: number, H: number, cx: number, cy: number, radius: number, r: number, g: number, b: number) {
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      const x = cx + dx;
+      const y = cy + dy;
+      if (x >= 0 && x < W && y >= 0 && y < H) {
+        const i = (y * W + x) * 4;
+        pixels[i] = r; pixels[i + 1] = g; pixels[i + 2] = b; pixels[i + 3] = 255;
+      }
+    }
+  }
+}
+
+// Малює приціл / хрестик на RGBA пікселях
+function drawCrosshair(pixels: Buffer, W: number, H: number, cx: number, cy: number, size: number, r: number, g: number, b: number, thickness = 2) {
+  for (let t = -Math.floor(thickness / 2); t <= Math.floor(thickness / 2); t++) {
+    for (let dx = -size; dx <= size; dx++) {
+      const x = cx + dx;
+      const y = cy + t;
+      if (x >= 0 && x < W && y >= 0 && y < H) {
+        const i = (y * W + x) * 4;
+        pixels[i] = r; pixels[i + 1] = g; pixels[i + 2] = b; pixels[i + 3] = 255;
+      }
+    }
+    for (let dy = -size; dy <= size; dy++) {
+      const x = cx + t;
+      const y = cy + dy;
+      if (x >= 0 && x < W && y >= 0 && y < H) {
+        const i = (y * W + x) * 4;
+        pixels[i] = r; pixels[i + 1] = g; pixels[i + 2] = b; pixels[i + 3] = 255;
+      }
+    }
   }
 }
 
@@ -214,100 +140,197 @@ async function sendDebugPhoto(ws: WebSocket, label: string, nodeId: string, buf:
 
 // Вирізає прямокутник з RGBA пікселів та повертає новий PngData
 function cropRegion(src: PngData, rx: number, ry: number, rw: number, rh: number): PngData {
-  const pixels = Buffer.alloc(rw * rh * 4); // Новий буфер для кропу
-  for (let y = 0; y < rh; y++) {           // Цикл по рядках вирізки
-    for (let x = 0; x < rw; x++) {          // Цикл по стовпцях вирізки
-      const si = ((ry + y) * src.width + (rx + x)) * 4; // Індекс у джерелі
-      const di = (y * rw + x) * 4;                       // Індекс у вихідному
-      pixels[di] = src.pixels[si];         // R
-      pixels[di + 1] = src.pixels[si + 1]; // G
-      pixels[di + 2] = src.pixels[si + 2]; // B
-      pixels[di + 3] = src.pixels[si + 3]; // A
+  const clampX = Math.max(0, Math.min(src.width - 1, rx));
+  const clampY = Math.max(0, Math.min(src.height - 1, ry));
+  const clampW = Math.max(1, Math.min(src.width - clampX, rw));
+  const clampH = Math.max(1, Math.min(src.height - clampY, rh));
+
+  const pixels = Buffer.alloc(clampW * clampH * 4);
+  for (let y = 0; y < clampH; y++) {
+    for (let x = 0; x < clampW; x++) {
+      const si = ((clampY + y) * src.width + (clampX + x)) * 4;
+      const di = (y * clampW + x) * 4;
+      pixels[di] = src.pixels[si];
+      pixels[di + 1] = src.pixels[si + 1];
+      pixels[di + 2] = src.pixels[si + 2];
+      pixels[di + 3] = src.pixels[si + 3];
     }
   }
-  return { width: rw, height: rh, pixels }; // Повертаємо вирізану область
+  return { width: clampW, height: clampH, pixels };
 }
 
-// Масштабує зображення до заданого розміру методом білінійної інтерполяції
-function resizeNearest(src: PngData, targetW: number, targetH: number): PngData {
-  const pixels = Buffer.alloc(targetW * targetH * 4); // Буфер результату
-  const xRatio = src.width / targetW;                  // Коефіцієнт X
-  const yRatio = src.height / targetH;                 // Коефіцієнт Y
-
-  for (let y = 0; y < targetH; y++) {    // Цикл по рядках
-    for (let x = 0; x < targetW; x++) {  // Цикл по стовпцях
-      const sx = Math.min(Math.floor(x * xRatio), src.width - 1);  // Джерело X
-      const sy = Math.min(Math.floor(y * yRatio), src.height - 1); // Джерело Y
-      const si = (sy * src.width + sx) * 4; // Індекс джерела
-      const di = (y * targetW + x) * 4;     // Індекс результату
-      pixels[di] = src.pixels[si];           // R
-      pixels[di + 1] = src.pixels[si + 1];  // G
-      pixels[di + 2] = src.pixels[si + 2];  // B
-      pixels[di + 3] = src.pixels[si + 3];  // A
-    }
-  }
-  return { width: targetW, height: targetH, pixels }; // Результат масштабування
-}
-
-// Обчислює нормалізовану перехресну кореляцію (NCC) між двома зображеннями однакового розміру
-// Повертає значення від 0.0 (зовсім різні) до 1.0 (ідентичні)
-function computeNCC(a: PngData, b: PngData): number {
-  if (a.width !== b.width || a.height !== b.height) return 0; // Перевірка розмірів
-
-  let sumA = 0, sumB = 0, sumAA = 0, sumBB = 0, sumAB = 0; // Статистичні суми
-  const n = a.width * a.height; // Кількість пікселів
-
-  for (let i = 0; i < n; i++) { // Цикл по всіх пікселях
-    const idx = i * 4; // RGBA індекс
-    // Конвертуємо RGB в градації сірого (яскравість)
-    const ga = a.pixels[idx] * 0.299 + a.pixels[idx + 1] * 0.587 + a.pixels[idx + 2] * 0.114;
-    const gb = b.pixels[idx] * 0.299 + b.pixels[idx + 1] * 0.587 + b.pixels[idx + 2] * 0.114;
-    sumA += ga;   // Сума A
-    sumB += gb;   // Сума B
-    sumAA += ga * ga; // Сума квадратів A
-    sumBB += gb * gb; // Сума квадратів B
-    sumAB += ga * gb; // Сума добутків
-  }
-
-  const meanA = sumA / n;  // Середнє A
-  const meanB = sumB / n;  // Середнє B
-  const stdA = Math.sqrt(sumAA / n - meanA * meanA); // Стандартне відхилення A
-  const stdB = Math.sqrt(sumBB / n - meanB * meanB); // Стандартне відхилення B
-
-  if (stdA < 1e-6 || stdB < 1e-6) return 0; // Уникаємо ділення на 0
-
-  const ncc = (sumAB / n - meanA * meanB) / (stdA * stdB); // NCC формула
-  return Math.max(0, Math.min(1, (ncc + 1) / 2)); // Нормалізуємо до [0, 1]
-}
-
-// Завантажує всі PNG шаблони з вказаної папки
+// Завантажує всі PNG шаблони з вказаної папки з виділенням непрозорих точок
 async function loadTemplates(templateDir: string): Promise<MoleTemplate[]> {
-  const templates: MoleTemplate[] = []; // Масив шаблонів
+  const templates: MoleTemplate[] = [];
 
-  if (!fs.existsSync(templateDir)) { // Перевіряємо чи існує папка
+  let files: string[] = [];
+  try {
+    const dirFiles = await fs.promises.readdir(templateDir);
+    files = dirFiles.filter(f => f.toLowerCase().endsWith('.png')).sort();
+  } catch {
     logger.warn(`Папка шаблонів не знайдена: ${templateDir}`);
-    return templates; // Порожній масив
+    return templates;
   }
 
-  const files = fs.readdirSync(templateDir) // Читаємо файли папки
-    .filter(f => f.toLowerCase().endsWith('.png')) // Тільки PNG
-    .sort(); // Сортуємо
-
-  for (const file of files) { // Цикл по файлах
-    const fullPath = path.join(templateDir, file); // Повний шлях
+  for (const file of files) {
+    const fullPath = path.join(templateDir, file);
     try {
-      const buf = fs.readFileSync(fullPath);  // Читаємо файл
-      const data = await parsePng(buf);       // Парсимо PNG
-      if (data) {
-        templates.push({ name: file, data }); // Додаємо шаблон
-        logger.info(`Завантажено шаблон: ${file} (${data.width}×${data.height})`);
+      const buf = await fs.promises.readFile(fullPath);
+      const data = await parsePng(buf);
+      if (data && data.width > 0 && data.height > 0) {
+        const opaque: OpaquePixel[] = [];
+        let sumT = 0, sumTT = 0;
+
+        for (let ty = 0; ty < data.height; ty++) {
+          for (let tx = 0; tx < data.width; tx++) {
+            const idx = (ty * data.width + tx) * 4;
+            const a = data.pixels[idx + 3];
+            if (a > 128) {
+              const r = data.pixels[idx];
+              const g_val = data.pixels[idx + 1];
+              const b = data.pixels[idx + 2];
+              const g = r * 0.299 + g_val * 0.587 + b * 0.114;
+              opaque.push({ tx, ty, g, r, g_val, b });
+              sumT += g;
+              sumTT += g * g;
+            }
+          }
+        }
+
+        const n = opaque.length;
+        if (n === 0) continue;
+
+        const meanT = sumT / n;
+        const stdT = Math.sqrt(sumTT / n - meanT * meanT);
+
+        // Швидка вибірка точок (близько 25 точок) для попереднього швидкого проходу
+        const stepSample = Math.max(1, Math.floor(n / 25));
+        const sampled: OpaquePixel[] = [];
+        let sSumT = 0, sSumTT = 0;
+        for (let i = 0; i < n; i += stepSample) {
+          sampled.push(opaque[i]);
+          sSumT += opaque[i].g;
+          sSumTT += opaque[i].g * opaque[i].g;
+        }
+        const sn = sampled.length;
+        const sMeanT = sSumT / sn;
+        const sStdT = Math.sqrt(sSumTT / sn - sMeanT * sMeanT);
+
+        templates.push({ name: file, data, opaque, n, meanT, stdT, sampled, sn, sMeanT, sStdT });
+        logger.info(`Завантажено шаблон: ${file} (${data.width}×${data.height}, непрозорих точок: ${n})`);
       }
     } catch (e) {
       logger.warn(`Не вдалося завантажити шаблон: ${file}`);
     }
   }
 
-  return templates; // Повертаємо всі шаблони
+  return templates;
+}
+
+// Результат знайденого збігу крота
+interface SearchMatch {
+  templateName: string;
+  score: number;
+  relX: number;
+  relY: number;
+  w: number;
+  h: number;
+  centerX: number;
+  centerY: number;
+  row?: number;
+  col?: number;
+}
+
+// 2D ковзний пошук шаблонів з урахуванням прозорості та ієрархічним прискоренням
+function searchRegionForMoles(
+  src: PngData,
+  startX: number,
+  startY: number,
+  searchW: number,
+  searchH: number,
+  templates: MoleTemplate[],
+  threshold: number,
+  coarseStep = 3
+): { matches: SearchMatch[]; bestCandidate: { name: string; score: number; x: number; y: number } } {
+  const { width: W, pixels: canvas } = src;
+  const matches: SearchMatch[] = [];
+  let bestCandidate = { name: '', score: 0, x: 0, y: 0 };
+
+  for (const tmpl of templates) {
+    const { sampled, sn, sMeanT, sStdT, opaque, n, meanT, stdT, data } = tmpl;
+    const tW = data.width, tH = data.height;
+    if (tW > searchW || tH > searchH) continue;
+
+    const maxY = startY + searchH - tH;
+    const maxX = startX + searchW - tW;
+
+    for (let y = startY; y <= maxY; y += coarseStep) {
+      for (let x = startX; x <= maxX; x += coarseStep) {
+        // Швидка оцінка по вибірці точок
+        let sSumI = 0, sSumII = 0, sSumIT = 0;
+        for (let i = 0; i < sn; i++) {
+          const pt = sampled[i];
+          const ci = ((y + pt.ty) * W + (x + pt.tx)) * 4;
+          const g = canvas[ci] * 0.299 + canvas[ci + 1] * 0.587 + canvas[ci + 2] * 0.114;
+          sSumI += g;
+          sSumII += g * g;
+          sSumIT += g * pt.g;
+        }
+        const sMeanI = sSumI / sn;
+        const sStdI = Math.sqrt(sSumII / sn - sMeanI * sMeanI);
+        if (sStdI > 1e-5 && sStdT > 1e-5) {
+          const coarseNcc = (sSumIT / sn - sMeanI * sMeanT) / (sStdI * sStdT);
+          if (coarseNcc > bestCandidate.score) {
+            bestCandidate = { name: tmpl.name, score: coarseNcc, x, y };
+          }
+
+          // Якщо вибірка показує потенційний збіг — робимо точний прохід по всіх точках
+          if (coarseNcc >= Math.max(0.45, threshold - 0.15)) {
+            for (let ry = Math.max(startY, y - coarseStep + 1); ry <= Math.min(maxY, y + coarseStep - 1); ry++) {
+              for (let rx = Math.max(startX, x - coarseStep + 1); rx <= Math.min(maxX, x + coarseStep - 1); rx++) {
+                let sumI = 0, sumII = 0, sumIT = 0;
+                for (let i = 0; i < n; i++) {
+                  const pt = opaque[i];
+                  const ci = ((ry + pt.ty) * W + (rx + pt.tx)) * 4;
+                  const g = canvas[ci] * 0.299 + canvas[ci + 1] * 0.587 + canvas[ci + 2] * 0.114;
+                  sumI += g;
+                  sumII += g * g;
+                  sumIT += g * pt.g;
+                }
+                const meanI = sumI / n;
+                const stdI = Math.sqrt(sumII / n - meanI * meanI);
+                if (stdI > 1e-5 && stdT > 1e-5) {
+                  const ncc = (sumIT / n - meanI * meanT) / (stdI * stdT);
+                  if (ncc > bestCandidate.score) {
+                    bestCandidate = { name: tmpl.name, score: ncc, x: rx, y: ry };
+                  }
+                  if (ncc >= threshold) {
+                    const cx = rx + Math.floor(tW / 2);
+                    const cy = ry + Math.floor(tH / 2);
+                    const isDup = matches.some(m => Math.hypot(m.centerX - cx, m.centerY - cy) < Math.min(tW, tH) * 0.8);
+                    if (!isDup) {
+                      matches.push({
+                        templateName: tmpl.name,
+                        score: ncc,
+                        relX: rx,
+                        relY: ry,
+                        w: tW,
+                        h: tH,
+                        centerX: cx,
+                        centerY: cy
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { matches, bestCandidate };
 }
 
 // Перевіряє чи кнопки завершення присутні на сторінці або в iframe
@@ -358,6 +381,25 @@ async function checkExitButtons(
 
 // ─── Головний обробник ноди ──────────────────────────────────────────────────
 
+export interface MoleCellConfig {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const DEFAULT_CELLS: MoleCellConfig[] = [
+  { x: 100, y: 100, w: 100, h: 100 }, // 1 (0,0)
+  { x: 220, y: 100, w: 100, h: 100 }, // 2 (0,1)
+  { x: 340, y: 100, w: 100, h: 100 }, // 3 (0,2)
+  { x: 100, y: 220, w: 100, h: 100 }, // 4 (1,0)
+  { x: 220, y: 220, w: 100, h: 100 }, // 5 (1,1)
+  { x: 340, y: 220, w: 100, h: 100 }, // 6 (1,2)
+  { x: 100, y: 340, w: 100, h: 100 }, // 7 (2,0)
+  { x: 220, y: 340, w: 100, h: 100 }, // 8 (2,1)
+  { x: 340, y: 340, w: 100, h: 100 }, // 9 (2,2)
+];
+
 export const whackAMoleNodeHandler = async ({
   currentNode,    // Поточна нода з налаштуваннями
   activePage,     // Активна сторінка Playwright
@@ -375,37 +417,72 @@ export const whackAMoleNodeHandler = async ({
     clickDelay = 150,          // Затримка після кліку (мс)
     matchThreshold = 0.72,     // Поріг схожості NCC для визнання крота
     maxDuration = 60000,       // Максимальний час роботи (мс)
-    useCropZone = false,       // Чи обмежувати зону пошуку
-    cropX = 0,                 // X зони пошуку
-    cropY = 0,                 // Y зони пошуку
-    cropW = 600,               // Ширина зони пошуку
-    cropH = 400,               // Висота зони пошуку
     exitButtonTexts = '',      // Тексти кнопок завершення
     templateDir = '',          // Папка шаблонів (порожнє = авто mine/)
   } = nodeData;
+
+  const threshold = typeof matchThreshold === 'number' ? matchThreshold : 0.72;
+
+  // Отримуємо конфігурацію 9 комірок
+  let activeCells: MoleCellConfig[] = [];
+  if (Array.isArray(nodeData.cells) && nodeData.cells.length === 9) {
+    activeCells = nodeData.cells as MoleCellConfig[];
+  } else if (nodeData.cropW && nodeData.cropH) {
+    const cW = Math.floor((nodeData.cropW as number) / 3);
+    const cH = Math.floor((nodeData.cropH as number) / 3);
+    const cX = (nodeData.cropX as number) || 0;
+    const cY = (nodeData.cropY as number) || 0;
+    activeCells = [
+      { x: cX, y: cY, w: cW, h: cH },
+      { x: cX + cW, y: cY, w: cW, h: cH },
+      { x: cX + cW * 2, y: cY, w: cW, h: cH },
+      { x: cX, y: cY + cH, w: cW, h: cH },
+      { x: cX + cW, y: cY + cH, w: cW, h: cH },
+      { x: cX + cW * 2, y: cY + cH, w: cW, h: cH },
+      { x: cX, y: cY + cH * 2, w: cW, h: cH },
+      { x: cX + cW, y: cY + cH * 2, w: cW, h: cH },
+      { x: cX + cW * 2, y: cY + cH * 2, w: cW, h: cH },
+    ];
+  } else {
+    activeCells = DEFAULT_CELLS;
+  }
 
   // Парсимо тексти кнопок завершення
   const exitTexts: string[] = String(exitButtonTexts)
     .split(/\n/).map(s => s.trim()).filter(Boolean);
 
   // Визначаємо папку шаблонів (за замовчуванням — mine/ у корені проєкту)
-  const resolvedTemplateDir = (templateDir as string) // Якщо шлях до папки шаблонів задано в налаштуваннях
-    ? path.resolve(templateDir as string) // Використовуємо вказаний користувачем шлях
-    : path.resolve(process.cwd(), '..', 'mine'); // Автоматично визначаємо шлях до папки mine в корені проєкту (на один рівень вище backend)
+  const resolvedTemplateDir = (templateDir as string)
+    ? path.resolve(templateDir as string)
+    : path.resolve(process.cwd(), '..', 'mine');
 
   logToClient(`🔨 Вдарь Крота: старт...`, 'info');
   logToClient(`📁 Папка шаблонів: ${resolvedTemplateDir}`, 'debug');
 
   try {
-    // ── Завантаження шаблонів ─────────────────────────────────────────────
-    const templates = await loadTemplates(resolvedTemplateDir); // Завантажуємо шаблони
+    // ── Отримуємо Device Pixel Ratio ──────────────────────────────────────
+    const dpr = await activePage.evaluate(() => window.devicePixelRatio || 1).catch(() => 1);
+    logger.info(`WhackAMole: DPR=${dpr}`);
 
-    if (templates.length === 0) { // Якщо шаблони не знайдено
+    // ── Завантаження шаблонів ─────────────────────────────────────────────
+    const templates = await loadTemplates(resolvedTemplateDir);
+
+    if (templates.length === 0) {
       logToClient(`❌ Шаблони крота не знайдено в: ${resolvedTemplateDir}`, 'error');
       return { data: context, nextHandle: ['error'] };
     }
 
-    logToClient(`✅ Завантажено ${templates.length} шаблон(ів) крота`, 'success');
+    logToClient(`✅ Завантажено ${templates.length} шаблон(ів) крота (поріг NCC: ${Math.round(threshold * 100)}%)`, 'success');
+
+    // Відправляємо завантажені шаблони крота у Фотодебаг
+    if (ws) {
+      for (const tmpl of templates) {
+        try {
+          const tmplBuf = encodePng(tmpl.data);
+          await sendDebugPhoto(ws, `📁 Шаблон: ${tmpl.name} (${tmpl.data.width}×${tmpl.data.height})`, currentNode.id, tmplBuf);
+        } catch {}
+      }
+    }
 
     // ── Перша перевірка кнопок завершення ────────────────────────────────
     if (exitTexts.length > 0) {
@@ -417,136 +494,229 @@ export const whackAMoleNodeHandler = async ({
       return { data: { ...context, value: 0 }, nextHandle: [null, undefined, 'success'] };
     }
 
-    // ── Діагностичний скріншот ────────────────────────────────────────────
+    // ── Діагностичний скріншот та розмітка 9 комірок ──────────────────────
     try {
-      const diagBuf = await screenshotWithRetry(activePage, { type: 'png' }); // Весь екран
-      await sendDebugPhoto(ws, '🔍 Стартовий скріншот', currentNode.id, diagBuf);
-      if (useCropZone && (cropW as number) > 0 && (cropH as number) > 0) { // Якщо є crop-зона
-        const cropBuf = await screenshotWithRetry(activePage, {
-          type: 'png', clip: { x: cropX, y: cropY, width: cropW, height: cropH }
-        });
-        await sendDebugPhoto(ws, '🎯 Зона пошуку кротів', currentNode.id, cropBuf);
+      const diagBuf = await screenshotWithRetry(activePage, { type: 'png' });
+      await sendDebugPhoto(ws, '🔍 Стартовий скріншот вікна', currentNode.id, diagBuf);
+
+      const diagPng = await parsePng(diagBuf);
+      if (diagPng) {
+        const gridPx = Buffer.from(diagPng.pixels);
+        for (let i = 0; i < activeCells.length; i++) {
+          const c = activeCells[i];
+          const pxX0 = Math.max(0, Math.round(c.x * dpr));
+          const pxY0 = Math.max(0, Math.round(c.y * dpr));
+          const pxX1 = Math.min(diagPng.width - 1, Math.round((c.x + c.w) * dpr) - 1);
+          const pxY1 = Math.min(diagPng.height - 1, Math.round((c.y + c.h) * dpr) - 1);
+          const cx = Math.max(0, Math.min(diagPng.width - 1, Math.round((c.x + c.w / 2) * dpr)));
+          const cy = Math.max(0, Math.min(diagPng.height - 1, Math.round((c.y + c.h / 2) * dpr)));
+
+          drawRect(gridPx, diagPng.width, diagPng.height, pxX0, pxY0, pxX1, pxY1, 245, 158, 11, 2);
+          drawDot(gridPx, diagPng.width, diagPng.height, cx, cy, 3, 0, 255, 255);
+        }
+        const gridBuf = encodePng({ width: diagPng.width, height: diagPng.height, pixels: gridPx });
+        await sendDebugPhoto(ws, '🎯 Розмітка 9 комірок (3×3)', currentNode.id, gridBuf);
       }
     } catch (e) { logToClient(`⚠️ Діагностичний скріншот не вдався`, 'debug'); }
 
+    // ── Розрахунок спільної області (bounding box) для захоплення ──────────
+    const minClipX = Math.max(0, Math.min(...activeCells.map(c => c.x)));
+    const minClipY = Math.max(0, Math.min(...activeCells.map(c => c.y)));
+    const maxClipX = Math.max(...activeCells.map(c => c.x + c.w));
+    const maxClipY = Math.max(...activeCells.map(c => c.y + c.h));
+    const clipW = Math.max(20, maxClipX - minClipX);
+    const clipH = Math.max(20, maxClipY - minClipY);
+
     // ── Основний ігровий цикл ─────────────────────────────────────────────
 
-    const startTime = Date.now(); // Час старту
-    let totalClicks = 0;          // Всього кліків по кротах
-    let frameCount = 0;           // Лічильник ітерацій циклу
+    const startTime = Date.now();
+    let totalClicks = 0;
+    let frameCount = 0;
 
-    // Розмір клітинки для порівняння з шаблонами (NxN пікселів)
-    const COMPARE_SIZE = 32; // Розмір для нормалізованого порівняння
+    while (Date.now() - startTime < (maxDuration as number) && checkRunning()) {
+      if (!checkRunning()) break;
+      frameCount++;
 
-    while (Date.now() - startTime < (maxDuration as number) && checkRunning()) { // Цикл поки не вийшов ліміт часу та бот запущений
-      if (!checkRunning()) { // Якщо бот зупинений користувачем під час роботи
-        break; // Перериваємо цикл та виходимо
-      }
-      frameCount++; // Збільшуємо лічильник кадрів/ітерацій циклу
-
-      // Знімаємо скріншот ігрового поля
-      const shotOptions: { type: string; clip?: { x: number; y: number; width: number; height: number } } = { type: 'png' };
-      if (useCropZone && (cropW as number) > 0 && (cropH as number) > 0) { // Якщо є обмеження зони
-        shotOptions.clip = { x: cropX as number, y: cropY as number, width: cropW as number, height: cropH as number };
-      }
+      // Знімаємо скріншот області з 9 комірками
+      const shotOptions = {
+        type: 'png',
+        clip: { x: minClipX, y: minClipY, width: clipW, height: clipH }
+      };
 
       let fieldBuf: Buffer;
       try {
-        fieldBuf = await screenshotWithRetry(activePage, shotOptions); // Скріншот поля
+        fieldBuf = await screenshotWithRetry(activePage, shotOptions);
       } catch (e) {
         logToClient(`⚠️ Не вдалося зробити скріншот поля`, 'debug');
-        await smartSleep(checkInterval as number, ws); // Чекаємо перед повтором
-        continue; // Наступна ітерація
+        await smartSleep(checkInterval as number, ws);
+        continue;
       }
 
       // Розпарсуємо PNG в Node.js
-      const fieldPng = await parsePng(fieldBuf); // Парсинг поля
+      const fieldPng = await parsePng(fieldBuf);
       if (!fieldPng) {
         await smartSleep(checkInterval as number, ws);
-        continue; // Якщо не вдалося — пропускаємо
+        continue;
       }
 
-      // Розбиваємо поле на 3×3 клітинки та аналізуємо кожну
-      const cellW = Math.floor(fieldPng.width / 3);   // Ширина клітинки
-      const cellH = Math.floor(fieldPng.height / 3);  // Висота клітинки
+      // ── Пошук кротів у кожній з 9 комірок окремо ────────────────────────
+      let matches: Array<SearchMatch & { cellIndex: number }> = [];
+      let bestCandidate = { name: '', score: 0, x: 0, y: 0 };
 
-      let clicksThisFrame = 0; // Кліки у цій ітерації
+      for (let i = 0; i < activeCells.length; i++) {
+        const cell = activeCells[i];
+        const row = Math.floor(i / 3);
+        const col = i % 3;
 
-      for (let row = 0; row < 3; row++) {   // Рядки сітки (0, 1, 2)
-        for (let col = 0; col < 3; col++) { // Стовпці сітки (0, 1, 2)
+        // Координати комірки відносно знятого фрагмента (у пікселях зображення)
+        const relCellX = Math.max(0, Math.round((cell.x - minClipX) * dpr));
+        const relCellY = Math.max(0, Math.round((cell.y - minClipY) * dpr));
+        const relCellW = Math.max(10, Math.min(fieldPng.width - relCellX, Math.round(cell.w * dpr)));
+        const relCellH = Math.max(10, Math.min(fieldPng.height - relCellY, Math.round(cell.h * dpr)));
 
-          const cellX = col * cellW; // X клітинки в зображенні
-          const cellY = row * cellH; // Y клітинки в зображенні
+        const res = searchRegionForMoles(fieldPng, relCellX, relCellY, relCellW, relCellH, templates, threshold, 2);
+        if (res.bestCandidate.score > bestCandidate.score) {
+          bestCandidate = res.bestCandidate;
+        }
 
-          // Вирізаємо клітинку з поля
-          const cell = cropRegion(fieldPng, cellX, cellY, cellW, cellH);
-          // Масштабуємо до стандартного розміру для порівняння
-          const cellResized = resizeNearest(cell, COMPARE_SIZE, COMPARE_SIZE);
-
-          // Порівнюємо клітинку з кожним шаблоном крота
-          let bestScore = 0;   // Найкращий результат порівняння
-          let bestTemplate = ''; // Назва найкращого шаблону
-
-          for (const tmpl of templates) { // Перевіряємо кожен шаблон
-            const tmplResized = resizeNearest(tmpl.data, COMPARE_SIZE, COMPARE_SIZE); // Масштаб
-            const score = computeNCC(cellResized, tmplResized); // NCC порівняння
-            if (score > bestScore) { // Якщо кращий результат
-              bestScore = score;         // Запам'ятовуємо
-              bestTemplate = tmpl.name;  // І назву шаблону
-            }
-          }
-
-          if (bestScore >= (matchThreshold as number)) { // Якщо схожість вище порогу
-            // Обчислюємо координати центру клітинки у viewport
-            const vpCellX = (useCropZone ? (cropX as number) : 0) + cellX + Math.floor(cellW / 2);
-            const vpCellY = (useCropZone ? (cropY as number) : 0) + cellY + Math.floor(cellH / 2);
-
-            logToClient(
-              `🔨 Крот! (${row},${col}) шаблон="${bestTemplate}" NCC=${Math.round(bestScore * 100)}% → клік (${vpCellX},${vpCellY})`,
-              'success'
-            );
-
-            await activePage.mouse.click(vpCellX, vpCellY); // Клікаємо по кроту!
-            await smartSleep(clickDelay as number, ws); // Коротка пауза після кліку
-            totalClicks++;     // Збільшуємо лічильник
-            clicksThisFrame++; // Кліки цієї ітерації
-          }
+        for (const m of res.matches) {
+          matches.push({
+            ...m,
+            row,
+            col,
+            cellIndex: i
+          });
         }
       }
 
-      // Кожні 10 ітерацій логуємо прогрес
+      let clicksThisFrame = 0;
+
+      // ── Клікаємо по всіх знайдених кротах ───────────────────────────────
+      for (const mole of matches) {
+        const cell = activeCells[mole.cellIndex];
+
+        // Розраховуємо випадкову точку в межах всієї площі комірки (з відступом 10% від країв)
+        const marginX = Math.max(2, Math.floor(cell.w * 0.1));
+        const marginY = Math.max(2, Math.floor(cell.h * 0.1));
+        const usableW = Math.max(1, cell.w - 2 * marginX);
+        const usableH = Math.max(1, cell.h - 2 * marginY);
+        const randOffsetX = marginX + Math.floor(Math.random() * usableW);
+        const randOffsetY = marginY + Math.floor(Math.random() * usableH);
+
+        // Екранні координати кліку у CSS пікселях viewport
+        const vpClickX = cell.x + randOffsetX;
+        const vpClickY = cell.y + randOffsetY;
+
+        logToClient(
+          `🔨 Крот у комірці #${mole.cellIndex + 1} (${mole.row},${mole.col}) шаблон="${mole.templateName}" NCC=${Math.round(mole.score * 100)}% → клік (${vpClickX},${vpClickY}) [зсув +${randOffsetX},+${randOffsetY}]`,
+          'success'
+        );
+
+        // Відправляємо фото удару в Фотодебаг
+        if (ws) {
+          try {
+            const hitPx = Buffer.from(fieldPng.pixels);
+            // Зелена рамка навколо виявленого крота
+            drawRect(hitPx, fieldPng.width, fieldPng.height, mole.relX, mole.relY, mole.relX + mole.w - 1, mole.relY + mole.h - 1, 0, 255, 128, 3);
+
+            // Янтарна рамка всієї комірки
+            const cellRelX = Math.max(0, Math.round((cell.x - minClipX) * dpr));
+            const cellRelY = Math.max(0, Math.round((cell.y - minClipY) * dpr));
+            const cellRelW = Math.round(cell.w * dpr);
+            const cellRelH = Math.round(cell.h * dpr);
+            drawRect(hitPx, fieldPng.width, fieldPng.height, cellRelX, cellRelY, cellRelX + cellRelW - 1, cellRelY + cellRelH - 1, 245, 158, 11, 1);
+
+            // Червоний приціл точно в місці фактичного кліку
+            const hitPixelX = Math.max(0, Math.min(fieldPng.width - 1, Math.round((vpClickX - minClipX) * dpr)));
+            const hitPixelY = Math.max(0, Math.min(fieldPng.height - 1, Math.round((vpClickY - minClipY) * dpr)));
+            drawCrosshair(hitPx, fieldPng.width, fieldPng.height, hitPixelX, hitPixelY, 10, 255, 50, 50, 2);
+
+            const hitDebugBuf = encodePng({ width: fieldPng.width, height: fieldPng.height, pixels: hitPx });
+            await sendDebugPhoto(
+              ws,
+              `🔨 Удар: Комірка #${mole.cellIndex + 1} (${mole.row},${mole.col}) • ${mole.templateName} (${Math.round(mole.score * 100)}%)`,
+              currentNode.id,
+              hitDebugBuf
+            );
+
+            // Окремий виріз самого крота
+            const moleCrop = cropRegion(
+              fieldPng,
+              Math.max(0, mole.relX - 5),
+              Math.max(0, mole.relY - 5),
+              Math.min(fieldPng.width - mole.relX, mole.w + 10),
+              Math.min(fieldPng.height - mole.relY, mole.h + 10)
+            );
+            const moleCropBuf = encodePng(moleCrop);
+            await sendDebugPhoto(
+              ws,
+              `🦔 Крот #${mole.cellIndex + 1} (${mole.row},${mole.col}) • ${mole.templateName}`,
+              currentNode.id,
+              moleCropBuf
+            );
+          } catch (dbgErr) {
+            logger.warn('Failed to send mole hit debug photo', { error: String(dbgErr) });
+          }
+        }
+
+        await activePage.mouse.click(vpClickX, vpClickY);
+        await smartSleep(clickDelay as number, ws);
+        totalClicks++;
+        clicksThisFrame++;
+      }
+
+      // Періодичний лог прогресу та контрольний знімок
       if (frameCount % 10 === 0) {
         const elapsed = Math.round((Date.now() - startTime) / 1000);
-        logToClient(`📊 Прогрес: ${totalClicks} кротів за ${elapsed}с (${frameCount} кадрів)`, 'info');
+        logToClient(
+          `📊 Прогрес: ${totalClicks} кротів за ${elapsed}с (${frameCount} кадрів, макс. збіг: ${Math.round(bestCandidate.score * 100)}% [${bestCandidate.name || '-'}])`,
+          'info'
+        );
+
+        if (ws && clicksThisFrame === 0) {
+          try {
+            await sendDebugPhoto(
+              ws,
+              `👀 Сканування 9 комірок (кадр ${frameCount} • макс. ${Math.round(bestCandidate.score * 100)}% [${bestCandidate.name || '-'}])`,
+              currentNode.id,
+              fieldBuf
+            );
+          } catch {}
+        }
       }
 
       // Перевіряємо кнопки завершення після кожної ітерації
       const exitFound = await checkExitButtons(activePage, exitTexts, logToClient, frameCount <= 3);
-      if (exitFound) { // Якщо знайдено кнопку завершення
+      if (exitFound) {
         logToClient(`🏁 Виявлено кнопку завершення "${exitFound}" після ${totalClicks} кліків`, 'success');
+        if (ws) {
+          try {
+            const exitBuf = await screenshotWithRetry(activePage, { type: 'png' });
+            await sendDebugPhoto(ws, `🏁 Фінал гри: "${exitFound}" (${totalClicks} кліків)`, currentNode.id, exitBuf);
+          } catch {}
+        }
         return {
           data: { ...context, totalClicks, frameCount, value: totalClicks },
           nextHandle: [null, undefined, 'success'], // Зелений порт
         };
       }
 
-      await smartSleep(checkInterval as number, ws); // Пауза перед наступним кадром
+      await smartSleep(checkInterval as number, ws);
     }
 
     // ── Час вийшов ────────────────────────────────────────────────────────
-
     logToClient(`⏱️ Час вийшов (${(maxDuration as number) / 1000}с). Всього кліків: ${totalClicks}`, 'info');
 
-    if (totalClicks > 0) { // Якщо хоч щось зробили — успіх
+    if (totalClicks > 0) {
       return {
         data: { ...context, totalClicks, frameCount, value: totalClicks },
         nextHandle: [null, undefined, 'success'],
       };
-    } else { // Якщо жодного кліку — помилка
+    } else {
       return { data: context, nextHandle: ['error'] };
     }
 
-  } catch (err: any) { // Обробка критичних помилок
+  } catch (err: any) {
     logger.error(`WhackAMole failed: ${currentNode.id}`, err instanceof Error ? err : new Error(String(err)));
     logToClient(`❌ Помилка гри: ${err.message}`, 'error');
     return { data: context, nextHandle: ['error'] };

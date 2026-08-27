@@ -17,6 +17,8 @@ interface NotificationsPanelProps {
   projectName: string;
 }
 
+import { useUIStore } from '../store/useUIStore';
+
 // Головна функція компонента NotificationsPanel з типом пропсів
 export function NotificationsPanel({ isActive, projectName }: NotificationsPanelProps) {
   // Стейт для зберігання списку сповіщень усіх проектів
@@ -24,7 +26,7 @@ export function NotificationsPanel({ isActive, projectName }: NotificationsPanel
   // Стейт для зберігання загальної кількості непрочитаних сповіщень
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Асинхронна функція для завантаження всіх сповіщень через API
+  // Асинхронна функція для завантаження всіх сповіщень через спільний API ендпоінт
   const fetchNotifications = async () => {
     try {
       // Робимо HTTP GET запит до API для отримання сповіщень від усіх проектів в одному місці
@@ -36,9 +38,11 @@ export function NotificationsPanel({ isActive, projectName }: NotificationsPanel
         // Оновлюємо стейт списку сповіщень
         setNotifications(data.notifications || []);
         // Оновлюємо стейт кількості непрочитаних сповіщень
-        setUnreadCount(data.unreadCount || 0);
+        const count = data.unreadCount || 0;
+        setUnreadCount(count);
+        useUIStore.getState().setUnreadNotificationsCount(count);
         // Сповіщаємо інші компоненти про зміну кількості непрочитаних сповіщень через подію
-        window.dispatchEvent(new CustomEvent('unread-notifications-update', { detail: data.unreadCount }));
+        window.dispatchEvent(new CustomEvent('unread-notifications-update', { detail: count }));
       }
     } catch (e) {
       // Логуємо помилку у разі невдалого запиту

@@ -144,7 +144,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({ isOpen, onClose,
   return (
     // Оверлей з розмитим фоном
     <div
-      className="fixed inset-0 z-[var(--z-modal-high)] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[var(--z-modal-high)] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -152,27 +152,27 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({ isOpen, onClose,
     >
       {/* Контейнер модалки */}
       <div
-        className="flex flex-col w-full max-w-4xl h-[80vh] rounded-2xl border bg-[var(--interface-bg)] border-[var(--interface-border)] backdrop-blur-md overflow-hidden animate-in zoom-in-95 duration-300 shadow-2xl"
+        className="flex flex-col w-full max-w-4xl h-[94vh] md:h-[80vh] rounded-2xl border bg-[var(--interface-bg)] border-[var(--interface-border)] backdrop-blur-md overflow-hidden animate-in zoom-in-95 duration-300 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Заголовок */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
+        <div className="flex flex-wrap items-center justify-between p-3 md:p-4 gap-2 border-b border-white/10 shrink-0">
           <div>
             <h2
               id="inventory-modal-title"
-              className="text-[14px] font-black uppercase text-[var(--accent-indigo)] tracking-widest"
+              className="text-[13px] md:text-[14px] font-black uppercase text-[var(--accent-indigo)] tracking-widest"
             >
               {dataSource === 'inventory' ? 'Інвентар' : 'Склад (Stock)'}
             </h2>
             <p className="text-[12px] font-bold text-[var(--interface-text-primary)] mt-0.5">{projectName}</p>
             {timestamp && (
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <p className="text-[9px] md:text-[10px] text-slate-400 mt-0.5">
                 Оновлено: {new Date(timestamp).toLocaleString('uk-UA')}
               </p>
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             {/* Перемикач джерела: Інвентар / Склад */}
             <div className="flex items-center p-1 bg-black/40 border border-white/10 rounded-xl">
               <button

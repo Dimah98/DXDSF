@@ -239,6 +239,14 @@ const InventoryOverview = ({ currentView, setCurrentView }: any) => { // Осн�
     <div className="inventory-overview">
       <div className="inventory-overview__toolbar">
         <div className="inventory-overview__toolbar-left">
+          <button 
+            onClick={() => setCurrentView('editor')} 
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition-colors shadow shrink-0 border border-slate-700 mr-1"
+            title="Повернутися до Редактора"
+          >
+            <ArrowLeft size={14} />
+            <span>Редактор</span>
+          </button>
           <div className="inventory-overview__categories-tabs">
             <button
               className={`inventory-overview__category-tab ${selectedCategory === 'Всі' ? 'inventory-overview__category-tab--active' : ''}`}

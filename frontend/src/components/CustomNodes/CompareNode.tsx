@@ -52,7 +52,7 @@ const CompareNode = memo(({ id, data }: any) => {
     { label: '>', value: '>' }, { label: '<', value: '<' },
     { label: '==', value: '==' }, { label: '>=', value: '>=' },
     { label: '<=', value: '<=' }, { label: '!=', value: '!=' },
-    { label: '📅 = сьогодні', value: 'time_is_today' }, { label: '📅 ≠ сьогодні', value: 'time_not_today' }
+    { label: '📅 = сьогодні (з 03:00)', value: 'time_is_today' }, { label: '📅 ≠ сьогодні (з 03:00)', value: 'time_not_today' }
   ];
 
   const textOps = [

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Settings, X, Palette, AppWindow, Layers, Type, Square, CreditCard, ClipboardList, Monitor, ImageOff, Globe, Camera, Grid3x3, Database, EyeOff, ListOrdered, Timer, UtensilsCrossed } from 'lucide-react';
 import { ConfigSettings } from './ConfigSettings';
 import { RecipeImagesSettings } from './RecipeImagesSettings';
+import { useGlobalSettingsStore } from '../store/useGlobalSettingsStore';
 
 const ColorRow = ({ label, icon: Icon, value, onChange }: any) => (
   <div className="flex items-center justify-between py-1.5 group px-1">
@@ -70,7 +71,11 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
       queueMode: false,
       maxParallelProjects: 1,
       timeout10mMode: false,
-      snapToGrid: true
+      snapToGrid: true,
+      browserSafetyTimeoutMinutes: 1440,
+      rateLimitApi: 9999999,
+      rateLimitWs: 9999999,
+      rateLimitRunMultiple: 9999999
     };
   });
 
@@ -87,7 +92,11 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
             timeout10mMode: data.timeout10mMode === 1,
             disableImages: data.disableImages === 1,
             photoDebug: data.photoDebug !== 0,
-            headless: data.headless === 1
+            headless: data.headless === 1,
+            browserSafetyTimeoutMinutes: data.browserSafetyTimeoutMinutes !== undefined ? data.browserSafetyTimeoutMinutes : (prev.browserSafetyTimeoutMinutes || 1440),
+            rateLimitApi: data.rateLimitApi !== undefined ? data.rateLimitApi : (prev.rateLimitApi || 9999999),
+            rateLimitWs: data.rateLimitWs !== undefined ? data.rateLimitWs : (prev.rateLimitWs || 9999999),
+            rateLimitRunMultiple: data.rateLimitRunMultiple !== undefined ? data.rateLimitRunMultiple : (prev.rateLimitRunMultiple || 9999999)
           }));
         }
       })
@@ -118,6 +127,7 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
     root.style.setProperty('--foreground', h(settings.primaryTextColor));
     root.style.setProperty('--border', h(settings.interfaceBorderColor));
 
+    useGlobalSettingsStore.getState().setGlobalSettings(settings);
     window.dispatchEvent(new CustomEvent('global-settings-changed', { detail: settings }));
   }, [settings]);
 
@@ -144,8 +154,12 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
 
   const updateSetting = (key: string, value: any) => {
     setSettings((prev: any) => ({ ...prev, [key]: value }));
-    if (['queueMode', 'timeout10mMode', 'disableImages', 'photoDebug', 'headless', 'maxParallelProjects'].includes(key)) {
-      const valToSend = key === 'maxParallelProjects' ? Number(value) : (value ? 1 : 0);
+    if ([
+      'queueMode', 'timeout10mMode', 'disableImages', 'photoDebug', 'headless', 'maxParallelProjects',
+      'browserSafetyTimeoutMinutes', 'rateLimitApi', 'rateLimitWs', 'rateLimitRunMultiple'
+    ].includes(key)) {
+      const isNumberField = ['maxParallelProjects', 'browserSafetyTimeoutMinutes', 'rateLimitApi', 'rateLimitWs', 'rateLimitRunMultiple'].includes(key);
+      const valToSend = isNumberField ? Number(value) : (value ? 1 : 0);
       fetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -168,11 +182,11 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
 
       {isOpen && (
         <div 
-          className="fixed inset-0 z-[var(--z-modal-high)] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[var(--z-modal-high)] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setIsOpen(false)}
         >
           <div 
-            className="flex flex-col w-full max-w-lg rounded-2xl border bg-transparent backdrop-blur-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 max-h-[85vh]"
+            className="flex flex-col w-full max-w-lg rounded-2xl border bg-transparent backdrop-blur-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 max-h-[94vh] md:max-h-[85vh]"
             style={{ 
               backgroundColor: `hsla(${hexToHsl(settings.interfaceColor)} / ${settings.interfaceOpacity}%)`,
               borderColor: settings.interfaceBorderTransparent ? 'transparent' : `hsla(${hexToHsl(settings.interfaceBorderColor)} / 40%)`
@@ -241,6 +255,77 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
                         className="rounded border-white/20 text-amber-500 focus:ring-amber-500 bg-black/20" 
                       />
                     </label>
+
+                    {/* Таймаут неактивності браузера */}
+                    <div className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-colors text-[11px] text-slate-300">
+                      <div className="flex items-center gap-2">
+                        <Timer size={13} className="text-blue-400" />
+                        <span>Таймаут неактивності браузера (хв):</span>
+                      </div>
+                      <input 
+                        type="number"
+                        min="1"
+                        max="14400"
+                        value={settings.browserSafetyTimeoutMinutes || 1440}
+                        onChange={(e) => {
+                          const val = Math.max(1, parseInt(e.target.value) || 1);
+                          updateSetting('browserSafetyTimeoutMinutes', val);
+                        }}
+                        className="w-20 px-2 py-0.5 bg-slate-900 border border-blue-500/30 rounded text-center text-blue-400 font-mono font-bold focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    {/* Ліміти запитів (Rate Limiting) */}
+                    <div className="p-2.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-2 text-[11px]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                        Ліміти запитів (за 15 хв):
+                      </span>
+                      
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span>API запити (/api/*):</span>
+                        <input 
+                          type="number"
+                          min="1"
+                          max="99999999"
+                          value={settings.rateLimitApi || 9999999}
+                          onChange={(e) => {
+                            const val = Math.max(1, parseInt(e.target.value) || 9999999);
+                            updateSetting('rateLimitApi', val);
+                          }}
+                          className="w-24 px-2 py-0.5 bg-slate-950 border border-white/10 rounded text-center text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span>WS підключення (/ws):</span>
+                        <input 
+                          type="number"
+                          min="1"
+                          max="99999999"
+                          value={settings.rateLimitWs || 9999999}
+                          onChange={(e) => {
+                            const val = Math.max(1, parseInt(e.target.value) || 9999999);
+                            updateSetting('rateLimitWs', val);
+                          }}
+                          className="w-24 px-2 py-0.5 bg-slate-950 border border-white/10 rounded text-center text-indigo-400 font-mono font-bold focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span>Масові запуски (/run-multiple):</span>
+                        <input 
+                          type="number"
+                          min="1"
+                          max="99999999"
+                          value={settings.rateLimitRunMultiple || 9999999}
+                          onChange={(e) => {
+                            const val = Math.max(1, parseInt(e.target.value) || 9999999);
+                            updateSetting('rateLimitRunMultiple', val);
+                          }}
+                          className="w-24 px-2 py-0.5 bg-slate-950 border border-white/10 rounded text-center text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
                 </div>
               </div>
 

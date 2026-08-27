@@ -1,74 +1,104 @@
-// Імпортуємо необхідні типи та модулі з playwright та стандартних бібліотек Node.js
 import { chromium, Page } from 'playwright';
-// Імпортуємо модуль path для роботи зі шляхами до файлів
 import path from 'path';
-// Імпортуємо модуль fs для роботи з файловою системою
 import fs from 'fs';
-// Імпортуємо модуль net для перевірки вільних портів
 import net from 'net';
-// Імпортуємо child_process для виклику Win32 API приховування вікон
 import { exec } from 'child_process';
-// Читаємо налаштування з файлу .env
+import { promisify } from 'util';
 import 'dotenv/config';
-// Імпортуємо структурований логер
 import { Logger } from './logger';
+import { RONIN_EXTENSION_ID } from './constants';
+import { ProjectSession, ExtendedWebSocket } from './types';
+import { internalConfig } from './internalConfig';
+
+const execAsync = promisify(exec);
 
 // Логер для browserManager
 const logger = new Logger('BrowserManager');
+
+/**
+ * Асинхронне та неблокуюче завершення процесу браузера за портом (без execSync)
+ */
+export async function killProcessTreeOnPort(port: number, projectName: string): Promise<void> {
+  if (process.platform !== 'win32' || !port) return;
+  try {
+    const { stdout: netstat } = await execAsync(`netstat -ano | findstr :${port}`);
+    const lines = netstat.split('\n');
+    for (const line of lines) {
+      if (line.includes('LISTENING')) {
+        const parts = line.trim().split(/\s+/);
+        const pid = parts[parts.length - 1];
+        if (pid && pid !== '0' && !isNaN(Number(pid))) {
+          try {
+            await execAsync(`taskkill /F /PID ${pid} /T`);
+            logger.info(`Killed old browser process`, { pid, port, projectName });
+          } catch (killErr) {
+            logger.warn(`Failed to kill old browser process`, { pid, port, projectName, error: String(killErr) });
+          }
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    logger.debug(`No listening process found on port ${port} for project ${projectName}`);
+  }
+}
 
 /**
  * Приховує вікно процесу з панелі завдань та екрану Windows за допомогою cdpPort
  */
 export function hideProcessWindowByPort(cdpPort: number) {
   if (process.platform !== 'win32' || !cdpPort) return;
+  // Якщо активний modern headless (--headless=new), нативне вікно взагалі не створюється
+  const isHeadless = internalConfig.get('headless') === 1;
+  if (isHeadless) return;
 
-  const psScript = `$code = @'
-using System;
-using System.Runtime.InteropServices;
-public class WinUtil {
-    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
-    [DllImport("user32.dll")] public static extern bool EnumWindows(Func<IntPtr, IntPtr, bool> lpEnumFunc, IntPtr lParam);
-    public static void HidePid(uint targetPid) {
-        EnumWindows((hWnd, lParam) => {
-            uint p;
-            GetWindowThreadProcessId(hWnd, out p);
-            if (p == targetPid) { ShowWindow(hWnd, 0); }
-            return true;
-        }, IntPtr.Zero);
-    }
+  const psScript = `$proc = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*remote-debugging-port=${cdpPort}*' } | Select-Object -First 1; if ($proc) { (Get-Process -Id $proc.ProcessId).MainWindowHandle }`;
+  exec(`powershell -NoProfile -NonInteractive -Command "${psScript}"`, (err) => {
+    if (err) logger.debug(`Failed to hide window for cdpPort ${cdpPort}: ${err.message}`);
+  });
 }
-'@
-Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
-$proc = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*remote-debugging-port=${cdpPort}*' } | Select-Object -First 1
-if ($proc) { [WinUtil]::HidePid([uint32]$proc.ProcessId) }
-`;
-
-  const command = `powershell -NoProfile -NonInteractive -Command "${psScript.replace(/\r?\n/g, ' ')}"`;
-
-  try {
-    exec(command, (err) => {
-      if (err) logger.debug(`Failed to hide window for cdpPort ${cdpPort}: ${err.message}`);
-    });
-    setTimeout(() => {
-      try { exec(command, () => {}); } catch (_) {}
-    }, 1000);
-    setTimeout(() => {
-      try { exec(command, () => {}); } catch (_) {}
-    }, 2500);
-  } catch (e) {
-    logger.debug(`Error executing hideProcessWindowByPort: ${String(e)}`);
-  }
-}
-
-import { ProjectSession, ExtendedWebSocket } from './types';
-import { internalConfig } from './internalConfig';
 
 // Створюємо карту для зберігання активних сесій за назвою проекту
 export const sessions = new Map<string, ProjectSession>();
 
-// Лічильник CDP портів: кожна нова сесія отримує наступний порт починаючи з 9222
+// Лічильник та черга для запобігання Race Condition при виділенні портів
 let nextCdpPort = 9222;
+const allocatedPorts = new Set<number>();
+let portMutex = Promise.resolve();
+
+/**
+ * Безпечне атомарне виділення вільного CDP порту без стану гонки
+ */
+export async function allocatePort(preferredPort?: number): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    portMutex = portMutex.then(async () => {
+      try {
+        let candidate = preferredPort && preferredPort >= 9222 ? preferredPort : nextCdpPort;
+        while (allocatedPorts.has(candidate)) {
+          candidate++;
+        }
+        let freePort = await findFreePort(candidate);
+        while (allocatedPorts.has(freePort)) {
+          freePort = await findFreePort(freePort + 1);
+        }
+        allocatedPorts.add(freePort);
+        nextCdpPort = Math.max(nextCdpPort, freePort + 1);
+        resolve(freePort);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
+}
+
+/**
+ * Звільнення CDP порту для повторного використання
+ */
+export function releasePort(port?: number) {
+  if (port) {
+    allocatedPorts.delete(port);
+  }
+}
 
 // Функція для отримання існуючої або створення нової сесії проекту
 export function getOrCreateSession(projectName: string): ProjectSession {
@@ -91,7 +121,7 @@ export function getOrCreateSession(projectName: string): ProjectSession {
       isStreaming: false,
       photoDebugEnabled: true,
       currentlyRunningProfileDir: null,
-      cdpPort: nextCdpPort++, // Призначаємо унікальний CDP порт з лічильника
+      cdpPort: nextCdpPort++, // Призначаємо початковий порт
       createdAt: Date.now(),
       lastActivity: Date.now(),
       safetyTimeout: null,
@@ -101,6 +131,76 @@ export function getOrCreateSession(projectName: string): ProjectSession {
   }
   // Повертаємо сесію
   return session;
+}
+
+// Фоновий перехоплювач мережевих запитів та відповідей для отримання токена та Farm ID (ApiNode)
+export function attachNetworkInterception(session: ProjectSession) {
+  if (!session.context) return;
+
+  const handleAuthAndFarmId = (url: string, headers: Record<string, string>, responseJson?: any) => {
+    try {
+      const authHeader = headers['authorization'] || headers['Authorization'] || null;
+      const token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : null;
+
+      if (token) {
+        session.latestApiToken = token;
+        try {
+          const parts = token.split('.');
+          if (parts.length >= 2) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
+            const extractedFarmId = payload.farmId || payload.sub || payload.user?.farmId || payload.userId || payload.id;
+            if (extractedFarmId) {
+              session.latestFarmId = String(extractedFarmId);
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Перевіряємо числовий farm ID у URL (наприклад /visit/123456, /farm/123456, /farms/123456)
+      const farmIdMatch = url.match(/\/(?:visit|farm|farms|community|game)\/(\d+)/i) || url.match(/\/(\d{5,})/);
+      if (farmIdMatch && farmIdMatch[1]) {
+        session.latestFarmId = farmIdMatch[1];
+      }
+
+      if (responseJson) {
+        const possibleFarmId = responseJson.farmId || responseJson.farm?.id || responseJson.visitedFarmState?.farmId || responseJson.id;
+        if (possibleFarmId && !session.latestFarmId) {
+          session.latestFarmId = String(possibleFarmId);
+        }
+        if (responseJson.token && !session.latestApiToken) {
+          session.latestApiToken = responseJson.token;
+        }
+      }
+    } catch (_) {}
+  };
+
+  try {
+    session.context.on('request', (request) => {
+      try {
+        const url = request.url();
+        if (url.includes('sunflower-land.com')) {
+          handleAuthAndFarmId(url, request.headers());
+        }
+      } catch (_) {}
+    });
+
+    session.context.on('response', async (response) => {
+      try {
+        const url = response.url();
+        if (url.includes('sunflower-land.com')) {
+          let json: any = undefined;
+          if (url.includes('api.sunflower-land.com') && response.status() === 200) {
+            try {
+              json = await response.json();
+            } catch (_) {}
+          }
+          handleAuthAndFarmId(url, response.request().headers(), json);
+        }
+      } catch (_) {}
+    });
+  } catch (err) {
+    logger.warn(`Failed to attach context network interception for project ${session.projectName}`, { error: String(err) });
+  }
 }
 
 // Шляхи та дефолтні налаштування профілю IT Browser — зчитуються з .env
@@ -173,6 +273,9 @@ export function isSessionBrowserAlive(session: ProjectSession): boolean {
 
 // Функція для закриття браузера конкретної сесії
 export async function closeSessionBrowser(session: ProjectSession) {
+  // Звільняємо виділений CDP порт
+  releasePort(session.cdpPort);
+
   // Якщо об'єкт браузера існує у сесії
   if (session.browser) {
     try {
@@ -337,37 +440,8 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
       logger.warn(`Failed to close old browser for project ${session.projectName}`, { error: String(closeErr) });
     }
     
-    try {
-      // Отримуємо порт, на якому працював старий процес
-      const portToCheck = session.cdpPort;
-      // Виконуємо netstat для пошуку PID процесу, що слухає цей порт
-      const netstat = require('child_process').execSync(`netstat -ano | findstr :${portToCheck}`).toString();
-      // Розбиваємо вивід на рядки
-      const lines = netstat.split('\n');
-      // Проходимо по рядках
-      for (const line of lines) {
-        // Якщо знайшли рядок про LISTENING порт
-        if (line.includes('LISTENING')) {
-          // Розбиваємо рядок на частини
-          const parts = line.trim().split(/\s+/);
-          // Отримуємо PID процесу
-          const pid = parts[parts.length - 1];
-          // Якщо PID валідний і не 0, вбиваємо дерево процесів
-          if (pid && pid !== '0') {
-            try {
-              require('child_process').execSync(`taskkill /F /PID ${pid} /T`);
-              logger.info(`Killed old IT Browser process`, { pid, port: portToCheck, projectName: session.projectName });
-            } catch (killErr) {
-              logger.warn(`Failed to kill old browser process`, { pid, port: portToCheck, projectName: session.projectName, error: String(killErr) });
-            }
-            break;
-          }
-        }
-      }
-    } catch (e) {
-      // netstat/taskkill може повернути ненульовий код якщо процес не знайдено — це нормально
-      logger.debug(`Zombie browser cleanup skipped for project ${session.projectName}`, { error: String(e) });
-    }
+    // Асинхронно та неблокуюче вбиваємо старий процес браузера
+    await killProcessTreeOnPort(session.cdpPort, session.projectName);
   }
 
   // Якщо браузер сесії вже активний і сторінка існує, змінюємо розмір вікна та повертаємо сторінку
@@ -444,21 +518,16 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     throw new Error('❌ Шлях до ITBrowser або UserData не вказано в .env');
   }
 
-  // Визначаємо унікальний вільний порт для віддаленого налагодження цього проекту, починаючи з виділеного порту сесії
+  // Визначаємо унікальний вільний порт для віддаленого налагодження цього проекту через атомарний allocatePort
   let freePort: number;
   try {
-    freePort = await findFreePort(session.cdpPort);
+    freePort = await allocatePort(session.cdpPort);
   } catch (portErr) {
-    logger.error(`Failed to find free port for project ${session.projectName}`, portErr instanceof Error ? portErr : new Error(String(portErr)));
+    logger.error(`Failed to allocate port for project ${session.projectName}`, portErr instanceof Error ? portErr : new Error(String(portErr)));
     throw new Error(`Cannot allocate CDP port: ${portErr instanceof Error ? portErr.message : String(portErr)}`);
   }
   
-  // Якщо знайдений порт відрізняється від раніше виділеного (наприклад, порт був зайнятий стороннім процесом)
-  if (freePort !== session.cdpPort) {
-    // Оновлюємо порт у сесії проекту
-    session.cdpPort = freePort;
-  }
-  // Логуємо інформацію про виділений порт
+  session.cdpPort = freePort;
   logger.info(`Allocated CDP port for project ${session.projectName}`, { port: session.cdpPort });
 
   // Функція для безпосереднього запуску контексту браузера через Playwright
@@ -468,7 +537,6 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     // Формуємо повний шлях до userData профілю
     const activeUserData = path.join(ITBROWSER_BASE_USERDATA, activeProfileDir);
     
-    const RONIN_EXTENSION_ID = 'fnjhmkhhmkbjkkabndcnnogagogbneec';
     const extensionBaseDir = path.join(activeUserData, 'Default', 'Extensions', RONIN_EXTENSION_ID);
     let loadExtensionPath = '';
     if (fs.existsSync(extensionBaseDir)) {
@@ -503,7 +571,15 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
       // Примусово встановлюємо масштаб 100%, щоб ігнорувати масштабування Windows (125%, 150% тощо)
       '--force-device-scale-factor=1',
       // Дозволяємо підключення з будь-яких хостів для CDP
-      '--remote-allow-origins=*'
+      '--remote-allow-origins=*',
+      // Оптимізація пам'яті та фонових процесів Chromium
+      '--mute-audio',
+      '--disable-background-networking',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-ipc-flooding-protection',
+      '--js-flags=--max-old-space-size=256'
     ];
 
     // Якщо увімкнено вимкнення картинок, вимикаємо Service Worker-и, 
@@ -517,6 +593,12 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     if (isHeadless) {
       // Сучасний нативний безголовий режим Chromium (Chrome 109+), який підтримує всі антидетект-функції ITBrowser без відкриття вікон
       args.push('--headless=new');
+    }
+
+    // Якщо вимкнено завантаження картинок — блокуємо на рівні рушія Blink для максимальної економії пам'яті та CPU
+    const disableImages = internalConfig.get('disableImages') === 1 || session.botSettings?.disableImages === true;
+    if (disableImages) {
+      args.push('--blink-settings=imagesEnabled=false');
     }
 
     // Об'єкт конфігурації проксі для Playwright, який дозволить автоматично авторизуватися без спливаючих вікон
@@ -592,6 +674,9 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
   try {
     // Спроба запустити браузер
     session.context = await launch();
+    
+    // Підключаємо фоновий перехоплювач мережі на рівні контексту (для API ноди)
+    attachNetworkInterception(session);
     
     // Якщо увімкнено економію трафіку (вимкнення картинок)
     if (session.botSettings?.disableImages) {
@@ -717,36 +802,6 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
   try {
     session.page.on('console', msg => logger.debug(`[BROWSER-${session.projectName}] ${msg.text()}`));
     session.page.on('pageerror', err => logger.error(`[BROWSER-${session.projectName}] Page error`, err instanceof Error ? err : new Error(String(err))));
-    
-    // Фоновий перехоплювач мережі для API ноди
-    session.page.on('response', async (response) => {
-      try {
-        const responseUrl = response.url();
-        const method = response.request().method();
-
-        if (!responseUrl.includes('api.sunflower-land.com') || method !== 'GET') return;
-
-        const reqHeaders = response.request().headers();
-        const authHeader = reqHeaders['authorization'] || reqHeaders['Authorization'] || null;
-        const token = authHeader ? authHeader.replace('Bearer ', '') : null;
-
-        if (!token) return;
-
-        const hasNumericId = /\/\d{6,}/.test(responseUrl);
-        if (!hasNumericId) return;
-
-        const farmIdMatch = responseUrl.match(/\/(\d{6,})/);
-        const farmId = farmIdMatch ? farmIdMatch[1] : null;
-
-        if (farmId && token) {
-          session.latestFarmId = farmId;
-          session.latestApiToken = token;
-        }
-      } catch (e) {
-        // Ігноруємо помилки фонового перехоплювача
-      }
-    });
-
   } catch (handlerErr) {
     logger.warn(`Failed to attach page event handlers for project ${session.projectName}`, { error: String(handlerErr) });
   }

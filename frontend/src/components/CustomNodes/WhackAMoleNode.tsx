@@ -1,13 +1,73 @@
 // Нода «Вдарь Крота» — React-компонент для інтерфейсу ноди
-// Відображає налаштування: crop-зона, поріг схожості, інтервал, кнопки завершення
-import { memo } from 'react';
+// Відображає налаштування: 9 індивідуальних комірок (X, Y, W, H), поріг схожості, інтервал, кнопки завершення
+import { memo, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Hammer, Check, X, Timer, Flag, Crosshair, SlidersHorizontal } from 'lucide-react';
+import { Hammer, Check, X, Timer, Flag, SlidersHorizontal, LayoutGrid } from 'lucide-react';
 import BaseNode, { getHandleStyle } from './BaseNode';
+
+export interface MoleCellConfig {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const DEFAULT_CELLS: MoleCellConfig[] = [
+  { x: 100, y: 100, w: 100, h: 100 }, // 1 (0,0)
+  { x: 220, y: 100, w: 100, h: 100 }, // 2 (0,1)
+  { x: 340, y: 100, w: 100, h: 100 }, // 3 (0,2)
+  { x: 100, y: 220, w: 100, h: 100 }, // 4 (1,0)
+  { x: 220, y: 220, w: 100, h: 100 }, // 5 (1,1)
+  { x: 340, y: 220, w: 100, h: 100 }, // 6 (1,2)
+  { x: 100, y: 340, w: 100, h: 100 }, // 7 (2,0)
+  { x: 220, y: 340, w: 100, h: 100 }, // 8 (2,1)
+  { x: 340, y: 340, w: 100, h: 100 }, // 9 (2,2)
+];
 
 const WhackAMoleNode = memo(({ id, data }: { id: string; data: any }) => {
   // Статус згортання ноди
   const mini = data.miniCollapsed;
+  const [selectedCellIndex, setSelectedCellIndex] = useState(0);
+  const [showAllCells, setShowAllCells] = useState(false);
+
+  // Отримуємо або ініціалізуємо масив 9 комірок
+  const getCells = (): MoleCellConfig[] => {
+    if (Array.isArray(data.cells) && data.cells.length === 9) {
+      return data.cells;
+    }
+    if (data.cropW && data.cropH) {
+      const cW = Math.floor(data.cropW / 3);
+      const cH = Math.floor(data.cropH / 3);
+      const cX = data.cropX || 0;
+      const cY = data.cropY || 0;
+      return [
+        { x: cX, y: cY, w: cW, h: cH },
+        { x: cX + cW, y: cY, w: cW, h: cH },
+        { x: cX + cW * 2, y: cY, w: cW, h: cH },
+        { x: cX, y: cY + cH, w: cW, h: cH },
+        { x: cX + cW, y: cY + cH, w: cW, h: cH },
+        { x: cX + cW * 2, y: cY + cH, w: cW, h: cH },
+        { x: cX, y: cY + cH * 2, w: cW, h: cH },
+        { x: cX + cW, y: cY + cH * 2, w: cW, h: cH },
+        { x: cX + cW * 2, y: cY + cH * 2, w: cW, h: cH },
+      ];
+    }
+    return DEFAULT_CELLS;
+  };
+
+  const cells = getCells();
+
+  const updateCell = (index: number, field: keyof MoleCellConfig, val: number) => {
+    const current = getCells();
+    const next = current.map((c, i) => i === index ? { ...c, [field]: val } : c);
+    data.onDataChange(id, { cells: next });
+  };
+
+  const applySizeToAll = (w: number, h: number) => {
+    const current = getCells();
+    const next = current.map(c => ({ ...c, w, h }));
+    data.onDataChange(id, { cells: next });
+  };
 
   return (
     <BaseNode
@@ -17,7 +77,7 @@ const WhackAMoleNode = memo(({ id, data }: { id: string; data: any }) => {
       title={data.label || 'Вдарь Крота'}
       bgColor="bg-amber-600"
       type="whackAMoleNode"
-      width="w-64"
+      width="w-72"
     >
       {/* Вхідний порт */}
       <Handle
@@ -110,68 +170,156 @@ const WhackAMoleNode = memo(({ id, data }: { id: string; data: any }) => {
             </div>
           </div>
 
-          {/* ── Обмеження зони пошуку ─────────────────────────────── */}
+          {/* ── Налаштування 9 комірок (3×3) ──────────────────────── */}
           <div className="pt-2 border-t border-border space-y-2">
-            <label className="flex items-center gap-2 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer font-bold uppercase">
-              <input
-                type="checkbox"
-                checked={data.useCropZone || false}
-                onChange={(e) => data.onDataChange(id, { useCropZone: e.target.checked })}
-                className="rounded bg-muted/50 border-border text-amber-500 focus:ring-amber-500 w-3 h-3"
-              />
-              <Crosshair size={11} />
-              <span>Обмежити зону (crop)</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                <LayoutGrid size={12} className="text-amber-500" /> 9 комірок (3×3)
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowAllCells(!showAllCells)}
+                className="text-[9px] text-amber-500 hover:text-amber-400 font-medium transition-colors"
+              >
+                {showAllCells ? 'Згорнути' : 'Показати всі 9'}
+              </button>
+            </div>
 
-            {data.useCropZone && (
-              <div className="space-y-2 animate-in fade-in duration-150">
+            {/* 3×3 Інтерактивний вибір комірки */}
+            <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-muted/40 rounded-lg border border-border/50">
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((idx) => {
+                const isSel = selectedCellIndex === idx;
+                const r = Math.floor(idx / 3);
+                const c = idx % 3;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedCellIndex(idx)}
+                    className={`py-1.5 px-2 text-[10px] font-mono font-bold rounded flex flex-col items-center justify-center transition-all ${
+                      isSel
+                        ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                        : 'bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <span>#{idx + 1}</span>
+                    <span className="text-[8px] opacity-75 font-normal">({r},{c})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {!showAllCells ? (
+              // Індивідуальні інпути для вибраної комірки
+              <div className="p-2.5 bg-muted/30 rounded-lg border border-border/50 space-y-2 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-amber-500">
+                    Комірка #{selectedCellIndex + 1} ({Math.floor(selectedCellIndex / 3)},{selectedCellIndex % 3})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => applySizeToAll(cells[selectedCellIndex].w, cells[selectedCellIndex].h)}
+                    className="text-[8px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/20 transition-colors"
+                    title="Застосувати W і H цієї комірки до всіх 9 комірок"
+                  >
+                    W/H для всіх 9
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <span className="text-[9px] text-muted-foreground">Початок X</span>
+                    <span className="text-[9px] text-muted-foreground">Позиція X</span>
                     <input
                       type="number"
-                      value={data.cropX ?? 0}
-                      onChange={(e) => data.onDataChange(id, { cropX: parseInt(e.target.value) || 0 })}
+                      value={cells[selectedCellIndex]?.x ?? 0}
+                      onChange={(e) => updateCell(selectedCellIndex, 'x', parseInt(e.target.value) || 0)}
                       className="w-full p-1.5 text-xs bg-muted border-none rounded-md focus:ring-1 ring-amber-500 outline-none font-mono"
                       min={0}
                     />
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[9px] text-muted-foreground">Початок Y</span>
+                    <span className="text-[9px] text-muted-foreground">Позиція Y</span>
                     <input
                       type="number"
-                      value={data.cropY ?? 0}
-                      onChange={(e) => data.onDataChange(id, { cropY: parseInt(e.target.value) || 0 })}
+                      value={cells[selectedCellIndex]?.y ?? 0}
+                      onChange={(e) => updateCell(selectedCellIndex, 'y', parseInt(e.target.value) || 0)}
                       className="w-full p-1.5 text-xs bg-muted border-none rounded-md focus:ring-1 ring-amber-500 outline-none font-mono"
                       min={0}
                     />
                   </div>
                 </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <span className="text-[9px] text-muted-foreground">Ширина (W)</span>
                     <input
                       type="number"
-                      value={data.cropW ?? 600}
-                      onChange={(e) => data.onDataChange(id, { cropW: parseInt(e.target.value) || 0 })}
+                      value={cells[selectedCellIndex]?.w ?? 100}
+                      onChange={(e) => updateCell(selectedCellIndex, 'w', parseInt(e.target.value) || 100)}
                       className="w-full p-1.5 text-xs bg-muted border-none rounded-md focus:ring-1 ring-amber-500 outline-none font-mono"
-                      min={100}
+                      min={10}
                     />
                   </div>
                   <div className="space-y-1">
                     <span className="text-[9px] text-muted-foreground">Висота (H)</span>
                     <input
                       type="number"
-                      value={data.cropH ?? 400}
-                      onChange={(e) => data.onDataChange(id, { cropH: parseInt(e.target.value) || 0 })}
+                      value={cells[selectedCellIndex]?.h ?? 100}
+                      onChange={(e) => updateCell(selectedCellIndex, 'h', parseInt(e.target.value) || 100)}
                       className="w-full p-1.5 text-xs bg-muted border-none rounded-md focus:ring-1 ring-amber-500 outline-none font-mono"
-                      min={100}
+                      min={10}
                     />
                   </div>
                 </div>
-                <p className="text-[8px] text-muted-foreground italic">
-                  Прямокутник на екрані де розташоване ігрове поле 3×3
-                </p>
+              </div>
+            ) : (
+              // Розгорнутий список всіх 9 комірок
+              <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in duration-150">
+                {cells.map((cell, idx) => (
+                  <div key={idx} className="p-2 bg-muted/40 rounded-lg border border-border/50 space-y-1.5">
+                    <div className="flex items-center justify-between text-[9px] font-bold">
+                      <span className="text-amber-500">Комірка #{idx + 1} ({Math.floor(idx / 3)},{idx % 3})</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      <div>
+                        <span className="text-[8px] text-muted-foreground">X</span>
+                        <input
+                          type="number"
+                          value={cell.x}
+                          onChange={(e) => updateCell(idx, 'x', parseInt(e.target.value) || 0)}
+                          className="w-full p-1 text-[10px] bg-background rounded font-mono outline-none focus:ring-1 ring-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[8px] text-muted-foreground">Y</span>
+                        <input
+                          type="number"
+                          value={cell.y}
+                          onChange={(e) => updateCell(idx, 'y', parseInt(e.target.value) || 0)}
+                          className="w-full p-1 text-[10px] bg-background rounded font-mono outline-none focus:ring-1 ring-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[8px] text-muted-foreground">W</span>
+                        <input
+                          type="number"
+                          value={cell.w}
+                          onChange={(e) => updateCell(idx, 'w', parseInt(e.target.value) || 100)}
+                          className="w-full p-1 text-[10px] bg-background rounded font-mono outline-none focus:ring-1 ring-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[8px] text-muted-foreground">H</span>
+                        <input
+                          type="number"
+                          value={cell.h}
+                          onChange={(e) => updateCell(idx, 'h', parseInt(e.target.value) || 100)}
+                          className="w-full p-1 text-[10px] bg-background rounded font-mono outline-none focus:ring-1 ring-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

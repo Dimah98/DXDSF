@@ -1,8 +1,8 @@
-﻿import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
-  Globe // Імпортуємо лише іконку Globe, інші іконки використовуються через LucideIcons
+  Globe, Map as MapIcon, Package, Camera, Truck, CalendarClock, LayoutGrid,
+  ChevronRight, ChevronLeft, Square, Play, Boxes, Images, SlidersHorizontal
 } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -62,6 +62,7 @@ import InventoryScannerNode from './CustomNodes/InventoryScannerNode';
 import ScreenshotNode from './CustomNodes/ScreenshotNode';
 import MemoryGameNode from './CustomNodes/MemoryGameNode'; // Нода Гра Пам'ять
 import WhackAMoleNode from './CustomNodes/WhackAMoleNode'; // Нода Вдарь Крота
+import SequenceMemoryNode from './CustomNodes/SequenceMemoryNode'; // Нода Гра Послідовність
 // Імпортуємо новий компонент для введення тексту та кліку
 import SearchAndClickNode from './CustomNodes/SearchAndClickNode';
 import ConfigNode from './CustomNodes/ConfigNode';
@@ -78,6 +79,8 @@ import StreamPicker from './StreamPicker';
 import { GlobalStatisticsModal } from './GlobalStatisticsModal';
 import { PortTooltipManager } from './PortTooltipManager';
 import { NODE_CONFIG } from '../nodeConfig';
+import { useUIStore } from '../store/useUIStore';
+import { useGlobalSettingsStore } from '../store/useGlobalSettingsStore';
 import { ConsolePane } from './ConsolePane';
 import { NodeContextMenu } from './ui/NodeContextMenu';
 import ProjectManagerModal from './ProjectManagerModal'; // Менеджер проектів
@@ -142,6 +145,7 @@ const nodeTypes = {
   screenshotNode: ScreenshotNode,
   memoryGameNode: MemoryGameNode,  // Гра Пам'ять
   whackAMoleNode: WhackAMoleNode,  // Гра Вдарь Крота
+  sequenceMemoryNode: SequenceMemoryNode,  // Гра Послідовність (Simon Says)
   searchAndClickNode: SearchAndClickNode,
   configNode: ConfigNode,
   islandArrangerNode: IslandArrangerNode,
@@ -252,10 +256,17 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
   const [pickerConfig, setPickerConfig] = useState<{ nodeId: string, pickType: string, wsUrl?: string } | null>(null);
   const [selectedNodes, setSelectedNodes] = useState<any[]>([]);
   useEffect(() => { selectedNodesRef.current = selectedNodes; }, [selectedNodes]);
+  const storeSettings = useGlobalSettingsStore((s) => s.settings);
   const [globalSettings, setGlobalSettings] = useState(() => {
     const saved = localStorage.getItem('sfl_global_settings_v4');
     return saved ? JSON.parse(saved) : {};
   });
+
+  useEffect(() => {
+    if (storeSettings && Object.keys(storeSettings).length > 0) {
+      setGlobalSettings(storeSettings);
+    }
+  }, [storeSettings]);
 
   useEffect(() => {
     const handleSettingsChanged = (e: any) => setGlobalSettings(e.detail);
@@ -371,18 +382,40 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
     const handleSaveLogs = (e: Event) => {
       const customEvent = e as CustomEvent;
       const projectName = customEvent.detail?.projectName || currentProject;
+      const logsToSave = projectName === currentProject 
+        ? logsRef.current 
+        : (projectLogsRef.current.get(projectName) || []);
       
-      // Відправляємо поточні логи на сервер
-      fetch(`/api/logs/${encodeURIComponent(projectName)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(logsRef.current)
-      }).catch(() => {});
+      if (logsToSave.length > 0) {
+        fetch(`/api/logs/${encodeURIComponent(projectName)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(logsToSave)
+        }).catch(() => {});
+      }
     };
 
     window.addEventListener('sfl-save-logs', handleSaveLogs);
     return () => window.removeEventListener('sfl-save-logs', handleSaveLogs);
   }, [currentProject]);
+
+  const saveLogsRequest = useUIStore((s) => s.saveLogsRequest);
+  useEffect(() => {
+    if (saveLogsRequest && saveLogsRequest.projectName) {
+      const pName = saveLogsRequest.projectName;
+      const logsToSave = pName === currentProject 
+        ? logsRef.current 
+        : (projectLogsRef.current.get(pName) || []);
+      
+      if (logsToSave.length > 0) {
+        fetch(`/api/logs/${encodeURIComponent(pName)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(logsToSave)
+        }).catch(() => {});
+      }
+    }
+  }, [saveLogsRequest, currentProject]);
 
   // Ефект для завантаження збережених логів при першому завантаженні сторінки
   useEffect(() => {
@@ -668,6 +701,33 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
     return () => window.removeEventListener('add-node-tap', handleAddNodeTap);
   }, [reactFlowInstance, setNodes]);
 
+  const addNodeTapType = useUIStore((s) => s.addNodeTapType);
+  const clearAddNodeTap = useUIStore((s) => s.clearAddNodeTap);
+
+  useEffect(() => {
+    if (addNodeTapType && reactFlowInstance) {
+      const type = addNodeTapType;
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2
+      });
+      const cfg = NODE_CONFIG[type];
+      const newNode: Node = { 
+        id: getId(), 
+        type, 
+        position, 
+        dragHandle: '.drag-handle', 
+        data: { 
+          label: cfg?.label ?? type, 
+          selector: '', 
+          ...(cfg?.defaults ?? {}) 
+        } 
+      };
+      setNodes(nds => attachCallbacksRef.current([...nds, newNode]));
+      clearAddNodeTap();
+    }
+  }, [addNodeTapType, clearAddNodeTap, reactFlowInstance, setNodes]);
+
   const stopBot = useCallback(() => {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -792,73 +852,83 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
           <div className="absolute inset-0 overflow-hidden" ref={reactFlowWrapper}>
             
             {/* ── Кнопка Старт/Стоп та Інструменти (Верхній правий кут) ── */}
-            <div className="fixed top-6 right-6 z-[var(--z-canvas-button)] flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2">
+            <div className="fixed top-3 right-3 md:top-6 md:right-6 z-[var(--z-canvas-button)] flex flex-col items-end gap-1.5 md:gap-2">
+              <div className="flex items-center gap-1.5 md:gap-2">
                 {/* Згорнуті кнопки локального проекту */}
                 {isToolbarExpanded && (
-                  <div className="flex items-center gap-2 mr-1 animate-in slide-in-from-right-4 fade-in duration-300">
+                  <div className="flex flex-wrap items-center justify-end gap-1.5 md:gap-2 mr-1 animate-in slide-in-from-right-4 fade-in duration-300 max-w-[240px] sm:max-w-none bg-slate-950/80 md:bg-transparent p-1.5 md:p-0 rounded-2xl border border-white/10 md:border-none backdrop-blur-md md:backdrop-blur-none shadow-xl md:shadow-none">
                     <button
                       onClick={() => setIsMapOpen(true)}
                       disabled={!currentProject}
-                      className={`p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-emerald)]/20 text-[var(--accent-emerald)] border-[var(--accent-emerald)]/40 hover:bg-[var(--accent-emerald)]/30 shadow-[var(--accent-emerald)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
+                      className={`p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-emerald)]/20 text-[var(--accent-emerald)] border-[var(--accent-emerald)]/40 hover:bg-[var(--accent-emerald)]/30 shadow-[var(--accent-emerald)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
                       title={currentProject ? 'Карта Острова' : 'Завантажте проект'}
                     >
-                      <LucideIcons.Map size={18} />
+                      <MapIcon size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
                     <button
                       onClick={() => setIsInventoryOpen(true)}
                       disabled={!currentProject}
-                      className={`p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-indigo)]/20 text-[var(--accent-indigo)] border-[var(--accent-indigo)]/40 hover:bg-[var(--accent-indigo)]/30 shadow-[var(--accent-indigo)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
+                      className={`p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-indigo)]/20 text-[var(--accent-indigo)] border-[var(--accent-indigo)]/40 hover:bg-[var(--accent-indigo)]/30 shadow-[var(--accent-indigo)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
                       title={currentProject ? 'Інвентар' : 'Завантажте проект'}
                     >
-                      <LucideIcons.Package size={18} />
+                      <Package size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
                     <button
                       onClick={() => setIsScreenshotSidebarCollapsed(!isScreenshotSidebarCollapsed)}
                       disabled={!currentProject}
-                      className={`p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-pink)]/20 text-[var(--accent-pink)] border-[var(--accent-pink)]/40 hover:bg-[var(--accent-pink)]/30 shadow-[var(--accent-pink)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
+                      className={`p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-pink)]/20 text-[var(--accent-pink)] border-[var(--accent-pink)]/40 hover:bg-[var(--accent-pink)]/30 shadow-[var(--accent-pink)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
                       title={currentProject ? 'Скріншоти' : 'Завантажте проект'}
                     >
-                      <LucideIcons.Camera size={18} />
+                      <Camera size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
                     <button
                       onClick={() => setIsDeliveriesOpen(true)}
                       disabled={!currentProject}
-                      className={`p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-teal)]/20 text-[var(--accent-teal)] border-[var(--accent-teal)]/40 hover:bg-[var(--accent-teal)]/30 shadow-[var(--accent-teal)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
+                      className={`p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-[var(--accent-teal)]/20 text-[var(--accent-teal)] border-[var(--accent-teal)]/40 hover:bg-[var(--accent-teal)]/30 shadow-[var(--accent-teal)]/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
                       title={currentProject ? 'Доставки' : 'Завантажте проект'}
                     >
-                      <LucideIcons.Truck size={18} />
-                      </button>
-                      <button
-                        onClick={() => setCurrentView('scheduler')}
-                        className="p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-orange)]/20 text-[var(--accent-orange)] border-[var(--accent-orange)]/40 hover:bg-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/20"
-                        title="Масовий Планувальник"
-                      >
-                        <LucideIcons.CalendarClock size={18} />
-                      </button>
-                      <button
-                        onClick={() => setCurrentView('inventory')}
-                        className="p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-blue-600/20 text-blue-400 border-blue-500/40 hover:bg-blue-600/30 shadow-blue-500/20"
-                        title="Загальний Інвентар (Overview)"
-                      >
-                        <LucideIcons.LayoutGrid size={18} />
-                      </button>
+                      <Truck size={16} className="md:w-[18px] md:h-[18px]" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentView('scheduler')}
+                      className="p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-orange)]/20 text-[var(--accent-orange)] border-[var(--accent-orange)]/40 hover:bg-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/20"
+                      title="Масовий Планувальник"
+                    >
+                      <CalendarClock size={16} className="md:w-[18px] md:h-[18px]" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentView('inventory')}
+                      className="p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-blue-600/20 text-blue-400 border-blue-500/40 hover:bg-blue-600/30 shadow-blue-500/20"
+                      title="Загальний Інвентар (Overview)"
+                    >
+                      <LayoutGrid size={16} className="md:w-[18px] md:h-[18px]" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        useUIStore.getState().openConfigManager();
+                        window.dispatchEvent(new CustomEvent('open-config-manager'));
+                      }}
+                      className="p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-cyan-600/20 text-cyan-400 border-cyan-500/40 hover:bg-cyan-600/30 shadow-cyan-500/20"
+                      title="Конфігурації (Config Manager)"
+                    >
+                      <SlidersHorizontal size={16} className="md:w-[18px] md:h-[18px]" />
+                    </button>
                   </div>
                 )}
                 
                 {/* Кнопка розгортання */}
                 <button 
                   onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
-                  className="p-2 text-gray-400 hover:text-white transition-colors bg-[#0f172a]/50 rounded-xl border border-white/5 backdrop-blur-md shadow-xl"
+                  className="p-2 text-gray-400 hover:text-white transition-colors bg-[#0f172a]/80 rounded-xl border border-white/10 backdrop-blur-md shadow-xl"
                   title={isToolbarExpanded ? 'Згорнути інструменти' : 'Розгорнути інструменти'}
                 >
-                  {isToolbarExpanded ? <LucideIcons.ChevronRight size={16} /> : <LucideIcons.ChevronLeft size={16} />}
+                  {isToolbarExpanded ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                 </button>
 
                 {/* Кнопка Старт/Стоп бота (тільки іконка) */}
                 <button
                   onClick={isBotRunning ? stopBot : runBot}
-                  className={`p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${
+                  className={`p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${
                     isBotRunning 
                       ? 'bg-[var(--button-danger-bg)]/20 text-[var(--button-danger-bg)] border-[var(--button-danger-bg)]/40 hover:bg-[var(--button-danger-bg)]/30 shadow-[var(--button-danger-bg)]/20' 
                       : 'bg-[var(--button-success-bg)]/20 text-[var(--button-success-bg)] border-[var(--button-success-bg)]/40 hover:bg-[var(--button-success-bg)]/30 shadow-[var(--button-success-bg)]/20'
@@ -866,36 +936,36 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
                   title={isBotRunning ? 'Зупинити бота' : 'Запустити бота'}
                 >
                   {isBotRunning ? (
-                    <LucideIcons.Square size={18} fill="currentColor" />
+                    <Square size={16} className="md:w-[18px] md:h-[18px]" fill="currentColor" />
                   ) : (
-                    <LucideIcons.Play size={18} fill="currentColor" />
+                    <Play size={16} className="md:w-[18px] md:h-[18px]" fill="currentColor" />
                   )}
                 </button>
               </div>
 
               {/* Нижні кнопки (глобальні) */}
               {isToolbarExpanded && (
-                <div className="flex items-center gap-2 mr-[82px] animate-in slide-in-from-right-4 fade-in duration-300 delay-75">
+                <div className="flex flex-wrap justify-end gap-1.5 md:gap-2 mr-0 md:mr-[82px] animate-in slide-in-from-right-4 fade-in duration-300 delay-75 max-w-[240px] sm:max-w-none bg-slate-950/80 md:bg-transparent p-1.5 md:p-0 rounded-2xl border border-white/10 md:border-none backdrop-blur-md md:backdrop-blur-none shadow-xl md:shadow-none">
                   <button
                     onClick={() => setIsAllInventoriesOpen(true)}
-                    className="p-2 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-indigo)]/10 text-[var(--accent-indigo)] border-[var(--accent-indigo)]/30 hover:bg-[var(--accent-indigo)]/20"
+                    className="p-1.5 md:p-2 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-indigo)]/10 text-[var(--accent-indigo)] border-[var(--accent-indigo)]/30 hover:bg-[var(--accent-indigo)]/20"
                     title="Всі Інвентарі"
                   >
-                    <LucideIcons.Boxes size={16} />
+                    <Boxes size={15} />
                   </button>
                   <button
                     onClick={() => setIsAllScreenshotsOpen(true)}
-                    className="p-2 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-pink)]/10 text-[var(--accent-pink)] border-[var(--accent-pink)]/30 hover:bg-[var(--accent-pink)]/20"
+                    className="p-1.5 md:p-2 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-pink)]/10 text-[var(--accent-pink)] border-[var(--accent-pink)]/30 hover:bg-[var(--accent-pink)]/20"
                     title="Всі Скріншоти"
                   >
-                    <LucideIcons.Images size={16} />
+                    <Images size={15} />
                   </button>
                   <button
                     onClick={() => setIsAllDeliveriesOpen(true)}
-                    className="p-2 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-teal)]/10 text-[var(--accent-teal)] border-[var(--accent-teal)]/30 hover:bg-[var(--accent-teal)]/20"
+                    className="p-1.5 md:p-2 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-teal)]/10 text-[var(--accent-teal)] border-[var(--accent-teal)]/30 hover:bg-[var(--accent-teal)]/20"
                     title="Всі Доставки"
                   >
-                    <LucideIcons.Globe size={16} />
+                    <Globe size={15} />
                   </button>
                 </div>
               )}
@@ -907,14 +977,14 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
             )}
             <button
               onClick={() => setPickerConfig({ nodeId: 'remote_browser', pickType: 'default' })}
-              className={`fixed right-6 z-[var(--z-panel)] w-14 h-14 bg-[var(--accent-indigo)] text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-[var(--accent-indigo)]/80 hover:scale-110 active:scale-95 transition-all duration-300 group border-2 border-white/20 backdrop-blur-sm ${isConsoleOpen && !isManagerOpen ? 'bottom-[370px]' : 'bottom-20'}`}
+              className={`fixed right-3 md:right-6 z-[var(--z-panel)] w-12 h-12 md:w-14 md:h-14 bg-[var(--accent-indigo)] text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-[var(--accent-indigo)]/80 hover:scale-110 active:scale-95 transition-all duration-300 group border-2 border-white/20 backdrop-blur-sm ${isConsoleOpen && !isManagerOpen ? 'bottom-[360px] md:bottom-[370px]' : 'bottom-16 md:bottom-20'}`}
               title="Відкрити віддалене керування"
             >
-              <Globe size={26} className="group-hover:rotate-12 transition-transform" />
+              <Globe size={22} className="md:w-[26px] md:h-[26px] group-hover:rotate-12 transition-transform" />
               {isBotRunning && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--button-success-bg)] rounded-full border-2 border-white animate-pulse" />
+                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 md:w-4 md:h-4 bg-[var(--button-success-bg)] rounded-full border-2 border-white animate-pulse" />
               )}
-              <span className="absolute right-full mr-3 px-2 py-1 bg-black/80 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none uppercase tracking-widest">
+              <span className="absolute right-full mr-3 px-2 py-1 bg-black/80 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none uppercase tracking-widest hidden md:inline-block">
                 Браузер
               </span>
             </button>
@@ -1005,11 +1075,13 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
               edgeTypes={edgeTypes}
               colorMode={theme}
               zoomOnScroll={true}
+              zoomOnPinch={true}
               panOnScroll={false}
-              panOnDrag={window.innerWidth < 768 ? true : [1, 2]} 
-              selectionOnDrag={window.innerWidth >= 768}
+              panOnDrag={[1, 2]} 
+              selectionOnDrag={true}
               selectionMode={SelectionMode.Partial}
               selectionKeyCode={null}
+              panActivationKeyCode="Space"
               onKeyDown={onKeyDown}
               fitView
               onPaneContextMenu={onPaneContextMenu}

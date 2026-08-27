@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Node } from '@xyflow/react';
+import { useExecutionStore } from '../store/useExecutionStore';
+import { useUIStore } from '../store/useUIStore';
 
 interface UseWebSocketProps {
   WS_HOST: string;
@@ -66,6 +68,7 @@ export function useWebSocket(props: UseWebSocketProps) {
           setNodes((nds) => nds.map((node) => 
             node.id === data.nodeId ? { ...node, data: { ...node.data, ...newData } } : node
           ));
+          useExecutionStore.getState().updateNodeData(data.nodeId, newData);
           window.dispatchEvent(new CustomEvent('sfl-node-data-update', { 
             detail: { nodeId: data.nodeId, data: newData } 
           }));
@@ -74,33 +77,20 @@ export function useWebSocket(props: UseWebSocketProps) {
           const nodeName = data.nodeTitle || node?.data.title || node?.type || 'Нода';
           addLog(`Виконання: ${nodeName}`, 'info', data.context);
           
+          useExecutionStore.getState().setActiveExecutingNodeId(data.nodeId);
           window.dispatchEvent(new CustomEvent('sfl-node-executing', { detail: { nodeId: data.nodeId } }));
-
-          setNodes((nds) => nds.map((n) => {
-            const isGroup = data.parentGroupId && n.id === data.parentGroupId;
-            const isActive = n.id === data.nodeId;
-            
-            if (isGroup || isActive) {
-              return { 
-                ...n, 
-                style: { ...n.style, boxShadow: '0 0 20px rgba(59, 130, 246, 0.8)', outline: '2px solid #3b82f6' } 
-              };
-            }
-            return {
-              ...n,
-              style: { ...n.style, boxShadow: 'none', outline: 'none' }
-            };
-          }));
         } else if (data.type === 'NODE_DISPLAY_DATA') {
           setNodes((nds) => nds.map((node) => {
             if (node.id === data.nodeId) return { ...node, data: { ...node.data, value: data.value, rawData: data.rawData } };
             return node;
           }));
+          const displayData = { value: data.value, rawData: data.rawData };
+          useExecutionStore.getState().updateNodeData(data.nodeId, displayData);
           window.dispatchEvent(new CustomEvent('sfl-node-data-update', { 
-            detail: { nodeId: data.nodeId, data: { value: data.value, rawData: data.rawData } } 
+            detail: { nodeId: data.nodeId, data: displayData } 
           }));
         } else if (data.type === 'BOT_FINISHED') {
-          setNodes((nds) => nds.map(n => ({ ...n, style: { ...n.style, boxShadow: 'none', outline: 'none' } })));
+          useExecutionStore.getState().notifyBotFinished();
           window.dispatchEvent(new CustomEvent('sfl-bot-finished'));
           setIsBotRunning(false);
         } else if (data.type === 'BOT_RUNNING_STATE') {
@@ -124,11 +114,11 @@ export function useWebSocket(props: UseWebSocketProps) {
             ...prev.slice(0, 19)
           ]);
         } else if (data.type === 'SCREENSHOT_SAVED') {
-          // Dispatch custom event for ScreenshotSidebar
+          useUIStore.getState().setLastSavedScreenshot(data);
           window.dispatchEvent(new CustomEvent('screenshot-saved', { detail: data }));
         } else if (data.type === 'ERROR') {
-          addLog(`ПОМИЛКА: ${data.message}`, 'error');
-          alert(`❌ Помилка: ${data.message}`);
+          addLog(`❌ ПОМИЛКА: ${data.message}`, 'error');
+          window.dispatchEvent(new CustomEvent('sfl-error', { detail: { message: data.message } }));
         }
       } catch (err) {
         propsRef.current.addLog(`Помилка парсингу WS: ${err}`, 'error');

@@ -1,6 +1,7 @@
 import { NodeHandlerParams } from './types';
 import { DELI_RECIPES } from '../plugins/sunflower-land/data/recipes';
 import { recipeImagesConfig } from '../recipeImagesConfig';
+import { PROJECTS_DIR } from '../constants';
 import path from 'path';
 import fs from 'fs';
 
@@ -25,21 +26,20 @@ export const deliNodeHandler = async ({
   }
 
   // Зчитуємо інвентар з файлу _save.json
-  const saveFilePath = path.join(__dirname, '../../projects', `${projectName}_save.json`);
+  const saveFilePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
   let inventory: Record<string, unknown> = {};
 
   try {
-    if (fs.existsSync(saveFilePath)) {
-      const rawData = fs.readFileSync(saveFilePath, 'utf-8');
-      const apiDataObj = JSON.parse(rawData);
-      const visitorFarmState = apiDataObj.visitorFarmState as Record<string, unknown> | undefined;
-      const visitedFarmState = apiDataObj.visitedFarmState as Record<string, unknown> | undefined;
-      inventory = (visitorFarmState?.inventory as Record<string, unknown>) || (visitedFarmState?.inventory as Record<string, unknown>) || {};
-    } else {
+    const rawData = await fs.promises.readFile(saveFilePath, 'utf-8');
+    const apiDataObj = JSON.parse(rawData);
+    const visitorFarmState = apiDataObj.visitorFarmState as Record<string, unknown> | undefined;
+    const visitedFarmState = apiDataObj.visitedFarmState as Record<string, unknown> | undefined;
+    inventory = (visitorFarmState?.inventory as Record<string, unknown>) || (visitedFarmState?.inventory as Record<string, unknown>) || {};
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') {
       logToClient(`❌ Deli: Файл збереження ${projectName}_save.json не знайдено`, 'error');
       return { data: { ...context, error: 'No save file found' }, nextHandle: ['skip'] };
     }
-  } catch (err: any) {
     logToClient(`❌ Deli: Помилка читання файлу збереження: ${err.message}`, 'error');
     return { data: { ...context, error: err.message }, nextHandle: ['skip'] };
   }

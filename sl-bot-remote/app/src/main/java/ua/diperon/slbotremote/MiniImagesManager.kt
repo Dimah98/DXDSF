@@ -16,6 +16,8 @@ class MiniImagesManager(private val context: Context) {
     companion object {
         private const val TAG = "MiniImagesManager"
         private const val DATE_FORMAT = "yyyy-MM-dd"
+        @Volatile
+        private var cachedSkillPointsData: SkillPointsData? = null
     }
 
     private val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
@@ -305,9 +307,10 @@ class MiniImagesManager(private val context: Context) {
     }
 
     /**
-     * Завантажує дані про XP та вартість скілів з assets
+     * Завантажує дані про XP та вартість скілів з assets (з кешуванням у пам'яті)
      */
     private fun loadSkillPointsData(): SkillPointsData? {
+        cachedSkillPointsData?.let { return it }
         return try {
             val inputStream = context.assets.open("skill_points_data.json")
             val content = inputStream.bufferedReader().use { it.readText() }
@@ -331,7 +334,9 @@ class MiniImagesManager(private val context: Context) {
                 skillsCost[key] = skillsCostJson.optInt(key)
             }
 
-            SkillPointsData(xpTable, skillsCost)
+            val loaded = SkillPointsData(xpTable, skillsCost)
+            cachedSkillPointsData = loaded
+            loaded
         } catch (e: Exception) {
             Log.e(TAG, "Error loading skill points data: ${e.message}")
             null
@@ -398,10 +403,19 @@ class MiniImagesManager(private val context: Context) {
             if (projectSaveData == null) return null
 
             val projectJson = JSONObject(projectSaveData as Map<*, *>)
-            val visitedFarmState = projectJson.optJSONObject("visitedFarmState") ?: return null
+            val visitedFarmState = projectJson.optJSONObject("visitedFarmState") ?: projectJson
 
-            val coins = visitedFarmState.optDouble("coins", 0.0)
-            coins
+            if (visitedFarmState.has("coins")) {
+                val coinsStr = visitedFarmState.optString("coins", "")
+                val coins = coinsStr.toDoubleOrNull() ?: visitedFarmState.optDouble("coins", 0.0)
+                return coins
+            }
+            val inventory = visitedFarmState.optJSONObject("inventory")
+            if (inventory != null && inventory.has("Gold")) {
+                val goldStr = inventory.optString("Gold", "")
+                return goldStr.toDoubleOrNull() ?: inventory.optDouble("Gold", 0.0)
+            }
+            null
         } catch (e: Exception) {
             Log.e(TAG, "Error getting gold from save data: ${e.message}")
             null
@@ -409,17 +423,34 @@ class MiniImagesManager(private val context: Context) {
     }
 
     /**
-     * Отримує balance з даних збереження проекту
+     * Отримує balance / Flower з даних збереження проекту
      */
     fun getBalanceFromSaveData(projectSaveData: Map<String, Any>?): Double? {
         return try {
             if (projectSaveData == null) return null
 
             val projectJson = JSONObject(projectSaveData as Map<*, *>)
-            val visitedFarmState = projectJson.optJSONObject("visitedFarmState") ?: return null
+            val visitedFarmState = projectJson.optJSONObject("visitedFarmState") ?: projectJson
 
-            val balance = visitedFarmState.optDouble("balance", 0.0)
-            balance
+            val inventory = visitedFarmState.optJSONObject("inventory")
+            if (inventory != null) {
+                if (inventory.has("Flower")) {
+                    val flwStr = inventory.optString("Flower", "")
+                    return flwStr.toDoubleOrNull() ?: inventory.optDouble("Flower", 0.0)
+                }
+                if (inventory.has("FLOWER")) {
+                    val flwStr = inventory.optString("FLOWER", "")
+                    return flwStr.toDoubleOrNull() ?: inventory.optDouble("FLOWER", 0.0)
+                }
+            }
+
+            if (visitedFarmState.has("balance")) {
+                val balanceStr = visitedFarmState.optString("balance", "")
+                val balance = balanceStr.toDoubleOrNull() ?: visitedFarmState.optDouble("balance", 0.0)
+                return balance
+            }
+
+            null
         } catch (e: Exception) {
             Log.e(TAG, "Error getting balance from save data: ${e.message}")
             null
@@ -434,11 +465,15 @@ class MiniImagesManager(private val context: Context) {
             if (projectSaveData == null) return null
 
             val projectJson = JSONObject(projectSaveData as Map<*, *>)
-            val visitedFarmState = projectJson.optJSONObject("visitedFarmState") ?: return null
+            val visitedFarmState = projectJson.optJSONObject("visitedFarmState") ?: projectJson
             val inventory = visitedFarmState.optJSONObject("inventory") ?: return null
 
-            val gem = inventory.optDouble("Gem", 0.0)
-            gem
+            if (inventory.has("Gem")) {
+                val gemStr = inventory.optString("Gem", "")
+                val gem = gemStr.toDoubleOrNull() ?: inventory.optDouble("Gem", 0.0)
+                return gem
+            }
+            null
         } catch (e: Exception) {
             Log.e(TAG, "Error getting gem from save data: ${e.message}")
             null

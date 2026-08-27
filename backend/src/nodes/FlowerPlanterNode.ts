@@ -1,4 +1,5 @@
 import { NodeHandlerParams } from './types';
+import { PROJECTS_DIR } from '../constants';
 import path from 'path';
 import fs from 'fs';
 
@@ -73,21 +74,20 @@ export const flowerPlanterNodeHandler = async ({
     logToClient('Квітник: Жодна квітка не увімкнена -> Пропускаємо.', 'info');
     return { data: context, nextHandle: ['skip'] };
   }
-  const saveFilePath = path.join(__dirname, '../../projects', `${projectName}_save.json`);
+  const saveFilePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
   let inventory: Record<string, unknown> = {};
   let flowers: Record<string, unknown> = {};
   try {
-    if (fs.existsSync(saveFilePath)) {
-      const rawData = fs.readFileSync(saveFilePath, 'utf-8');
-      const apiDataObj = JSON.parse(rawData);
-      const farmState = apiDataObj.visitorFarmState ?? apiDataObj.visitedFarmState ?? apiDataObj ?? {};
-      inventory = (farmState.inventory as Record<string, unknown>) ?? {};
-      flowers   = (farmState.flowers   as Record<string, unknown>) ?? {};
-    } else {
+    const rawData = await fs.promises.readFile(saveFilePath, 'utf-8');
+    const apiDataObj = JSON.parse(rawData);
+    const farmState = apiDataObj.visitorFarmState ?? apiDataObj.visitedFarmState ?? apiDataObj ?? {};
+    inventory = (farmState.inventory as Record<string, unknown>) ?? {};
+    flowers   = (farmState.flowers   as Record<string, unknown>) ?? {};
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') {
       logToClient(`Квітник: Файл ${projectName}_save.json не знайдено`, 'error');
       return { data: { ...context, error: 'No save file found' }, nextHandle: ['skip'] };
     }
-  } catch (err: any) {
     logToClient(`Квітник: Помилка читання файлу: ${err.message}`, 'error');
     return { data: { ...context, error: err.message }, nextHandle: ['skip'] };
   }

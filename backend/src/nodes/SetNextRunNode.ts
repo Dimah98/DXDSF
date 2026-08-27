@@ -1,5 +1,5 @@
 import { NodeHandlerParams } from './types';
-import { schedulerService } from '../index';
+import { schedulerService } from '../services';
 
 // Обробник ноди "Наступний запуск" — встановлює час наступного запуску поточного проекту
 export const setNextRunNodeHandler = async ({

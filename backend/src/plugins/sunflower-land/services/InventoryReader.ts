@@ -17,36 +17,63 @@ const defaultLogger: Logger = {
 };
 
 const IM_DIR = path.resolve(__dirname, '../../../../../im');
-let imFilesCache: string[] | null = null;
+let imMapCache: Map<string, string> | null = null;
+let imFilesList: string[] = [];
 
-function getImFiles(): string[] {
-  if (imFilesCache === null) {
-    try { 
-      imFilesCache = fsSync.readdirSync(IM_DIR); 
-    } catch (e) { 
-      imFilesCache = []; 
+function normalizeKey(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function initImCache(): Map<string, string> {
+  if (imMapCache !== null) return imMapCache;
+  imMapCache = new Map<string, string>();
+  try {
+    imFilesList = fsSync.readdirSync(IM_DIR);
+    for (const file of imFilesList) {
+      const base = path.basename(file, path.extname(file)).toLowerCase().trim();
+      imMapCache.set(base, file);
+      imMapCache.set(base.replace(/ /g, '_'), file);
+      imMapCache.set(base.replace(/_/g, ' '), file);
+      imMapCache.set(normalizeKey(base), file);
     }
+  } catch {
+    imFilesList = [];
   }
-  return imFilesCache;
+  return imMapCache;
 }
 
 export function getImageUrl(itemName: string): string {
-  const imFiles = getImFiles();
+  const cache = initImCache();
   const cleanName = itemName.toLowerCase().trim();
-  let matchedFile = imFiles.find(file => {
-    const fileClean = path.basename(file, path.extname(file)).toLowerCase().trim();
-    return fileClean === cleanName ||
-           fileClean.replace(/ /g, '_') === cleanName ||
-           fileClean.replace(/_/g, ' ') === cleanName;
-  });
-  if (!matchedFile) {
-    matchedFile = imFiles.find(file => {
+  const norm = normalizeKey(cleanName);
+  
+  // O(1) прямий пошук за попередньо проіндексованим ключем
+  let matchedFile = cache.get(cleanName) 
+    || cache.get(cleanName.replace(/ /g, '_')) 
+    || cache.get(cleanName.replace(/_/g, ' '))
+    || cache.get(norm);
+
+  if (!matchedFile && imFilesList.length > 0) {
+    // Fallback: частковий збіг із мемоізацією
+    matchedFile = imFilesList.find(file => {
       const fileClean = path.basename(file, path.extname(file)).toLowerCase().trim();
       return fileClean.includes(cleanName) || cleanName.includes(fileClean);
     });
+    if (matchedFile) {
+      cache.set(cleanName, matchedFile);
+      cache.set(norm, matchedFile);
+    }
   }
+
   return matchedFile ? `/api/im/${matchedFile}` : `/api/im/${itemName}.png`;
 }
+
+interface CacheEntry {
+  mtime: number;
+  data: InventoryFile | null;
+}
+
+const fileCache = new Map<string, CacheEntry>();
 
 export class InventoryReader {
   private logger: Logger;
@@ -59,24 +86,51 @@ export class InventoryReader {
     try {
       const files = await fs.readdir(projectsDir);
       const saveFiles = files.filter(file => file.endsWith('_save.json'));
-      for (const filename of saveFiles) {
-        const accountId = filename.replace('_save.json', '');
-        const filePath = path.join(projectsDir, filename);
-        try {
-          const inventoryData = await this.readSaveFile(filePath, accountId, source);
-          if (inventoryData) { results.push([accountId, inventoryData]); processedAccounts.add(accountId); }
-        } catch (error) { continue; }
+      
+      const saveResults = await Promise.all(
+        saveFiles.map(async (filename) => {
+          const accountId = filename.replace('_save.json', '');
+          const filePath = path.join(projectsDir, filename);
+          try {
+            const inventoryData = await this.readSaveFile(filePath, accountId, source);
+            if (inventoryData) return [accountId, inventoryData] as [string, InventoryFile];
+          } catch {
+            return null;
+          }
+          return null;
+        })
+      );
+
+      for (const item of saveResults) {
+        if (item) {
+          results.push(item);
+          processedAccounts.add(item[0]);
+        }
       }
+
       const inventoryFiles = files.filter(file => file.endsWith('_inventory.json'));
-      for (const filename of inventoryFiles) {
-        const accountId = filename.replace('_inventory.json', '');
-        if (processedAccounts.has(accountId)) continue;
-        const filePath = path.join(projectsDir, filename);
-        try {
-          const inventoryData = await this.readInventoryFile(filePath, accountId);
-          if (inventoryData) results.push([accountId, inventoryData]);
-        } catch (error) { continue; }
+      const legacyResults = await Promise.all(
+        inventoryFiles.map(async (filename) => {
+          const accountId = filename.replace('_inventory.json', '');
+          if (processedAccounts.has(accountId)) return null;
+          const filePath = path.join(projectsDir, filename);
+          try {
+            const inventoryData = await this.readInventoryFile(filePath, accountId);
+            if (inventoryData) return [accountId, inventoryData] as [string, InventoryFile];
+          } catch {
+            return null;
+          }
+          return null;
+        })
+      );
+
+      for (const item of legacyResults) {
+        if (item && !processedAccounts.has(item[0])) {
+          results.push(item);
+          processedAccounts.add(item[0]);
+        }
       }
+
       return results;
     } catch (error) {
       this.logger.error('Failed to read projects directory', error, { projectsDir });
@@ -86,14 +140,32 @@ export class InventoryReader {
 
   private async readSaveFile(filePath: string, accountId: string, source: 'inventory' | 'stock' = 'inventory'): Promise<InventoryFile | null> {
     try {
+      let mtimeMs: number | undefined;
+      if (typeof fs.stat === 'function') {
+        try {
+          const stats = await fs.stat(filePath);
+          mtimeMs = stats?.mtimeMs;
+        } catch (e) {}
+      }
+
+      const cacheKey = `${filePath}:${source}`;
+      if (mtimeMs !== undefined) {
+        const cached = fileCache.get(cacheKey);
+        if (cached && cached.mtime === mtimeMs) {
+          return cached.data;
+        }
+      }
+
       const fileContent = await fs.readFile(filePath, 'utf-8');
       let data: any;
       try { data = JSON.parse(fileContent); }
       catch (parseError) { this.logger.error('Invalid JSON in save file', parseError, { accountId, filePath }); return null; }
       const rawInventory: Record<string, any> = (data.visitedFarmState && data.visitedFarmState[source]) || {};
-      if (Object.keys(rawInventory).length === 0) return null;
-      let timestamp = Date.now();
-      try { const stats = await fs.stat(filePath); timestamp = stats.mtimeMs; } catch (e) {}
+      if (Object.keys(rawInventory).length === 0) {
+        if (mtimeMs !== undefined) fileCache.set(cacheKey, { mtime: mtimeMs, data: null });
+        return null;
+      }
+      const timestamp = mtimeMs || Date.now();
       const items: ResourceItem[] = Object.entries(rawInventory)
         .map(([key, val]) => ({
           image: getImageUrl(key),
@@ -102,16 +174,18 @@ export class InventoryReader {
           coords: { x: 0, y: 0 }
         }))
         .filter(item => item.number > 0);
-      return {
+      const result: InventoryFile = {
         projectName: accountId,
         data: items,
         timestamp,
         version: '2.0',
         metadata: { selector: `visitedFarmState.${source}`, itemCount: items.length, scanDuration: 0 }
       };
+      if (mtimeMs !== undefined) fileCache.set(cacheKey, { mtime: mtimeMs, data: result });
+      return result;
     } catch (error) {
       const err = error as NodeJS.ErrnoException;
-      if (err.code === 'ENOENT') { this.logger.debug('Save file not found', { accountId, filePath }); return null; }
+      if (err.code === 'ENOENT') { this.logger.debug('Inventory file not found, skipping', { accountId, filePath }); return null; }
       this.logger.error('Failed to read save file', error, { accountId, filePath, errorCode: err.code });
       return null;
     }
@@ -119,31 +193,80 @@ export class InventoryReader {
 
   private async readInventoryFile(filePath: string, accountId: string): Promise<InventoryFile | null> {
     try {
+      let mtimeMs: number | undefined;
+      if (typeof fs.stat === 'function') {
+        try {
+          const stats = await fs.stat(filePath);
+          mtimeMs = stats?.mtimeMs;
+        } catch (e) {}
+      }
+
+      const cacheKey = filePath;
+      if (mtimeMs !== undefined) {
+        const cached = fileCache.get(cacheKey);
+        if (cached && cached.mtime === mtimeMs) {
+          return cached.data;
+        }
+      }
+
       const fileContent = await fs.readFile(filePath, 'utf-8');
       let data: any;
       try { data = JSON.parse(fileContent); }
       catch (parseError) { this.logger.error('Invalid JSON in inventory file', parseError, { accountId, filePath }); return null; }
-      if (!data || typeof data !== 'object' || !Array.isArray(data.data)) return null;
-      const validItems: ResourceItem[] = data.data
-        .filter((item: any) => item && typeof item === 'object' && typeof item.image === 'string' && item.image.length > 0 && (typeof item.number === 'number' || !isNaN(parseFloat(item.number))))
-        .map((item: any) => ({
-          image: item.image,
-          number: typeof item.number === 'number' ? item.number : parseFloat(item.number) || 0,
-          selector: item.selector || '',
-          coords: item.coords || { x: 0, y: 0 }
-        }));
-      let timestamp = typeof data.timestamp === 'number' ? data.timestamp : Date.now();
-      try { const stats = await fs.stat(filePath); timestamp = stats.mtimeMs; } catch (e) {}
-      return {
-        projectName: typeof data.projectName === 'string' ? data.projectName : accountId,
-        data: validItems,
-        timestamp,
-        version: typeof data.version === 'string' ? data.version : '1.0',
-        metadata: data.metadata || { selector: '', itemCount: validItems.length, scanDuration: 0 }
+
+      if (!data || typeof data !== 'object' ||
+          typeof data.projectName !== 'string' ||
+          !Array.isArray(data.data) ||
+          typeof data.timestamp !== 'number' ||
+          typeof data.version !== 'string' ||
+          !data.metadata || typeof data.metadata !== 'object' ||
+          typeof data.metadata.selector !== 'string' ||
+          typeof data.metadata.itemCount !== 'number' ||
+          typeof data.metadata.scanDuration !== 'number') {
+        this.logger.error('Invalid inventory file structure', undefined, { accountId, filePath });
+        return null;
+      }
+
+      for (const item of data.data) {
+        if (!item || typeof item !== 'object' ||
+            typeof item.image !== 'string' || item.image.length === 0 ||
+            typeof item.number !== 'number' ||
+            typeof item.selector !== 'string' ||
+            !item.coords || typeof item.coords !== 'object' ||
+            typeof item.coords.x !== 'number' ||
+            typeof item.coords.y !== 'number') {
+          this.logger.error('Invalid inventory file structure', undefined, { accountId, filePath });
+          return null;
+        }
+      }
+
+      if (data.version !== '1.0') {
+        this.logger.warn('Version mismatch in inventory file', { accountId, filePath, expectedVersion: '1.0', actualVersion: data.version });
+      }
+
+      if (data.projectName !== accountId) {
+        this.logger.warn('ProjectName mismatch in inventory file', {
+          accountId,
+          filePath,
+          filename: path.basename(filePath),
+          projectName: data.projectName,
+          expectedProjectName: accountId,
+          actualProjectName: data.projectName
+        });
+      }
+
+      const result: InventoryFile = {
+        projectName: data.projectName,
+        data: data.data,
+        timestamp: data.timestamp,
+        version: data.version,
+        metadata: data.metadata
       };
+      if (mtimeMs !== undefined) fileCache.set(cacheKey, { mtime: mtimeMs, data: result });
+      return result;
     } catch (error) {
       const err = error as NodeJS.ErrnoException;
-      if (err.code === 'ENOENT') { this.logger.debug('Inventory file not found', { accountId, filePath }); return null; }
+      if (err.code === 'ENOENT') { this.logger.debug('Inventory file not found, skipping', { accountId, filePath }); return null; }
       this.logger.error('Failed to read inventory file', error, { accountId, filePath, errorCode: err.code });
       return null;
     }

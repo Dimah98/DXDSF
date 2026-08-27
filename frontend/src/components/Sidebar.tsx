@@ -1,10 +1,10 @@
 // Бокова панель з нодами — підтримка drag (десктоп) та tap (мобільний) + кастомізація кольорів + керування проектами
 // Використовує NODE_CONFIG як єдине джерело правди для списку нод
 import React, { useState, useEffect, useRef } from 'react';
-// Більше не використовуємо DropdownMenu — замінено на ProjectManagerModal
 import { Settings2, PanelLeftClose, PanelLeftOpen, Calendar, ChevronUp, ChevronDown } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import { getDynamicIcon } from '../utils/dynamicIcon';
 import { NODE_CONFIG, SIDEBAR_NODE_TYPES } from '../nodeConfig';
+import { useUIStore } from '../store/useUIStore';
 
 const ICON_OPTIONS = [
   'Play', 'Globe', 'Scan', 'Search', 'CloudDownload', 'Database',
@@ -33,6 +33,7 @@ const COLOR_OPTIONS = [
 
 // Додавання ноди тапом (мобільний пристрій)
 const addNodeByTap = (nodeType: string) => {
+  useUIStore.getState().triggerAddNodeTap(nodeType);
   window.dispatchEvent(new CustomEvent('add-node-tap', { detail: { type: nodeType } }));
 };
 
@@ -106,11 +107,13 @@ const Sidebar = ({
 
   useEffect(() => {
     localStorage.setItem('sfl_node_colors_hex', JSON.stringify(customColors));
+    useUIStore.getState().setNodeColors(customColors);
     window.dispatchEvent(new CustomEvent('node-colors-changed', { detail: customColors }));
   }, [customColors]);
 
   useEffect(() => {
     localStorage.setItem('sfl_node_icons', JSON.stringify(customIcons));
+    useUIStore.getState().setNodeIcons(customIcons);
     window.dispatchEvent(new CustomEvent('node-icons-changed', { detail: customIcons }));
   }, [customIcons]);
 
@@ -171,7 +174,7 @@ const Sidebar = ({
     const config = NODE_CONFIG[type];
     if (!config) return null;
     const customIconName = customIcons[type];
-    const Icon = customIconName ? (LucideIcons as any)[customIconName] || config.icon : config.icon;
+    const Icon = (customIconName ? getDynamicIcon(customIconName) : null) || config.icon;
     const colorHex = customColors[type] || config.defaultColor;
     const isOpen = activeTypeSettings === type;
 
@@ -243,7 +246,7 @@ const Sidebar = ({
             <div className="text-[9px] font-bold uppercase text-muted-foreground/60 mb-2 px-1">Вибір іконки</div>
             <div className="grid grid-cols-6 gap-1 max-h-32 overflow-y-auto custom-scrollbar pr-1">
               {ICON_OPTIONS.map((iconName) => {
-                const IconComponent = (LucideIcons as any)[iconName];
+                const IconComponent = getDynamicIcon(iconName);
                 if (!IconComponent) return null;
                 const isSelected = customIconName === iconName || (!customIconName && config.icon.name === iconName);
                 return (
@@ -265,72 +268,81 @@ const Sidebar = ({
   };
 
   return (
-    <aside
-      className={`absolute left-0 top-0 z-[var(--z-sidebar)] border-r text-foreground flex flex-col h-full transition-all duration-300 ${isCollapsed ? 'w-14' : 'w-60'} backdrop-blur-sm bg-[var(--interface-bg)] border-[var(--interface-border)]`}
-    >
-      <div className={`flex flex-col shrink-0 ${isCollapsed ? 'p-1 items-center' : 'p-3 items-start'}`}>
-        <div className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'justify-between'} mb-4`}>
-          {/* Логотип — клік відкриває менеджер проектів */}
-          <button
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none group"
-            onClick={onOpenManager}
-            title="Менеджер проектів"
-          >
-            <div className="w-10 h-10 flex items-center justify-center transition-all">
-              <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
-            </div>
-            {!isCollapsed && (
-              <div className="flex flex-col items-start">
-                <span className="text-[10px] font-black uppercase tracking-tighter leading-none">SFL Builder</span>
-                {/* Підказка що клік відкриває менеджер */}
-                <span className="text-[8px] text-muted-foreground font-bold group-hover:text-primary transition-colors">Проекти</span>
-              </div>
-            )}
-          </button>
-
-          {!isCollapsed && (
+    <>
+      {/* Мобільний фон-затемнення для закриття сайдбару при тапі поза ним */}
+      {!isCollapsed && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-[calc(var(--z-sidebar)-1)] md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsCollapsed(true)}
+        />
+      )}
+      <aside
+        className={`absolute left-0 top-0 z-[var(--z-sidebar)] border-r text-foreground flex flex-col h-full transition-all duration-300 ${isCollapsed ? 'w-14' : 'w-64 md:w-60 shadow-2xl md:shadow-none'} backdrop-blur-sm bg-[var(--interface-bg)] border-[var(--interface-border)]`}
+      >
+        <div className={`flex flex-col shrink-0 ${isCollapsed ? 'p-1 items-center' : 'p-3 items-start'}`}>
+          <div className={`flex items-center w-full ${isCollapsed ? 'justify-center' : 'justify-between'} mb-4`}>
+            {/* Логотип — клік відкриває менеджер проектів */}
             <button
-              onClick={() => setIsCollapsed(true)}
-              className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors ml-auto"
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none group"
+              onClick={onOpenManager}
+              title="Менеджер проектів"
             >
-              <PanelLeftClose size={16} />
+              <div className="w-10 h-10 flex items-center justify-center transition-all">
+                <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+              </div>
+              {!isCollapsed && (
+                <div className="flex flex-col items-start">
+                  <span className="text-[10px] font-black uppercase tracking-tighter leading-none">SFL Builder</span>
+                  {/* Підказка що клік відкриває менеджер */}
+                  <span className="text-[8px] text-muted-foreground font-bold group-hover:text-primary transition-colors">Проекти</span>
+                </div>
+              )}
+            </button>
+
+            {!isCollapsed && (
+              <button
+                onClick={() => setIsCollapsed(true)}
+                className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors ml-auto"
+              >
+                <PanelLeftClose size={16} />
+              </button>
+            )}
+          </div>
+
+          {isCollapsed && (
+            <button
+              onClick={() => setIsCollapsed(false)}
+              className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors mb-4"
+            >
+              <PanelLeftOpen size={16} />
             </button>
           )}
+
+          {!isCollapsed && <h3 className="font-black text-[9px] uppercase text-muted-foreground/50 tracking-widest px-1 mb-2">Доступні Ноди</h3>}
         </div>
 
-        {isCollapsed && (
+        {/* Список нод — генерується з nodeOrder */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar pb-6">
+          <div className="flex flex-col gap-1">
+            {nodeOrder.map((type, index) => (
+              <NodeItem key={type} type={type} isFirst={index === 0} isLast={index === nodeOrder.length - 1} />
+            ))}
+          </div>
+        </div>
+
+        {/* Кнопка розкладу внизу сайдбару */}
+        <div className={`p-2 border-t border-[var(--interface-border)] ${isCollapsed ? 'flex justify-center' : ''}`}>
           <button
-            onClick={() => setIsCollapsed(false)}
-            className="p-1.5 hover:bg-muted rounded-md text-muted-foreground transition-colors mb-4"
+            onClick={onScheduleToggle}
+            className={`flex items-center gap-2 p-2 rounded-lg w-full transition-colors text-muted-foreground hover:bg-white/10 hover:text-primary ${isCollapsed ? 'justify-center' : ''}`}
+            title="Менеджер розкладу"
           >
-            <PanelLeftOpen size={16} />
+            <Calendar size={18} />
+            {!isCollapsed && <span className="text-[11px] font-bold">Розклад</span>}
           </button>
-        )}
-
-        {!isCollapsed && <h3 className="font-black text-[9px] uppercase text-muted-foreground/50 tracking-widest px-1 mb-2">Доступні Ноди</h3>}
-      </div>
-
-      {/* Список нод — генерується з nodeOrder */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar pb-6">
-        <div className="flex flex-col gap-1">
-          {nodeOrder.map((type, index) => (
-            <NodeItem key={type} type={type} isFirst={index === 0} isLast={index === nodeOrder.length - 1} />
-          ))}
         </div>
-      </div>
-
-      {/* Кнопка розкладу внизу сайдбару */}
-      <div className={`p-2 border-t border-[var(--interface-border)] ${isCollapsed ? 'flex justify-center' : ''}`}>
-        <button
-          onClick={onScheduleToggle}
-          className={`flex items-center gap-2 p-2 rounded-lg w-full transition-colors text-muted-foreground hover:bg-white/10 hover:text-primary ${isCollapsed ? 'justify-center' : ''}`}
-          title="Менеджер розкладу"
-        >
-          <Calendar size={18} />
-          {!isCollapsed && <span className="text-[11px] font-bold">Розклад</span>}
-        </button>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 

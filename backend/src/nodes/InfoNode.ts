@@ -56,11 +56,15 @@ export const infoNodeHandler = async ({
 
     if (!elementHandle) {
        logToClient(`❌ Сканер: Елемент не знайдено (${selector})`, 'error');
-       ws.send(JSON.stringify({ 
-         type: 'NODE_DATA_UPDATE', 
-         nodeId: currentNode.id, 
-         data: { lastText: 'Не знайдено' } 
-       }));
+       if (ws && typeof ws.send === 'function' && (ws.readyState === undefined || ws.readyState === 1)) {
+         try {
+           ws.send(JSON.stringify({ 
+             type: 'NODE_DATA_UPDATE', 
+             nodeId: currentNode.id, 
+             data: { lastText: 'Не знайдено' } 
+           }));
+         } catch {}
+       }
        return { nextHandle: 'fail', data: context }; // Передаємо сигнал на порт помилки
     }
 
@@ -110,23 +114,28 @@ export const infoNodeHandler = async ({
        }
     };
 
-    broadcastVariables();
+    if (typeof broadcastVariables === 'function') {
+      try { broadcastVariables(); } catch {}
+    }
     
-    ws.send(JSON.stringify({ 
-       type: 'NODE_DATA_UPDATE', 
-       nodeId: currentNode.id, 
-       data: { 
-          lastCoords: `X:${coords.x}, Y:${coords.y}`,
-          lastText: text?.substring(0, 15),
-          lastNum: num,
-          lastChildrenCount: info?.children,
-          lastImagesCount: info?.images,
-          imageNames: info?.imageNames || [],
-          childrenNames: info?.childrenNames || []
-       } 
-    }));
+    if (ws && typeof ws.send === 'function' && (ws.readyState === undefined || ws.readyState === 1)) {
+      try {
+        ws.send(JSON.stringify({ 
+           type: 'NODE_DATA_UPDATE', 
+           nodeId: currentNode.id, 
+           data: { 
+              lastCoords: `X:${coords.x}, Y:${coords.y}`,
+              lastText: text?.substring(0, 15),
+              lastNum: num,
+              lastChildrenCount: info?.children,
+              lastImagesCount: info?.images,
+              imageNames: info?.imageNames || [],
+              childrenNames: info?.childrenNames || []
+           } 
+        }));
+      } catch {}
+    }
   } catch (e: any) { 
-    // Requirement 13.1: Log the error with the Logger (not console.error)
     logger.error(`InfoNode scan error for node ${currentNode.id}`, e instanceof Error ? e : new Error(String(e)));
     logToClient(`❌ Сканер помилка: ${e.message}`, 'error');
     return { nextHandle: 'fail', data: context };

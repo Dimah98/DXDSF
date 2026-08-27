@@ -42,6 +42,9 @@ import ua.diperon.slbotremote.ui.theme.*
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 /**
  * Екран перегляду всіх інвентарів
@@ -87,23 +90,28 @@ fun AllInventoriesScreen(
                 // Отримуємо список всіх проектів
                 val projectNames = apiService.getProjects()
 
-                // Завантажуємо інвентарі або склади для кожного проекту
+                // Паралельно завантажуємо інвентарі або склади для всіх проектів
+                val results: List<Pair<String, List<InventoryItem>>?> = coroutineScope {
+                    projectNames.map { projectName ->
+                        async {
+                            try {
+                                val inventory = apiService.getInventory(projectName, dataSource)
+                                if (inventory.data.isNotEmpty()) Pair(projectName, inventory.data) else null
+                            } catch (e: Exception) {
+                                android.util.Log.d("AllInventoriesScreen", "No data for $projectName")
+                                null
+                            }
+                        }
+                    }.awaitAll()
+                }
+
                 val inventories = mutableMapOf<String, List<InventoryItem>>()
                 val resourcesSet = mutableSetOf<String>()
 
-                for (projectName in projectNames) {
-                    try {
-                        val inventory = apiService.getInventory(projectName, dataSource)
-                        if (inventory.data.isNotEmpty()) {
-                            inventories[projectName] = inventory.data
-                            // Збираємо всі унікальні ресурси
-                            inventory.data.forEach { item ->
-                                resourcesSet.add(item.image)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        // Пропускаємо проекти без даних
-                        android.util.Log.d("AllInventoriesScreen", "No data for $projectName")
+                results.filterNotNull().forEach { (name, data) ->
+                    inventories[name] = data
+                    data.forEach { item ->
+                        resourcesSet.add(item.image)
                     }
                 }
 

@@ -1,6 +1,7 @@
 // Права панель для перегляду та управління скріншотами проекту
 import React, { useState, useEffect } from 'react';
 import { Camera, X, Trash2, Maximize2, PanelRightClose } from 'lucide-react';
+import { useUIStore } from '../store/useUIStore';
 
 interface ScreenshotSidebarProps {
   projectName: string | null;
@@ -13,6 +14,7 @@ const ScreenshotSidebar: React.FC<ScreenshotSidebarProps> = ({
   isCollapsed,
   onToggle
 }) => {
+  const lastSavedScreenshot = useUIStore((s) => s.lastSavedScreenshot);
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -39,7 +41,13 @@ const ScreenshotSidebar: React.FC<ScreenshotSidebarProps> = ({
     }
   }, [projectName]);
 
-  // Auto-refresh on custom event
+  // Auto-refresh on Zustand store or custom event
+  useEffect(() => {
+    if (lastSavedScreenshot && lastSavedScreenshot.projectName === projectName) {
+      fetchScreenshots();
+    }
+  }, [lastSavedScreenshot, projectName]);
+
   useEffect(() => {
     const handleScreenshotSaved = (e: CustomEvent) => {
       if (e.detail.projectName === projectName) {

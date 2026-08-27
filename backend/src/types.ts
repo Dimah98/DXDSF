@@ -227,6 +227,8 @@ export interface ProjectSession {
 
   // Bot State
   isBotRunning: boolean;
+  isPaused?: boolean;
+  engine?: any;
   lastActiveNodeId: string | null;
   lastActiveNodeTitle: string | null;
   currentRunId?: string;
@@ -240,9 +242,12 @@ export interface ProjectSession {
   globalVariables: Record<string, unknown>;
   nodeRuntimeState: Map<string, Record<string, unknown>>;
 
-  // Streaming
+  // Streaming & CDP
   isStreaming: boolean;
   photoDebugEnabled: boolean;
+  _deviceWidth?: number;
+  _deviceHeight?: number;
+  _cachedDpr?: number;
 
   // Lifecycle (Requirement 21: Session State Persistence)
   createdAt: number;

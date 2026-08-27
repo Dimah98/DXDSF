@@ -17,59 +17,66 @@ export interface MassLaunch {
 
 const FILE_PATH = path.join(__dirname, '../../../data/mass_launches.json');
 
-function ensureFile(): MassLaunch[] {
+let cachedLaunches: MassLaunch[] | null = null;
+
+function ensureCache(): MassLaunch[] {
+  if (cachedLaunches !== null) return cachedLaunches;
   try {
-    if (!fs.existsSync(FILE_PATH)) {
-      fs.mkdirSync(path.dirname(FILE_PATH), { recursive: true });
-      fs.writeFileSync(FILE_PATH, '[]', 'utf-8');
-      return [];
+    if (fs.existsSync(FILE_PATH)) {
+      cachedLaunches = JSON.parse(fs.readFileSync(FILE_PATH, 'utf-8'));
+    } else {
+      cachedLaunches = [];
+      fs.promises.mkdir(path.dirname(FILE_PATH), { recursive: true })
+        .then(() => fs.promises.writeFile(FILE_PATH, '[]', 'utf-8'))
+        .catch(() => {});
     }
-    return JSON.parse(fs.readFileSync(FILE_PATH, 'utf-8'));
   } catch (e) {
-    return [];
+    cachedLaunches = [];
   }
+  return cachedLaunches || [];
 }
 
-function saveFile(data: MassLaunch[]) {
-  fs.mkdirSync(path.dirname(FILE_PATH), { recursive: true });
-  fs.writeFileSync(FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+function persistAsync(data: MassLaunch[]) {
+  fs.promises.mkdir(path.dirname(FILE_PATH), { recursive: true })
+    .then(() => fs.promises.writeFile(FILE_PATH, JSON.stringify(data, null, 2), 'utf-8'))
+    .catch(err => console.error('[MassLaunchStore] Failed to persist mass launches', err));
 }
 
 export const MassLaunchStore = {
   getAll(): MassLaunch[] {
-    return ensureFile();
+    return ensureCache();
   },
   
   getById(id: string): MassLaunch | undefined {
-    return ensureFile().find(x => x.id === id);
+    return ensureCache().find(x => x.id === id);
   },
 
   create(data: Omit<MassLaunch, 'id' | 'lastRunTime'>): MassLaunch {
-    const list = ensureFile();
+    const list = ensureCache();
     const item: MassLaunch = {
       ...data,
       id: randomUUID(),
     };
     list.push(item);
-    saveFile(list);
+    persistAsync(list);
     return item;
   },
 
   update(id: string, updates: Partial<MassLaunch>): MassLaunch | null {
-    const list = ensureFile();
+    const list = ensureCache();
     const idx = list.findIndex(x => x.id === id);
     if (idx === -1) return null;
     list[idx] = { ...list[idx], ...updates };
-    saveFile(list);
+    persistAsync(list);
     return list[idx];
   },
 
   delete(id: string): boolean {
-    const list = ensureFile();
+    const list = ensureCache();
     const idx = list.findIndex(x => x.id === id);
     if (idx === -1) return false;
     list.splice(idx, 1);
-    saveFile(list);
+    persistAsync(list);
     return true;
   }
 };

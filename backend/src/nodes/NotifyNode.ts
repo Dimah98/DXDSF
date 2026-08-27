@@ -1,5 +1,5 @@
 import { NodeHandlerParams } from './types';
-import { notificationService } from '../index';
+import { notificationService } from '../services';
 
 // Обробник ноди "Сповіщення" — відправляє текстове сповіщення від поточного проекту
 export const notifyNodeHandler = async ({

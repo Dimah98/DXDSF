@@ -12,8 +12,8 @@ const OPERATORS = [
   { value: '<=', label: '≤' },
   { value: '==', label: '=' },
   { value: '!=', label: '≠' },
-  { value: 'time_is_today', label: '📅 = сьогодні' },
-  { value: 'time_not_today', label: '📅 ≠ сьогодні' },
+  { value: 'time_is_today', label: '📅 = сьогодні (з 03:00)' },
+  { value: 'time_not_today', label: '📅 ≠ сьогодні (з 03:00)' },
 ];
 
 const LOGIC_OPS = [

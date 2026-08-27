@@ -43,7 +43,10 @@ data class ProjectModel(
     val balance: Double? = null,
     val gem: Double? = null,
     val isFullMoon: Boolean = false,
-    val season: String? = null
+    val season: String? = null,
+    val hasChestCollectedToday: Boolean = false,
+    val hasShipmentRestockedToday: Boolean = false,
+    val hasPetalPuzzleSolvedToday: Boolean = false
 )
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
@@ -89,6 +92,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _notificationCount = MutableStateFlow(0)
     val notificationCount: StateFlow<Int> = _notificationCount.asStateFlow()
 
+    private val _activeQueue = MutableStateFlow<List<String>>(emptyList())
+    val activeQueue: StateFlow<List<String>> = _activeQueue.asStateFlow()
+
     private val _internalConfig = MutableStateFlow<Map<String, Int>>(emptyMap())
     val internalConfig: StateFlow<Map<String, Int>> = _internalConfig.asStateFlow()
 
@@ -127,7 +133,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         ProjectModel(
                             name = e.name,
                             isRunning = e.isRunning,
-                            isBrowserOpen = false, // Не кешуємо цей стан, він швидко оновиться
+                            isBrowserOpen = e.isBrowserOpen,
                             activeNodeTitle = e.activeNodeTitle,
                             nextRun = e.nextRun,
                             plannedNodeRun = e.plannedNodeRun,
@@ -137,7 +143,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             balance = e.balance,
                             gem = e.gem,
                             isFullMoon = e.isFullMoon,
-                            season = e.season
+                            season = e.season,
+                            hasChestCollectedToday = e.hasChestCollectedToday,
+                            hasShipmentRestockedToday = e.hasShipmentRestockedToday,
+                            hasPetalPuzzleSolvedToday = e.hasPetalPuzzleSolvedToday
                         )
                     }
                 }
@@ -155,6 +164,26 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
             refreshData()
         }
+    }
+
+    private fun isToday(timestamp: Any?): Boolean {
+        val millis = when (timestamp) {
+            is Number -> timestamp.toLong()
+            is String -> timestamp.toDoubleOrNull()?.toLong() ?: timestamp.toLongOrNull() ?: return false
+            else -> return false
+        }
+        if (millis <= 0) return false
+
+        // День оновлюється о 03:00 за місцевим часом (зсув на -3 години)
+        val shiftMillis = 3 * 3600 * 1000L
+        val nowShifted = System.currentTimeMillis() - shiftMillis
+        val timestampShifted = millis - shiftMillis
+
+        val calNow = java.util.Calendar.getInstance().apply { timeInMillis = nowShifted }
+        val calTimestamp = java.util.Calendar.getInstance().apply { timeInMillis = timestampShifted }
+
+        return calNow.get(java.util.Calendar.YEAR) == calTimestamp.get(java.util.Calendar.YEAR) &&
+               calNow.get(java.util.Calendar.DAY_OF_YEAR) == calTimestamp.get(java.util.Calendar.DAY_OF_YEAR)
     }
 
     private fun parseMiniImages(json: String): List<Pair<String, Int?>> {
@@ -194,79 +223,127 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             _isLoading.value = true
             _errorMessage.value = null
             try {
-                val projectNames = try {
-                    val names = apiService.getProjects()
+                // Швидке отримання зведених даних одним запитом
+                val loadedProjects: List<ProjectModel> = try {
+                    val overviewList = apiService.getProjectsOverview()
                     _isConnectionSuccessful.value = true
-                    names
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to get projects: ${e.message}")
-                    _isConnectionSuccessful.value = false
-                    _errorEvents.emit("Помилка завантаження проєктів: ${e.localizedMessage}")
-                    emptyList<String>()
-                }
+                    overviewList.map { item ->
+                        ProjectModel(
+                            name = item.name,
+                            isRunning = item.isRunning,
+                            isBrowserOpen = item.isBrowserOpen,
+                            activeNodeTitle = item.activeNodeTitle,
+                            nextRun = item.nextRun,
+                            plannedNodeRun = item.plannedNodeRun,
+                            miniImages = item.getParsedMiniImages(),
+                            level = item.level,
+                            gold = item.gold,
+                            balance = item.balance,
+                            gem = item.gem,
+                            isFullMoon = item.isFullMoon,
+                            season = item.season,
+                            hasChestCollectedToday = item.hasChestCollectedToday,
+                            hasShipmentRestockedToday = item.hasShipmentRestockedToday,
+                            hasPetalPuzzleSolvedToday = item.hasPetalPuzzleSolvedToday
+                        )
+                    }
+                } catch (overviewErr: Exception) {
+                    Log.w(TAG, "getProjectsOverview failed, falling back to legacy multi-request: ${overviewErr.message}")
+                    val projectNames = try {
+                        val names = apiService.getProjects()
+                        _isConnectionSuccessful.value = true
+                        names
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to get projects: ${e.message}")
+                        _isConnectionSuccessful.value = false
+                        _errorEvents.emit("Помилка завантаження проєктів: ${e.localizedMessage}")
+                        emptyList<String>()
+                    }
 
-                val statusMap = try {
-                    apiService.getProjectsStatus()
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to get running states: ${e.message}")
-                    emptyMap<String, ProjectStatusInfo>()
-                }
+                    val statusMap = try {
+                        apiService.getProjectsStatus()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to get running states: ${e.message}")
+                        emptyMap<String, ProjectStatusInfo>()
+                    }
 
-                val schedules = try {
-                    apiService.getSchedule()
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to get schedules: ${e.message}")
-                    emptyList<ScheduleInfo>()
-                }
-                val scheduleMap = schedules.associateBy { it.projectName }
+                    val schedules = try {
+                        apiService.getSchedule()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to get schedules: ${e.message}")
+                        emptyList<ScheduleInfo>()
+                    }
+                    val scheduleMap = schedules.associateBy { it.projectName }
 
-                val loadedProjects = kotlinx.coroutines.coroutineScope {
-                    projectNames.map { name ->
-                        async {
-                            val statusInfo = statusMap[name]
-                            val scheduleInfo = scheduleMap[name]
+                    kotlinx.coroutines.coroutineScope {
+                        projectNames.map { name ->
+                            async {
+                                val statusInfo = statusMap[name]
+                                val scheduleInfo = scheduleMap[name]
 
-                            val projectSaveData = try {
-                                val saveResponse = apiService.getProjectSave(name)
-                                if (saveResponse.success) saveResponse.data else null
-                            } catch (e: Exception) {
-                                Log.w(TAG, "Project save data not available for $name: ${e.message}")
-                                null
+                                val projectSaveData = try {
+                                    val saveResponse = apiService.getProjectSave(name)
+                                    if (saveResponse.success) saveResponse.data else null
+                                } catch (e: Exception) {
+                                    null
+                                }
+
+                                val miniImages = miniImagesManager.getMiniImagesForProject(projectSaveData)
+                                val level = miniImagesManager.calculateLevelFromSaveData(projectSaveData)
+                                val gold = miniImagesManager.getGoldFromSaveData(projectSaveData)
+                                val balance = miniImagesManager.getBalanceFromSaveData(projectSaveData)
+                                val gem = miniImagesManager.getGemFromSaveData(projectSaveData)
+                                val isFullMoon = miniImagesManager.checkFullMoonFromSaveData(projectSaveData)
+                                val season = miniImagesManager.getSeasonFromSaveData(projectSaveData)
+
+                                val vFarm = (projectSaveData?.get("visitedFarmState") as? Map<*, *>) ?: projectSaveData
+                                val chestCollectedAt = ((vFarm?.get("dailyRewards") as? Map<*, *>)?.get("chest") as? Map<*, *>)?.get("collectedAt")
+                                val shipmentRestockedAt = (vFarm?.get("shipments") as? Map<*, *>)?.get("restockedAt")
+                                val petalSolvedAt = (vFarm?.get("floatingIsland") as? Map<*, *>)?.get("petalPuzzleSolvedAt")
+
+                                val hasChestCollectedToday = isToday(chestCollectedAt)
+                                val hasShipmentRestockedToday = isToday(shipmentRestockedAt)
+                                val hasPetalPuzzleSolvedToday = isToday(petalSolvedAt)
+
+                                ProjectModel(
+                                    name = name,
+                                    isRunning = statusInfo?.isRunning ?: false,
+                                    isBrowserOpen = statusInfo?.isBrowserOpen ?: false,
+                                    activeNodeTitle = statusInfo?.activeNodeTitle,
+                                    nextRun = scheduleInfo?.nextRun,
+                                    plannedNodeRun = scheduleInfo?.plannedRuns?.firstOrNull()?.runAt,
+                                    miniImages = miniImages,
+                                    level = level,
+                                    gold = gold,
+                                    balance = balance,
+                                    gem = gem,
+                                    isFullMoon = isFullMoon,
+                                    season = season,
+                                    hasChestCollectedToday = hasChestCollectedToday,
+                                    hasShipmentRestockedToday = hasShipmentRestockedToday,
+                                    hasPetalPuzzleSolvedToday = hasPetalPuzzleSolvedToday
+                                )
                             }
-
-                            val miniImages = miniImagesManager.getMiniImagesForProject(projectSaveData)
-                            val level = miniImagesManager.calculateLevelFromSaveData(projectSaveData)
-                            val gold = miniImagesManager.getGoldFromSaveData(projectSaveData)
-                            val balance = miniImagesManager.getBalanceFromSaveData(projectSaveData)
-                            val gem = miniImagesManager.getGemFromSaveData(projectSaveData)
-                            val isFullMoon = miniImagesManager.checkFullMoonFromSaveData(projectSaveData)
-                            val season = miniImagesManager.getSeasonFromSaveData(projectSaveData)
-
-                            ProjectModel(
-                                name = name,
-                                isRunning = statusInfo?.isRunning ?: false,
-                                isBrowserOpen = statusInfo?.isBrowserOpen ?: false,
-                                activeNodeTitle = statusInfo?.activeNodeTitle,
-                                nextRun = scheduleInfo?.nextRun,
-                                plannedNodeRun = scheduleInfo?.plannedRuns?.firstOrNull()?.runAt,
-                                miniImages = miniImages,
-                                level = level,
-                                gold = gold,
-                                balance = balance,
-                                gem = gem,
-                                isFullMoon = isFullMoon,
-                                season = season
-                            )
-                        }
-                    }.awaitAll()
+                        }.awaitAll()
+                    }
                 }
+
                 _projects.value = loadedProjects
+
+                val queueResponse = try {
+                    apiService.getQueue()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to get queue: ${e.message}")
+                    null
+                }
+                _activeQueue.value = queueResponse?.queue ?: emptyList()
 
                 // cache to Room
                 dao.insertProjects(loadedProjects.map {
                     CachedProjectEntity(
                         name = it.name,
                         isRunning = it.isRunning,
+                        isBrowserOpen = it.isBrowserOpen,
                         activeNodeTitle = it.activeNodeTitle,
                         nextRun = it.nextRun,
                         plannedNodeRun = it.plannedNodeRun,
@@ -277,20 +354,30 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         gem = it.gem,
                         isFullMoon = it.isFullMoon,
                         season = it.season,
+                        hasChestCollectedToday = it.hasChestCollectedToday,
+                        hasShipmentRestockedToday = it.hasShipmentRestockedToday,
+                        hasPetalPuzzleSolvedToday = it.hasPetalPuzzleSolvedToday,
                         cachedAt = System.currentTimeMillis()
                     )
                 })
-                dao.insertSchedules(schedules.map {
-                    CachedScheduleEntity(
-                        projectName = it.projectName,
-                        mode = it.mode,
-                        nextRun = it.nextRun,
-                        lastRun = it.lastRun,
-                        settingsJson = try { moshi.adapter(ScheduleSettings::class.java).toJson(it.settings) } catch (e: Exception) { "{}" },
-                        plannedRunsJson = try { moshi.adapter(List::class.java).toJson(it.plannedRuns) } catch (e: Exception) { "[]" },
-                        cachedAt = System.currentTimeMillis()
-                    )
-                })
+                val schedules = try {
+                    apiService.getSchedule()
+                } catch (e: Exception) {
+                    emptyList<ScheduleInfo>()
+                }
+                if (schedules.isNotEmpty()) {
+                    dao.insertSchedules(schedules.map {
+                        CachedScheduleEntity(
+                            projectName = it.projectName,
+                            mode = it.mode,
+                            nextRun = it.nextRun,
+                            lastRun = it.lastRun,
+                            settingsJson = try { moshi.adapter(ScheduleSettings::class.java).toJson(it.settings) } catch (e: Exception) { "{}" },
+                            plannedRunsJson = try { moshi.adapter(List::class.java).toJson(it.plannedRuns) } catch (e: Exception) { "[]" },
+                            cachedAt = System.currentTimeMillis()
+                        )
+                    })
+                }
 
                 val stats = try {
                     val rawStats = apiService.getGlobalStats()
@@ -329,7 +416,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 } catch (e: Exception) {
                     Log.w(TAG, "Internal config error: ${e.message}")
                 }
-                if (projectNames.isNotEmpty()) {
+                if (loadedProjects.isNotEmpty()) {
                     _errorMessage.value = null
                     _isConnectionSuccessful.value = true
                 }

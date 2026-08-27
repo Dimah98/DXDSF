@@ -21,7 +21,9 @@ export const valueLoopNodeHandler = async ({
 
     if (!parentSel) {
       nodeResults.nextHandle = 'fail';
-      ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { loopResult: { clicked: 0, total: 0 } } }));
+      if (ws && typeof ws.send === 'function' && (ws.readyState === undefined || ws.readyState === 1)) {
+        try { ws.send(JSON.stringify({ type: 'NODE_DATA_UPDATE', nodeId: currentNode.id, data: { loopResult: { clicked: 0, total: 0 } } })); } catch {}
+      }
     } else {
       const elements = await activePage.evaluate(({ pSel, cSel, min }: { pSel: string; cSel: string; min: number }) => {
         const parent = document.querySelector(pSel);
@@ -53,11 +55,15 @@ export const valueLoopNodeHandler = async ({
         clicked++;
 
         // Надсилаємо прогрес в реальному часі після кожного кліку
-        ws.send(JSON.stringify({
-          type: 'NODE_DATA_UPDATE',
-          nodeId: currentNode.id,
-          data: { loopResult: { clicked, total: elements.length } },
-        }));
+        if (ws && typeof ws.send === 'function' && (ws.readyState === undefined || ws.readyState === 1)) {
+          try {
+            ws.send(JSON.stringify({
+              type: 'NODE_DATA_UPDATE',
+              nodeId: currentNode.id,
+              data: { loopResult: { clicked, total: elements.length } },
+            }));
+          } catch {}
+        }
         logToClient(`🔁 Цикл: ${clicked}/${elements.length}`, 'debug');
 
         await smartSleep(300, ws);

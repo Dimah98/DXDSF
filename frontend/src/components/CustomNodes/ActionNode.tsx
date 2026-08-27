@@ -1,8 +1,8 @@
 // Нода дії — клік, hover, прокрутка, та обхід антибот захисту
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import * as LucideIcons from 'lucide-react';
 import { Play, MousePointer2, Move, MousePointer, Camera, Zap } from 'lucide-react';
+import { getDynamicIcon } from '../../utils/dynamicIcon';
 import BaseNode, { getHandleStyle } from './BaseNode';
 
 // Типи дій з описами
@@ -28,9 +28,7 @@ const HINTS: Record<string, string> = {
 
 const ActionNode = memo(({ id, data }: { id: string, data: any }) => {
   // Динамічно вибираємо іконку
-  const IconComponent = data.customIcon && (LucideIcons as any)[data.customIcon]
-    ? (LucideIcons as any)[data.customIcon]
-    : Play;
+  const IconComponent = getDynamicIcon(data.customIcon) || Play;
 
   const actionType = data.actionType || 'click';
   const isSpecial = actionType === 'force_click' || actionType === 'js_click' || actionType === 'dispatch_click';

@@ -27,36 +27,56 @@ export interface SavedConfig {
 
 const CONFIGS_FILE = path.join(__dirname, '../../data/configs.json');
 
-function ensureFile(): SavedConfig[] {
+let cachedConfigs: SavedConfig[] | null = null;
+
+async function loadFromDisk(): Promise<SavedConfig[]> {
   try {
-    if (!fs.existsSync(CONFIGS_FILE)) {
-      fs.mkdirSync(path.dirname(CONFIGS_FILE), { recursive: true });
-      fs.writeFileSync(CONFIGS_FILE, '[]', 'utf-8');
-      return [];
-    }
-    const raw = fs.readFileSync(CONFIGS_FILE, 'utf-8');
+    const raw = await fs.promises.readFile(CONFIGS_FILE, 'utf-8');
     return JSON.parse(raw) as SavedConfig[];
-  } catch (e) {
+  } catch {
     return [];
   }
 }
 
-function saveFile(configs: SavedConfig[]): void {
-  fs.mkdirSync(path.dirname(CONFIGS_FILE), { recursive: true });
-  fs.writeFileSync(CONFIGS_FILE, JSON.stringify(configs, null, 2), 'utf-8');
+function ensureCache(): SavedConfig[] {
+  if (cachedConfigs !== null) return cachedConfigs;
+  try {
+    if (fs.existsSync(CONFIGS_FILE)) {
+      cachedConfigs = JSON.parse(fs.readFileSync(CONFIGS_FILE, 'utf-8'));
+    } else {
+      cachedConfigs = [];
+      fs.promises.mkdir(path.dirname(CONFIGS_FILE), { recursive: true })
+        .then(() => fs.promises.writeFile(CONFIGS_FILE, '[]', 'utf-8'))
+        .catch(() => {});
+    }
+  } catch {
+    cachedConfigs = [];
+  }
+  return cachedConfigs || [];
+}
+
+function persistAsync(configs: SavedConfig[]): void {
+  fs.promises.mkdir(path.dirname(CONFIGS_FILE), { recursive: true })
+    .then(() => fs.promises.writeFile(CONFIGS_FILE, JSON.stringify(configs, null, 2), 'utf-8'))
+    .catch(err => console.error('[ConfigStore] Failed to persist configs', err));
 }
 
 export const ConfigStore = {
   getAll(): SavedConfig[] {
-    return ensureFile();
+    return ensureCache();
+  },
+
+  async getAllAsync(): Promise<SavedConfig[]> {
+    cachedConfigs = await loadFromDisk();
+    return cachedConfigs;
   },
 
   getById(id: string): SavedConfig | undefined {
-    return ensureFile().find(c => c.id === id);
+    return ensureCache().find(c => c.id === id);
   },
 
   create(config: Omit<SavedConfig, 'id' | 'createdAt' | 'updatedAt'>): SavedConfig {
-    const configs = ensureFile();
+    const configs = ensureCache();
     const trimmedName = config.name.trim();
     const existing = configs.find(c => c.name.trim().toLowerCase() === trimmedName.toLowerCase());
     if (existing) {
@@ -70,12 +90,12 @@ export const ConfigStore = {
       updatedAt: now,
     };
     configs.push(newConfig);
-    saveFile(configs);
+    persistAsync(configs);
     return newConfig;
   },
 
   update(id: string, updates: Partial<Omit<SavedConfig, 'id' | 'createdAt'>>): SavedConfig | null {
-    const configs = ensureFile();
+    const configs = ensureCache();
     const idx = configs.findIndex(c => c.id === id);
     if (idx === -1) return null;
     if (updates.name !== undefined) {
@@ -86,16 +106,16 @@ export const ConfigStore = {
       }
     }
     configs[idx] = { ...configs[idx], ...updates, updatedAt: Date.now() };
-    saveFile(configs);
+    persistAsync(configs);
     return configs[idx];
   },
 
   delete(id: string): boolean {
-    const configs = ensureFile();
+    const configs = ensureCache();
     const idx = configs.findIndex(c => c.id === id);
     if (idx === -1) return false;
     configs.splice(idx, 1);
-    saveFile(configs);
+    persistAsync(configs);
     return true;
   },
 };

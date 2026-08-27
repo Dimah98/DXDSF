@@ -1,7 +1,6 @@
-// Загальний заголовок для всіх нод — з кнопками згортання, видалення, запуску та кнопкою "?" з описом
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, HelpCircle, Trash2, Minimize2 } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import { getDynamicIcon } from '../../utils/dynamicIcon';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { NODE_CONFIG } from '../../nodeConfig';
 
@@ -15,11 +14,17 @@ interface NodeHeaderProps {
   type?: string;
 }
 
+import { useUIStore } from '../../store/useUIStore';
+import { useGlobalSettingsStore } from '../../store/useGlobalSettingsStore';
+
 const NodeHeader = ({ id, icon, title, tooltip, data, bgColor = 'bg-slate-400', type }: NodeHeaderProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempTitle, setTempTitle] = useState(data.label || title);
   const [currentBg, setCurrentBg] = useState(bgColor);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const storeColors = useUIStore((s) => s.nodeColors);
+  const globalNodeStyle = useGlobalSettingsStore((s) => s.settings?.nodeStyle);
 
   // Опис ноди для кнопки "?": hint — розгорнутий текст з NODE_CONFIG
   const nodeDesc = tooltip || (type ? NODE_CONFIG[type]?.hint : undefined);
@@ -27,6 +32,10 @@ const NodeHeader = ({ id, icon, title, tooltip, data, bgColor = 'bg-slate-400', 
   // Слухаємо зміну кольорів категорій
   useEffect(() => {
     if (!type) return;
+    if (storeColors[type]) {
+      setCurrentBg(storeColors[type]);
+      return;
+    }
     const handleColorChange = (e: any) => {
       if (e.detail?.[type]) setCurrentBg(e.detail[type]);
     };
@@ -37,7 +46,7 @@ const NodeHeader = ({ id, icon, title, tooltip, data, bgColor = 'bg-slate-400', 
     }
     window.addEventListener('node-colors-changed', handleColorChange);
     return () => window.removeEventListener('node-colors-changed', handleColorChange);
-  }, [type]);
+  }, [type, storeColors]);
 
   useEffect(() => {
     if (data.label) setTempTitle(data.label);
@@ -66,7 +75,7 @@ const NodeHeader = ({ id, icon, title, tooltip, data, bgColor = 'bg-slate-400', 
   };
 
   // Кастомна або дефолтна іконка
-  const CustomIcon = data.customIcon ? (LucideIcons as any)[data.customIcon] : null;
+  const CustomIcon = getDynamicIcon(data.customIcon);
   const displayIcon = CustomIcon ? <CustomIcon size={14} /> : icon;
 
   const [nodeStyle, setNodeStyle] = useState(() => {
@@ -75,12 +84,16 @@ const NodeHeader = ({ id, icon, title, tooltip, data, bgColor = 'bg-slate-400', 
   });
 
   useEffect(() => {
+    if (globalNodeStyle) {
+      setNodeStyle(globalNodeStyle);
+      return;
+    }
     const handleSettingsChange = (e: any) => {
       if (e.detail?.nodeStyle) setNodeStyle(e.detail.nodeStyle);
     };
     window.addEventListener('global-settings-changed', handleSettingsChange);
     return () => window.removeEventListener('global-settings-changed', handleSettingsChange);
-  }, []);
+  }, [globalNodeStyle]);
 
   // ─── Мінімізований режим (міні-нода) ────────────────────────────────────────
   if (data.miniCollapsed) {

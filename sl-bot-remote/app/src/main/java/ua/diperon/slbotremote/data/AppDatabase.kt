@@ -16,7 +16,7 @@ import android.content.Context
         CachedLogEntryEntity::class,
         CachedDeliveryEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

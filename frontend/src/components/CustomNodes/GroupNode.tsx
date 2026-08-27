@@ -17,6 +17,7 @@ import { NodeContextMenu } from '../ui/NodeContextMenu';
 import { useCanvasActions } from '../../hooks/useCanvasActions';
 import { useClipboard } from '../../hooks/useClipboard';
 import { attachEdgeCallbacks } from '../../utils/flowUtils';
+import { useExecutionStore } from '../../store/useExecutionStore';
 import '@xyflow/react/dist/style.css';
 
 // API base URL
@@ -170,6 +171,34 @@ const SubCanvas = ({
   );
 
   // Слухаємо оновлення даних нод від головного редактора (WebSocket)
+  const activeExecutingNodeId = useExecutionStore((s) => s.activeExecutingNodeId);
+  const nodeDataUpdates = useExecutionStore((s) => s.nodeDataUpdates);
+  const botFinishedSignal = useExecutionStore((s) => s.botFinishedSignal);
+
+  useEffect(() => {
+    if (activeExecutingNodeId !== undefined) {
+      setNodes(nds => nds.map(n => ({
+        ...n,
+        style: n.id === activeExecutingNodeId
+          ? { ...n.style, boxShadow: '0 0 20px rgba(59, 130, 246, 0.8)', outline: '2px solid #3b82f6' }
+          : { ...n.style, boxShadow: 'none', outline: 'none' }
+      })));
+    }
+  }, [activeExecutingNodeId, setNodes]);
+
+  useEffect(() => {
+    if (nodeDataUpdates) {
+      const { nodeId, data } = nodeDataUpdates;
+      setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n));
+    }
+  }, [nodeDataUpdates, setNodes]);
+
+  useEffect(() => {
+    if (botFinishedSignal > 0) {
+      setNodes(nds => nds.map(n => ({ ...n, style: { ...n.style, boxShadow: 'none', outline: 'none' } })));
+    }
+  }, [botFinishedSignal, setNodes]);
+
   useEffect(() => {
     const handleUpdate = (e: any) => {
       const { nodeId, data } = e.detail;

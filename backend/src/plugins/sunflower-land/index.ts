@@ -9,6 +9,7 @@ import { inventoryScannerNodeHandler } from '../../nodes/InventoryScannerNode';
 import { memoryGameNodeHandler } from '../../nodes/MemoryGameNode';
 import { whackAMoleNodeHandler } from '../../nodes/WhackAMoleNode';
 import { foodNodeHandler } from '../../nodes/FoodNode';
+import { sequenceMemoryNodeHandler } from '../../nodes/SequenceMemoryNode';
 
 /**
  * Sunflower Land domain plugin.
@@ -29,5 +30,7 @@ export const sunflowerLandPlugin: BotPlugin = {
     memoryGameNode: memoryGameNodeHandler,
     whackAMoleNode: whackAMoleNodeHandler,
     foodNode: foodNodeHandler,
+    sequenceMemoryNode: sequenceMemoryNodeHandler,
   },
 };
+

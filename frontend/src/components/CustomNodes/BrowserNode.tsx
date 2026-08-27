@@ -1,14 +1,12 @@
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import * as LucideIcons from 'lucide-react';
 import { Globe } from 'lucide-react';
+import { getDynamicIcon } from '../../utils/dynamicIcon';
 import { Input } from '../ui/input';
 import BaseNode, { getHandleStyle } from './BaseNode';
 
 const BrowserNode = memo(({ id, data }: { id: string, data: any }) => {
-  const IconComponent = data.customIcon && (LucideIcons as any)[data.customIcon] 
-    ? (LucideIcons as any)[data.customIcon] 
-    : Globe;
+  const IconComponent = getDynamicIcon(data.customIcon) || Globe;
 
   return (
     <BaseNode id={id} data={data} icon={<IconComponent size={16} />} title={data.label || 'Браузер'} bgColor="bg-purple-500" type="browserNode">

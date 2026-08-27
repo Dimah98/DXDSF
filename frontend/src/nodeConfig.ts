@@ -1,4 +1,4 @@
-﻿// Єдиний словник конфігурацій всіх типів нод
+// Єдиний словник конфігурацій всіх типів нод
 // Використовується в Sidebar, NodeEditor і NodeHeader (кнопка ?)
 // Щоб додати нову ноду — лише тут, більше ніде нічого дублювати не треба
 
@@ -7,7 +7,7 @@ import {
   GitFork, MousePointerClick, Crosshair, Keyboard,
   Camera, Layers, Monitor, Repeat, Move,
   MessageSquare, Timer, XCircle, Calculator, Activity,
-  ArrowRightLeft, Package, Clock, CalendarClock, Bell, Sprout, Flame, ChefHat, Gamepad2, Hammer,
+  ArrowRightLeft, Package, Clock, CalendarClock, Bell, Sprout, Flame, ChefHat, Gamepad2, Hammer, Sparkles,
   Settings, Type, Flower, PackageCheck,
   Wallet,
 } from 'lucide-react';
@@ -517,6 +517,20 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
       clickDelay: 150,
       matchThreshold: 0.72,
       maxDuration: 60000,
+    }
+  },
+  sequenceMemoryNode: {
+    label: 'Гра Послідовність',
+    icon: Sparkles,
+    desc: 'Міні-гра Simon Says / Спалахи',
+    hint: 'Автоматично проходить міні-гру на запам\'ятовування послідовності спалахів (9 предметів). Фіксує порядок загоряння, відстежує індикатор помилки та індикатор перемоги, а після завершення демонстрації автоматично клікає збережену чергу.',
+    defaultColor: '#6366f1',
+    defaults: {
+      flashThreshold: 0.25,
+      flashSilenceTimeout: 1200,
+      clickDelay: 200,
+      maxDuration: 120000,
+      onErrorAction: 'reset',
     }
   },
   // Конфігурація для нової ноди "Введення та Клік"

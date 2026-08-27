@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class CachedProjectEntity(
     @PrimaryKey val name: String,
     val isRunning: Boolean = false,
+    val isBrowserOpen: Boolean = false,
     val activeNodeTitle: String? = null,
     val nextRun: Long? = null,
     val plannedNodeRun: Long? = null,
@@ -17,5 +18,8 @@ data class CachedProjectEntity(
     val gem: Double? = null,
     val isFullMoon: Boolean = false,
     val season: String? = null,
+    val hasChestCollectedToday: Boolean = false,
+    val hasShipmentRestockedToday: Boolean = false,
+    val hasPetalPuzzleSolvedToday: Boolean = false,
     val cachedAt: Long = System.currentTimeMillis()
 )

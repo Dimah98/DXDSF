@@ -57,15 +57,12 @@ export class RecipeImagesConfig {
   }
 
   private save() {
-    try {
-      const dir = path.dirname(configPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(configPath, JSON.stringify(this.data, null, 2), 'utf8');
-    } catch (e) {
-      logger.error('Failed to save recipe images config', e instanceof Error ? e : new Error(String(e)));
-    }
+    const dir = path.dirname(configPath);
+    fs.promises.mkdir(dir, { recursive: true })
+      .then(() => fs.promises.writeFile(configPath, JSON.stringify(this.data, null, 2), 'utf8'))
+      .catch(e => {
+        logger.error('Failed to save recipe images config', e instanceof Error ? e : new Error(String(e)));
+      });
   }
 
   public getAll(): RecipeImagesData {

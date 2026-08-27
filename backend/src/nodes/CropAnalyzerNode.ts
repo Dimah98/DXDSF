@@ -1,6 +1,7 @@
 import { NodeHandlerParams } from './types';
-import { schedulerService } from '../index';
+import { schedulerService } from '../services';
 import { BASE_GROWTH_TIMES } from '../plugins/sunflower-land/data/crops';
+import { PROJECTS_DIR } from '../constants';
 import fs from 'fs';
 import path from 'path';
 
@@ -25,10 +26,10 @@ export const cropAnalyzerNodeHandler = async ({
     return { data: { ...context, error: 'Missing variable name' }, nextHandle: ['error'] };
   }
 
-  const savePath = path.join(__dirname, '../../projects', `${projectName}_save.json`);
+  const savePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
   let apiData: any = null;
   try {
-    const fileContent = fs.readFileSync(savePath, 'utf-8');
+    const fileContent = await fs.promises.readFile(savePath, 'utf-8');
     apiData = JSON.parse(fileContent);
   } catch (e) {
     logToClient(`❌ Аналізатор: Не вдалося прочитати ${projectName}_save.json`, 'error');

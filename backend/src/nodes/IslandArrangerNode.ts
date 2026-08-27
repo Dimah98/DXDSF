@@ -1,4 +1,5 @@
 import { NodeHandlerParams } from './types';
+import { PROJECTS_DIR } from '../constants';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -34,24 +35,26 @@ export const islandArrangerNodeHandler = async ({
 
   logToClient(`Начинаю Дизайнер Острова (Filter: ${filterType})`, 'info');
 
-  const PROJECTS_DIR = path.join(__dirname, '../../projects');
   const saveFilePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
   const layoutFilePath = path.join(PROJECTS_DIR, `${projectName}_layout.json`);
   const globalTypesPath = path.join(PROJECTS_DIR, `global_building_types.json`);
 
-  if (!fs.existsSync(saveFilePath) || !fs.existsSync(layoutFilePath)) {
-    logToClient(`❌ Отсутствует файл _save.json или _layout.json`, 'error');
-    return { data: { ...context, error: 'Missing layout or save file' }, nextHandle: ['error'] };
-  }
-
   try {
-    const saveData = JSON.parse(await fs.promises.readFile(saveFilePath, 'utf-8'));
-    const layoutRaw = JSON.parse(await fs.promises.readFile(layoutFilePath, 'utf-8'));
-    
+    let saveData: any;
+    let layoutRaw: any;
     let globalBuildingTypes = {};
-    if (fs.existsSync(globalTypesPath)) {
-      globalBuildingTypes = JSON.parse(await fs.promises.readFile(globalTypesPath, 'utf-8'));
+
+    try {
+      saveData = JSON.parse(await fs.promises.readFile(saveFilePath, 'utf-8'));
+      layoutRaw = JSON.parse(await fs.promises.readFile(layoutFilePath, 'utf-8'));
+    } catch (err: any) {
+      logToClient(`❌ Відсутній або пошкоджений файл _save.json чи _layout.json: ${err.message}`, 'error');
+      return { data: { ...context, error: 'Missing layout or save file' }, nextHandle: ['error'] };
     }
+
+    try {
+      globalBuildingTypes = JSON.parse(await fs.promises.readFile(globalTypesPath, 'utf-8'));
+    } catch (e) {}
 
     // Підтримуємо обидва формати: старий масив і новий { items, buildingTypes }
     const layoutData: any[] = Array.isArray(layoutRaw) ? layoutRaw : (layoutRaw.items ?? []);

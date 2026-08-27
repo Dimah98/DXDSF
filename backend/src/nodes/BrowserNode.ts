@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { PROJECTS_DIR } from '../constants';
 // Імпортуємо вбудований клас логера для діагностики роботи
 import { Logger } from '../logger';
 // Імпортуємо інтерфейс параметрів обробника ноди
@@ -76,30 +77,27 @@ export const browserNodeHandler = async ({ currentNode, activePage, logToClient,
     // 6. Рандом ПТ
     else if (browser_action === 'random_pt') {
        logToClient(`🎲 Пошук випадкового Bumpkin ID з файлів збережень...`, 'debug');
-       const projectsDir = path.join(__dirname, '../../projects');
        const candidates: { projectName: string; bumpkinId: string | number }[] = [];
 
        try {
-         if (fs.existsSync(projectsDir)) {
-           const files = fs.readdirSync(projectsDir).filter(f => f.endsWith('_save.json'));
-           for (const file of files) {
-             try {
-               const filePath = path.join(projectsDir, file);
-               const content = fs.readFileSync(filePath, 'utf-8');
-               const saveData = JSON.parse(content);
+         const files = (await fs.promises.readdir(PROJECTS_DIR)).filter(f => f.endsWith('_save.json'));
+         for (const file of files) {
+           try {
+             const filePath = path.join(PROJECTS_DIR, file);
+             const content = await fs.promises.readFile(filePath, 'utf-8');
+             const saveData = JSON.parse(content);
 
-               const bumpkinId = saveData?.visitedFarmState?.bumpkin?.id ??
-                                 saveData?.visitorFarmState?.bumpkin?.id ??
-                                 saveData?.bumpkin?.id ??
-                                 saveData?.farmState?.bumpkin?.id;
+             const bumpkinId = saveData?.visitedFarmState?.bumpkin?.id ??
+                               saveData?.visitorFarmState?.bumpkin?.id ??
+                               saveData?.bumpkin?.id ??
+                               saveData?.farmState?.bumpkin?.id;
 
-               if (bumpkinId !== undefined && bumpkinId !== null && String(bumpkinId).trim() !== '') {
-                 const name = file.replace('_save.json', '');
-                 candidates.push({ projectName: name, bumpkinId });
-               }
-             } catch {
-               // пропускаємо пошкоджені файли збережень
+             if (bumpkinId !== undefined && bumpkinId !== null && String(bumpkinId).trim() !== '') {
+               const name = file.replace('_save.json', '');
+               candidates.push({ projectName: name, bumpkinId });
              }
+           } catch {
+             // пропускаємо пошкоджені файли збережень
            }
          }
        } catch (err: any) {

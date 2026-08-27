@@ -41,7 +41,9 @@ enum class ViewMode {
     GALLERY,
     DELIVERY,
     INFO,
-    CONTAINERS
+    CONTAINERS,
+    RUN_HISTORY,
+    SAVE_FILE
 }
 
 class ProjectMonitorViewModel(application: Application) : AndroidViewModel(application) {
@@ -78,6 +80,18 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
 
     private val _latestFrame = MutableStateFlow<Bitmap?>(null)
     val latestFrame: StateFlow<Bitmap?> = _latestFrame.asStateFlow()
+
+    private val _streamDeviceWidth = MutableStateFlow(1280)
+    val streamDeviceWidth: StateFlow<Int> = _streamDeviceWidth.asStateFlow()
+
+    private val _streamDeviceHeight = MutableStateFlow(720)
+    val streamDeviceHeight: StateFlow<Int> = _streamDeviceHeight.asStateFlow()
+
+    private val _activeExecutingNodeId = MutableStateFlow<String?>(null)
+    val activeExecutingNodeId: StateFlow<String?> = _activeExecutingNodeId.asStateFlow()
+
+    private val _activeExecutingNodeTitle = MutableStateFlow<String?>(null)
+    val activeExecutingNodeTitle: StateFlow<String?> = _activeExecutingNodeTitle.asStateFlow()
 
     private val _consoleLogs = MutableStateFlow<List<LogEntry>>(emptyList())
     val consoleLogs: StateFlow<List<LogEntry>> = _consoleLogs.asStateFlow()
@@ -128,6 +142,27 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
     private val _isLoadingContainers = MutableStateFlow(false)
     val isLoadingContainers: StateFlow<Boolean> = _isLoadingContainers.asStateFlow()
 
+    private val _projectRuns = MutableStateFlow<List<RunRecordItem>>(emptyList())
+    val projectRuns: StateFlow<List<RunRecordItem>> = _projectRuns.asStateFlow()
+
+    private val _selectedRunId = MutableStateFlow<String?>(null)
+    val selectedRunId: StateFlow<String?> = _selectedRunId.asStateFlow()
+
+    private val _selectedRunLogs = MutableStateFlow<String?>("")
+    val selectedRunLogs: StateFlow<String?> = _selectedRunLogs.asStateFlow()
+
+    private val _isLoadingRuns = MutableStateFlow(false)
+    val isLoadingRuns: StateFlow<Boolean> = _isLoadingRuns.asStateFlow()
+
+    private val _isLoadingRunLogs = MutableStateFlow(false)
+    val isLoadingRunLogs: StateFlow<Boolean> = _isLoadingRunLogs.asStateFlow()
+
+    private val _projectSaveRawJson = MutableStateFlow<String?>("")
+    val projectSaveRawJson: StateFlow<String?> = _projectSaveRawJson.asStateFlow()
+
+    private val _isLoadingProjectSave = MutableStateFlow(false)
+    val isLoadingProjectSave: StateFlow<Boolean> = _isLoadingProjectSave.asStateFlow()
+
     private val _errorEvents = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val errorEvents: SharedFlow<String> = _errorEvents.asSharedFlow()
 
@@ -154,17 +189,46 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
                     is BotWsMessage.BotRunningState -> {
                         Log.d(TAG, "Bot state changed from WebSocket: isRunning=${message.isRunning}")
                         _isBotRunning.value = message.isRunning
+                        if (!message.isRunning) {
+                            _activeExecutingNodeId.value = null
+                            _activeExecutingNodeTitle.value = null
+                        }
                         addLog("Bot Activity Status Synced: ${if (message.isRunning) "RUNNING" else "STOPPED"}", "info")
                     }
                     is BotWsMessage.ConsoleLog -> {
                         addLog(message.message, message.logType)
                     }
                     is BotWsMessage.StreamFrame -> {
+                        message.deviceWidth?.let { _streamDeviceWidth.value = it }
+                        message.deviceHeight?.let { _streamDeviceHeight.value = it }
                         decodeAndSetFrame(message.frameBase64)
+                    }
+                    is BotWsMessage.NodeExecuting -> {
+                        _activeExecutingNodeId.value = message.nodeId
+                        _activeExecutingNodeTitle.value = message.nodeTitle
+                        val title = message.nodeTitle ?: message.nodeId
+                        addLog("Виконується нода: $title", "info")
+                    }
+                    is BotWsMessage.GlobalVariablesUpdate -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val nonNullVars = message.variables.filterValues { it != null } as Map<String, Any>
+                        _projectVariables.value = nonNullVars
+                        Log.d(TAG, "Real-time project variables updated: ${nonNullVars.keys.size} entries")
+                    }
+                    is BotWsMessage.NodeDataUpdate -> {
+                        Log.d(TAG, "Node data update for node ${message.nodeId}")
+                    }
+                    is BotWsMessage.ScreenshotSaved -> {
+                        if (message.projectName == _projectName.value) {
+                            fetchScreenshots()
+                        }
                     }
                     is BotWsMessage.BotFinished -> {
                         _isBotRunning.value = false
-                        addLog("Bot Script successfully executed its full flow.", "success")
+                        _activeExecutingNodeId.value = null
+                        _activeExecutingNodeTitle.value = null
+                        val statusText = if (message.error != null) " with error: ${message.error}" else " successfully."
+                        addLog("Bot Script finished execution$statusText", if (message.status == "error") "error" else "success")
                         fetchRestStats()
                     }
                 }
@@ -274,13 +338,14 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
                 val imageBytes = Base64.decode(cleanBase64, Base64.DEFAULT)
                 val options = BitmapFactory.Options().apply {
                     inPreferredConfig = Bitmap.Config.RGB_565
+                    inSampleSize = 1
                 }
                 val newBitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size, options)
                 if (newBitmap != null) {
                     withContext(Dispatchers.Main) {
                         val oldBitmap = _latestFrame.value
                         _latestFrame.value = newBitmap
-                        if (oldBitmap != null && !oldBitmap.isRecycled && oldBitmap != newBitmap) {
+                        if (oldBitmap != null && oldBitmap != newBitmap && !oldBitmap.isRecycled) {
                             oldBitmap.recycle()
                         }
                     }
@@ -391,6 +456,82 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
             webSocketClient.stopStream()
             _latestFrame.value = null
         }
+    }
+
+    fun sendMouseClick(relX: Float, relY: Float, button: String = "left") {
+        webSocketClient.sendMouseClick(relX, relY, button)
+    }
+
+    fun sendMouseDown(relX: Float, relY: Float, button: String = "left") {
+        webSocketClient.sendMouseDown(relX, relY, button)
+    }
+
+    fun sendMouseMove(relX: Float, relY: Float) {
+        webSocketClient.sendMouseMove(relX, relY)
+    }
+
+    fun sendMouseUp(relX: Float, relY: Float, button: String = "left") {
+        webSocketClient.sendMouseUp(relX, relY, button)
+    }
+
+    fun sendDoubleClick(relX: Float, relY: Float) {
+        webSocketClient.sendDoubleClick(relX, relY)
+    }
+
+    fun sendRightClick(relX: Float, relY: Float) {
+        webSocketClient.sendRightClick(relX, relY)
+    }
+
+    fun sendScroll(deltaX: Float, deltaY: Float) {
+        webSocketClient.sendScroll(deltaX, deltaY)
+    }
+
+    fun sendScrollUp(delta: Int = 500) {
+        webSocketClient.sendScrollUp(delta)
+    }
+
+    fun sendScrollDown(delta: Int = 500) {
+        webSocketClient.sendScrollDown(delta)
+    }
+
+    fun sendKeyPress(key: String) {
+        webSocketClient.sendKeyPress(key)
+    }
+
+    fun sendTypeText(text: String, pressEnter: Boolean = false) {
+        webSocketClient.sendTypeText(text, pressEnter)
+    }
+
+    fun sendEsc() {
+        webSocketClient.sendEsc()
+    }
+
+    fun sendEnter() {
+        webSocketClient.sendEnter()
+    }
+
+    fun sendBackspace() {
+        webSocketClient.sendBackspace()
+    }
+
+    fun sendTab() {
+        webSocketClient.sendTab()
+    }
+
+    fun refreshBrowserPage() {
+        webSocketClient.refreshPage()
+    }
+
+    fun navigateToUrl(url: String) {
+        webSocketClient.navigateToUrl(url)
+    }
+
+    fun goBack() {
+        webSocketClient.goBack()
+    }
+
+    fun goForward() {
+        webSocketClient.goForward()
     }
 
     fun sendMouseClick(x: Float, y: Float, width: Int, height: Int) {
@@ -650,6 +791,80 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
         _viewMode.value = mode
         _showGallery.value = mode == ViewMode.GALLERY
         sharedPrefs.edit().putString(KEY_VIEW_MODE, mode.name).apply()
+
+        if (mode == ViewMode.RUN_HISTORY) {
+            fetchProjectRuns()
+        } else if (mode == ViewMode.SAVE_FILE) {
+            fetchProjectSaveRaw()
+        }
+    }
+
+    fun fetchProjectRuns() {
+        val name = _projectName.value
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            _isLoadingRuns.value = true
+            try {
+                val response = apiService.getProjectRuns(name)
+                if (response.success) {
+                    _projectRuns.value = response.runs
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to fetch project runs", e)
+            } finally {
+                _isLoadingRuns.value = false
+            }
+        }
+    }
+
+    fun selectRun(runId: String?) {
+        _selectedRunId.value = runId
+        if (runId == null) {
+            _selectedRunLogs.value = ""
+            return
+        }
+        val name = _projectName.value
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            _isLoadingRunLogs.value = true
+            try {
+                val body = apiService.getProjectRunLogs(name, runId)
+                _selectedRunLogs.value = body.string()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to fetch run logs", e)
+                _selectedRunLogs.value = "Помилка завантаження логів: ${e.message}"
+            } finally {
+                _isLoadingRunLogs.value = false
+            }
+        }
+    }
+
+    fun fetchProjectSaveRaw() {
+        val name = _projectName.value
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            _isLoadingProjectSave.value = true
+            try {
+                val body = apiService.getProjectSaveRaw(name)
+                val rawStr = body.string()
+                try {
+                    val jsonObject = org.json.JSONObject(rawStr)
+                    _projectSaveRawJson.value = jsonObject.toString(2)
+                } catch (_: Exception) {
+                    try {
+                        val jsonArray = org.json.JSONArray(rawStr)
+                        _projectSaveRawJson.value = jsonArray.toString(2)
+                    } catch (_: Exception) {
+                        _projectSaveRawJson.value = rawStr
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to fetch project save file", e)
+                _projectSaveRawJson.value = "Помилка завантаження файлу збереження: ${e.message}"
+            } finally {
+                _isLoadingProjectSave.value = false
+            }
+        }
     }
 
     fun deleteScreenshot(filename: String) {
@@ -788,9 +1003,6 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
         fetchContainers()
     }
 
-    fun sendScroll(deltaX: Float, deltaY: Float) {
-        webSocketClient.sendScroll(deltaX, deltaY)
-    }
 
     fun onExit() {
         Log.d(TAG, "Leaving screen, releasing connections")

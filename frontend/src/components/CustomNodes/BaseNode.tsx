@@ -1,7 +1,7 @@
-// Базовий шаблон для всіх нод — відповідає за зовнішній вигляд, заголовок та стан згортання
 import React, { useEffect } from 'react';
 import { useUpdateNodeInternals } from '@xyflow/react';
 import NodeHeader from './NodeHeader';
+import { useExecutionStore } from '../../store/useExecutionStore';
 
 /**
  * Єдиний стандарт портів (Handles).
@@ -42,6 +42,7 @@ const BaseNode: React.FC<BaseNodeProps> = ({
   children, width = 'w-64', className = '',
 }) => {
   const updateNodeInternals = useUpdateNodeInternals();
+  const isExecuting = useExecutionStore((s) => s.activeExecutingNodeId === id);
 
   // Оновлюємо позиції handles після анімації згортання
   useEffect(() => {
@@ -55,11 +56,19 @@ const BaseNode: React.FC<BaseNodeProps> = ({
   const borderColorClass = isTailwindColor ? bgColor.replace('bg-', 'border-') : '';
   const borderColorStyle = !isTailwindColor ? { borderColor: bgColor } : {};
 
+  const executingGlowStyle = isExecuting ? {
+    boxShadow: '0 0 20px rgba(59, 130, 246, 0.8)',
+    outline: '2px solid #3b82f6',
+  } : {};
+
   // ── Режим міні-іконки ──────────────────────────────────────────────────────
   if (data.miniCollapsed) {
     return (
       // node-style-round → CSS ховає handles, але вони ЗАЛИШАЮТЬСЯ в DOM
-      <div className={`relative node-style-round ${className}`}>
+      <div 
+        className={`relative node-style-round ${className}`}
+        style={executingGlowStyle}
+      >
         {/* Іконка-заголовок (кнопка розгорнути) */}
         <NodeHeader id={id} icon={icon} title={title} data={data} bgColor={bgColor} type={type} />
 
@@ -93,6 +102,7 @@ const BaseNode: React.FC<BaseNodeProps> = ({
         color: 'var(--interface-text-primary)',
         backdropFilter: 'blur(8px)',
         ...borderColorStyle,
+        ...executingGlowStyle,
       }}
     >
       {/* Кольорова смужка зліва — акцент кольору ноди */}

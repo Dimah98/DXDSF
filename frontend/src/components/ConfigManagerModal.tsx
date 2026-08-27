@@ -42,8 +42,8 @@ const OPERATORS = [
   { value: 'time_before', label: 'Час < зараз (time_before)' },
   { value: 'time_after', label: 'Час > зараз (time_after)' },
   { value: 'time_equals', label: 'Час ≈ зараз (time_equals)' },
-  { value: 'time_is_today', label: 'Дата = сьогодні (time_is_today)' },
-  { value: 'time_not_today', label: 'Дата ≠ сьогодні (time_not_today)' },
+  { value: 'time_is_today', label: 'Дата = сьогодні (з 03:00) (time_is_today)' },
+  { value: 'time_not_today', label: 'Дата ≠ сьогодні (з 03:00) (time_not_today)' },
 ];
 
 const FILE_ALIASES = [
@@ -55,7 +55,11 @@ const FILE_ALIASES = [
 let ruleIdCounter = 0;
 const genRuleId = () => `rule_${Date.now()}_${++ruleIdCounter}`;
 
+import { useUIStore } from '../store/useUIStore';
+
 export default function ConfigManagerModal() {
+  const isStoreOpen = useUIStore((s) => s.isConfigManagerOpen);
+  const closeStore = useUIStore((s) => s.closeConfigManager);
   const [isOpen, setIsOpen] = useState(false);
   const [configs, setConfigs] = useState<SavedConfig[]>([]);
   const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
@@ -79,10 +83,22 @@ export default function ConfigManagerModal() {
   }, []);
 
   useEffect(() => {
+    if (isStoreOpen) {
+      setIsOpen(true);
+      fetchConfigs();
+    }
+  }, [isStoreOpen, fetchConfigs]);
+
+  useEffect(() => {
     const handler = () => { setIsOpen(true); fetchConfigs(); };
     window.addEventListener('open-config-manager', handler);
     return () => window.removeEventListener('open-config-manager', handler);
   }, [fetchConfigs]);
+
+  const handleClose = () => {
+    setIsOpen(false);
+    closeStore();
+  };
 
   useEffect(() => {
     if (selectedConfig) {
@@ -180,7 +196,7 @@ export default function ConfigManagerModal() {
             <Settings size={18} className="text-indigo-400" />
             <h2 className="text-sm font-bold text-white">Редактор конфігурацій</h2>
           </div>
-          <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
+          <button onClick={handleClose} className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -483,7 +499,7 @@ export default function ConfigManagerModal() {
               )}
               <div className="ml-auto flex gap-2">
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={handleClose}
                   className="px-4 py-2 text-[11px] font-bold text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                 >
                   Закрити
