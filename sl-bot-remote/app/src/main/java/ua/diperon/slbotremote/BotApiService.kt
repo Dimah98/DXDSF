@@ -44,7 +44,10 @@ data class ProjectOverviewItem(
     @Json(name = "hasChestCollectedToday") val hasChestCollectedToday: Boolean = false,
     @Json(name = "hasShipmentRestockedToday") val hasShipmentRestockedToday: Boolean = false,
     @Json(name = "hasPetalPuzzleSolvedToday") val hasPetalPuzzleSolvedToday: Boolean = false,
-    @Json(name = "miniImages") val miniImages: List<List<Any?>> = emptyList()
+    @Json(name = "miniImages") val miniImages: List<List<Any?>> = emptyList(),
+    @Json(name = "completedDeliveries") val completedDeliveries: Int = 0,
+    @Json(name = "completedDeliveryTypes") val completedDeliveryTypes: List<String> = emptyList(),
+    @Json(name = "lastSaveUpdate") val lastSaveUpdate: Long? = null
 ) {
     fun getParsedMiniImages(): List<Pair<String, Int?>> {
         return miniImages.mapNotNull { item ->
@@ -56,6 +59,11 @@ data class ProjectOverviewItem(
         }
     }
 }
+
+data class NextRunRequest(
+    @Json(name = "runAt") val runAt: Long? = null,
+    @Json(name = "delayMinutes") val delayMinutes: Int? = null
+)
 
 data class RunProjectsRequest(@Json(name = "projectNames") val projectNames: List<String>)
 data class StopProjectsRequest(@Json(name = "projectNames") val projectNames: List<String>)
@@ -200,7 +208,8 @@ data class DeliveryResponse(
 
 data class ActionResponse(
     @Json(name = "success") val success: Boolean,
-    @Json(name = "message") val message: String? = null
+    @Json(name = "message") val message: String? = null,
+    @Json(name = "error") val error: String? = null
 )
 
 data class ProjectSaveResponse(
@@ -428,6 +437,59 @@ class RetryInterceptor(private val maxRetries: Int = 2) : Interceptor {
     }
 }
 
+// ===== Buildings Catalog & Status Models =====
+
+data class BuildingCatalogItem(
+    @Json(name = "id") val id: String = "",
+    @Json(name = "name") val name: String = "",
+    @Json(name = "category") val category: String = "BUILDINGS",
+    @Json(name = "coins") val coins: Double = 0.0,
+    @Json(name = "ingredients") val ingredients: Map<String, Double> = emptyMap(),
+    @Json(name = "requiredLevel") val requiredLevel: Int = 1,
+    @Json(name = "width") val width: Int = 1,
+    @Json(name = "height") val height: Int = 1,
+    @Json(name = "image") val image: String = "",
+    @Json(name = "categoryImage") val categoryImage: String? = null,
+    @Json(name = "shopImage") val shopImage: String? = null
+)
+
+data class BuildingsCatalogResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "catalog") val catalog: List<BuildingCatalogItem> = emptyList(),
+    @Json(name = "error") val error: String? = null
+)
+
+data class SaveBuildingsCatalogRequest(
+    @Json(name = "catalog") val catalog: List<BuildingCatalogItem>
+)
+
+data class ProjectBuildingStatusItem(
+    @Json(name = "id") val id: String = "",
+    @Json(name = "name") val name: String = "",
+    @Json(name = "category") val category: String = "BUILDINGS",
+    @Json(name = "coins") val coins: Double = 0.0,
+    @Json(name = "ingredients") val ingredients: Map<String, Double> = emptyMap(),
+    @Json(name = "userIngredients") val userIngredients: Map<String, Double> = emptyMap(),
+    @Json(name = "requiredLevel") val requiredLevel: Int = 1,
+    @Json(name = "bumpkinLevel") val bumpkinLevel: Int = 1,
+    @Json(name = "userCoins") val userCoins: Double = 0.0,
+    @Json(name = "isPurchased") val isPurchased: Boolean = false,
+    @Json(name = "canBuild") val canBuild: Boolean = false,
+    @Json(name = "width") val width: Int = 1,
+    @Json(name = "height") val height: Int = 1,
+    @Json(name = "image") val image: String = "",
+    @Json(name = "categoryImage") val categoryImage: String? = null,
+    @Json(name = "shopImage") val shopImage: String? = null
+)
+
+data class ProjectBuildingsStatusResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "bumpkinLevel") val bumpkinLevel: Int = 1,
+    @Json(name = "coins") val coins: Double = 0.0,
+    @Json(name = "buildings") val buildings: List<ProjectBuildingStatusItem> = emptyList(),
+    @Json(name = "error") val error: String? = null
+)
+
 // ===== API Interface =====
 
 interface BotApiService {
@@ -484,6 +546,12 @@ interface BotApiService {
     suspend fun updateSchedule(
         @Path("projectName") projectName: String,
         @Body settings: ScheduleUpdateRequest
+    ): ActionResponse
+
+    @POST("api/schedule/{projectName}/next-run")
+    suspend fun setNextRun(
+        @Path("projectName") projectName: String,
+        @Body request: NextRunRequest
     ): ActionResponse
 
     @GET("api/notifications")
@@ -615,6 +683,16 @@ interface BotApiService {
 
     @GET("api/project-save/{projectName}")
     suspend fun getProjectSaveRaw(@Path("projectName") projectName: String): okhttp3.ResponseBody
+
+    // --- Buildings Catalog & Status API ---
+    @GET("api/buildings-catalog")
+    suspend fun getBuildingsCatalog(): BuildingsCatalogResponse
+
+    @POST("api/buildings-catalog")
+    suspend fun saveBuildingsCatalog(@Body request: SaveBuildingsCatalogRequest): ActionResponse
+
+    @GET("api/projects/{projectName}/buildings-status")
+    suspend fun getProjectBuildingsStatus(@Path("projectName") projectName: String): ProjectBuildingsStatusResponse
 
     companion object {
         private const val TAG = "BotApiService"

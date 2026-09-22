@@ -10,6 +10,9 @@ import { memoryGameNodeHandler } from '../../nodes/MemoryGameNode';
 import { whackAMoleNodeHandler } from '../../nodes/WhackAMoleNode';
 import { foodNodeHandler } from '../../nodes/FoodNode';
 import { sequenceMemoryNodeHandler } from '../../nodes/SequenceMemoryNode';
+import { fruitRunnerNodeHandler } from '../../nodes/FruitRunnerNode';
+import { chickenRescueNodeHandler } from '../../nodes/ChickenRescueNode';
+import { captchaSolverNodeHandler } from '../../nodes/CaptchaNode';
 
 /**
  * Sunflower Land domain plugin.
@@ -31,6 +34,9 @@ export const sunflowerLandPlugin: BotPlugin = {
     whackAMoleNode: whackAMoleNodeHandler,
     foodNode: foodNodeHandler,
     sequenceMemoryNode: sequenceMemoryNodeHandler,
+    fruitRunnerNode: fruitRunnerNodeHandler,
+    chickenRescueNode: chickenRescueNodeHandler,
+    captchaSolverNode: captchaSolverNodeHandler,
   },
 };
 

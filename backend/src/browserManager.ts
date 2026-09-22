@@ -1,41 +1,50 @@
-import { chromium, Page } from 'playwright';
-import path from 'path';
-import fs from 'fs';
-import net from 'net';
+import { firefox, chromium, Page } from 'playwright';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as net from 'net';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import 'dotenv/config';
 import { Logger } from './logger';
-import { RONIN_EXTENSION_ID } from './constants';
 import { ProjectSession, ExtendedWebSocket } from './types';
 import { internalConfig } from './internalConfig';
+import { browserSemaphore } from './concurrency/Semaphore';
+import { getRoninInjectionScript } from './web3Signer';
 
 const execAsync = promisify(exec);
 
 // Логер для browserManager
 const logger = new Logger('BrowserManager');
 
+
 /**
- * Асинхронне та неблокуюче завершення процесу браузера за портом (без execSync)
+ * Кросплатформене завершення процесу браузера за портом
  */
 export async function killProcessTreeOnPort(port: number, projectName: string): Promise<void> {
-  if (process.platform !== 'win32' || !port) return;
+  if (!port) return;
   try {
-    const { stdout: netstat } = await execAsync(`netstat -ano | findstr :${port}`);
-    const lines = netstat.split('\n');
-    for (const line of lines) {
-      if (line.includes('LISTENING')) {
-        const parts = line.trim().split(/\s+/);
-        const pid = parts[parts.length - 1];
-        if (pid && pid !== '0' && !isNaN(Number(pid))) {
-          try {
-            await execAsync(`taskkill /F /PID ${pid} /T`);
-            logger.info(`Killed old browser process`, { pid, port, projectName });
-          } catch (killErr) {
-            logger.warn(`Failed to kill old browser process`, { pid, port, projectName, error: String(killErr) });
-          }
+    let pid: string | undefined;
+    if (process.platform === 'win32') {
+      const { stdout } = await execAsync(`netstat -ano | findstr :${port}`);
+      const lines = stdout.split('\n');
+      for (const line of lines) {
+        if (line.includes('LISTENING')) {
+          const parts = line.trim().split(/\s+/);
+          pid = parts[parts.length - 1];
           break;
         }
+      }
+      if (pid && pid !== '0' && !isNaN(Number(pid))) {
+        await execAsync(`taskkill /F /PID ${pid} /T`);
+        logger.info(`Killed old browser process`, { pid, port, projectName });
+      }
+    } else {
+      // Linux / macOS (Docker)
+      const { stdout } = await execAsync(`lsof -ti tcp:${port}`);
+      pid = stdout.trim().split('\n')[0];
+      if (pid && /^\d+$/.test(pid)) {
+        await execAsync(`kill -9 ${pid}`);
+        logger.info(`Killed old browser process`, { pid, port, projectName });
       }
     }
   } catch (e) {
@@ -43,23 +52,107 @@ export async function killProcessTreeOnPort(port: number, projectName: string): 
   }
 }
 
-/**
- * Приховує вікно процесу з панелі завдань та екрану Windows за допомогою cdpPort
- */
-export function hideProcessWindowByPort(cdpPort: number) {
-  if (process.platform !== 'win32' || !cdpPort) return;
-  // Якщо активний modern headless (--headless=new), нативне вікно взагалі не створюється
-  const isHeadless = internalConfig.get('headless') === 1;
-  if (isHeadless) return;
-
-  const psScript = `$proc = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*remote-debugging-port=${cdpPort}*' } | Select-Object -First 1; if ($proc) { (Get-Process -Id $proc.ProcessId).MainWindowHandle }`;
-  exec(`powershell -NoProfile -NonInteractive -Command "${psScript}"`, (err) => {
-    if (err) logger.debug(`Failed to hide window for cdpPort ${cdpPort}: ${err.message}`);
-  });
-}
-
 // Створюємо карту для зберігання активних сесій за назвою проекту
 export const sessions = new Map<string, ProjectSession>();
+
+// Фіксований унікальний UUID для розширення Ronin Wallet у Firefox (Camoufox)
+export const FIXED_RONIN_UUID = "bf680106-96a8-42ec-a070-07bf11c2e399";
+
+/**
+ * Налаштування Firefox Enterprise Policies (policies.json) та distribution/extensions
+ * для примусового автоматичного встановлення Ronin Wallet (force_installed) у Camoufox.
+ */
+export function setupFirefoxPolicies(camoufoxExe?: string): void {
+  try {
+    const possibleXpiSources = [
+      '/app/backend/data/ronin-wallet@axieinfinity.com.xpi',
+      '/app/backend/extensions/ronin-wallet@axieinfinity.com.xpi',
+      path.join(__dirname, '..', 'data', 'ronin-wallet@axieinfinity.com.xpi'),
+      path.join(__dirname, '..', 'extensions', 'ronin-wallet@axieinfinity.com.xpi'),
+      path.join(process.cwd(), 'backend', 'data', 'ronin-wallet@axieinfinity.com.xpi'),
+      path.join(process.cwd(), 'backend', 'extensions', 'ronin-wallet@axieinfinity.com.xpi'),
+      path.join(process.cwd(), 'data', 'ronin-wallet@axieinfinity.com.xpi'),
+      path.join(process.cwd(), 'extensions', 'ronin-wallet@axieinfinity.com.xpi'),
+      'D:\\sf_server_deploy\\backend\\data\\ronin-wallet@axieinfinity.com.xpi',
+      'D:\\SF k\\backend\\extensions\\ronin-wallet@axieinfinity.com.xpi'
+    ];
+
+    let foundXpi: string | undefined;
+    for (const src of possibleXpiSources) {
+      if (fs.existsSync(src)) {
+        foundXpi = src;
+        break;
+      }
+    }
+
+    // URL для встановлення розширення: прямий file:// або локальний HTTP ендпоінт Express
+    let installUrl = 'http://127.0.0.1:3001/api/extensions/ronin-wallet@axieinfinity.com.xpi';
+    if (foundXpi) {
+      if (fs.existsSync('/app/backend/data/ronin-wallet@axieinfinity.com.xpi')) {
+        installUrl = 'file:///app/backend/data/ronin-wallet@axieinfinity.com.xpi';
+      } else {
+        installUrl = 'file:///' + path.resolve(foundXpi).replace(/\\/g, '/');
+      }
+    }
+
+    const policiesData = {
+      policies: {
+        DisableAppUpdate: true,
+        ExtensionSettings: {
+          "ronin-wallet@axieinfinity.com": {
+            installation_mode: "force_installed",
+            install_url: installUrl
+          }
+        }
+      }
+    };
+    const policiesJsonContent = JSON.stringify(policiesData, null, 2);
+
+    const targetPolicyDirs: string[] = [];
+
+    // 1. Системні папки Linux / Docker
+    if (process.platform === 'linux') {
+      targetPolicyDirs.push('/etc/firefox/policies');
+      targetPolicyDirs.push('/usr/lib/firefox/distribution');
+      targetPolicyDirs.push('/usr/lib/firefox-esr/distribution');
+    }
+
+    // 2. Папки поруч із бінарником Camoufox
+    if (camoufoxExe && fs.existsSync(camoufoxExe)) {
+      try {
+        const realExePath = fs.realpathSync(camoufoxExe);
+        const exeDir = path.dirname(realExePath);
+        targetPolicyDirs.push(path.join(exeDir, 'distribution'));
+        const parentDir = path.dirname(exeDir);
+        targetPolicyDirs.push(path.join(parentDir, 'distribution'));
+      } catch (_) {}
+    }
+
+    for (const dir of targetPolicyDirs) {
+      try {
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        const pFile = path.join(dir, 'policies.json');
+        fs.writeFileSync(pFile, policiesJsonContent, 'utf8');
+        logger.info(`Configured Firefox Enterprise Policy at ${pFile}`, { installUrl });
+
+        // Також копіюємо .xpi у distribution/extensions/
+        if (foundXpi) {
+          const distroExtDir = path.join(dir, 'extensions');
+          if (!fs.existsSync(distroExtDir)) fs.mkdirSync(distroExtDir, { recursive: true });
+          const distroXpi = path.join(distroExtDir, 'ronin-wallet@axieinfinity.com.xpi');
+          if (!fs.existsSync(distroXpi)) {
+            fs.copyFileSync(foundXpi, distroXpi);
+            logger.info(`Copied Ronin extension to distro directory: ${distroXpi}`);
+          }
+        }
+      } catch (writeErr) {
+        logger.debug(`Could not write policy to ${dir}: ${writeErr}`);
+      }
+    }
+  } catch (err) {
+    logger.warn('Failed to setup Firefox policies', { error: String(err) });
+  }
+}
 
 // Лічильник та черга для запобігання Race Condition при виділенні портів
 let nextCdpPort = 9222;
@@ -203,15 +296,117 @@ export function attachNetworkInterception(session: ProjectSession) {
   }
 }
 
-// Шляхи та дефолтні налаштування профілю IT Browser — зчитуються з .env
-// Шлях до userData дефолтного профілю
-const USER_DATA = process.env.ITBROWSER_USER_DATA || '';
-// Шлях до chrome.exe IT Browser
-const ITBROWSER_EXE = process.env.ITBROWSER_EXE || '';
+/**
+ * Скрипт обмеження FPS (за замовчуванням 20 кадрів/сек) для Canvas та requestAnimationFrame.
+ * Знижує навантаження на процесор під час програмного рендерингу Phaser / Canvas у Xvfb на 60-70%.
+ */
+export function getFpsLimiterScript(targetFps: number = 20): string {
+  return `
+    (function() {
+      try {
+        if (window.__fps_limiter_installed__) return;
+        window.__fps_limiter_installed__ = true;
+
+        var TARGET_FPS = ${targetFps};
+        var interval = 1000 / TARGET_FPS;
+        var lastTime = 0;
+        var origRAF = window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : null;
+        var origCAF = window.cancelAnimationFrame ? window.cancelAnimationFrame.bind(window) : null;
+        if (!origRAF) return;
+
+        var customIdMap = new Map();
+        var nextId = 1;
+
+        window.requestAnimationFrame = function(callback) {
+          var id = nextId++;
+          var now = performance.now();
+          var elapsed = now - lastTime;
+          var delay = Math.max(0, interval - elapsed);
+
+          var timerId = setTimeout(function() {
+            var rafId = origRAF(function(timestamp) {
+              lastTime = performance.now();
+              customIdMap.delete(id);
+              try {
+                callback(timestamp);
+              } catch (err) {
+                console.error('[FPS Limiter] Callback error:', err);
+              }
+            });
+            customIdMap.set(id, { type: 'raf', handle: rafId });
+          }, delay);
+
+          customIdMap.set(id, { type: 'timeout', handle: timerId });
+          return id;
+        };
+
+        if (origCAF) {
+          window.cancelAnimationFrame = function(id) {
+            var item = customIdMap.get(id);
+            if (item) {
+              if (item.type === 'timeout') {
+                clearTimeout(item.handle);
+              } else if (item.type === 'raf') {
+                origCAF(item.handle);
+              }
+              customIdMap.delete(id);
+            } else {
+              origCAF(id);
+            }
+          };
+        }
+        console.log('[SF-Optimization] 20 FPS limiter successfully activated');
+      } catch (e) {}
+    })();
+  `;
+}
+
+/**
+ * Застосування комплексних оптимізацій продуктивності для контексту браузера:
+ * 1. Блокування медіафайлів (аудіо/відео)
+ * 2. Блокування трекерів, аналітики та телеметрії (Google Analytics, Sentry, Amplitude тощо)
+ * 3. Обмеження частоти кадрів Canvas/Phaser до 20 FPS через requestAnimationFrame
+ */
+export async function attachOptimizations(session: ProjectSession) {
+  if (!session.context) return;
+
+  // 1. Блокуємо важкі медіафайли (аудіо/відео: mp3, ogg, wav, webm, mp4, m4a, flac тощо)
+  try {
+    await session.context.route(/\.(mp3|ogg|wav|webm|mp4|m4a|aac|flac|avi|mkv|mov)(\?.*)?$/i, (route) => {
+      route.abort('blockedbyclient').catch(() => {});
+    });
+  } catch (mediaErr) {
+    logger.debug(`Failed to attach media blocking route for project ${session.projectName}`, { error: String(mediaErr) });
+  }
+
+  // 2. Блокуємо трекери, аналітику та сервіси збору телеметрії/помилок
+  try {
+    const TRACKER_REGEX = /(google-analytics\.com|googletagmanager\.com|sentry\.io|amplitude\.com|mixpanel\.com|hotjar\.com|hotjar\.io|datadoghq\.com|segment\.io|segment\.com|posthog\.com|intercom\.io|clarity\.ms|doubleclick\.net|connect\.facebook\.net)/i;
+    await session.context.route(TRACKER_REGEX, (route) => {
+      route.abort('blockedbyclient').catch(() => {});
+    });
+  } catch (trackerErr) {
+    logger.debug(`Failed to attach tracker blocking route for project ${session.projectName}`, { error: String(trackerErr) });
+  }
+
+  // 3. Обмежуємо FPS (Canvas / Phaser) до 20 кадрів/сек
+  try {
+    const fpsScript = getFpsLimiterScript(20);
+    await session.context.addInitScript({ content: fpsScript });
+    if (session.page) {
+      await session.page.evaluate(fpsScript).catch(() => {});
+    }
+    logger.info(`Attached 20 FPS limiter and resource blockers for project ${session.projectName}`);
+  } catch (fpsErr) {
+    logger.warn(`Failed to attach FPS limiter for project ${session.projectName}`, { error: String(fpsErr) });
+  }
+}
+
+// Шляхи та дефолтні налаштування профілю Camoufox — зчитуються з .env
+// Базова директорія для всіх профілів браузера
+const CAMOUFOX_PROFILES_DIR = process.env.CAMOUFOX_PROFILES_DIR || '/app/profiles';
 // Дефолтна папка профілю з .env
-const ITBROWSER_PROFILE_DIR = process.env.ITBROWSER_PROFILE_DIR || '20260506212424';
-// Базова директорія userData (папка, яка містить всі профілі)
-const ITBROWSER_BASE_USERDATA = USER_DATA ? path.dirname(USER_DATA) : '';
+const CAMOUFOX_DEFAULT_PROFILE = process.env.CAMOUFOX_DEFAULT_PROFILE || 'default';
 
 // Допоміжна функція для пошуку першого вільного TCP порту починаючи з заданого
 export async function findFreePort(startPort: number): Promise<number> {
@@ -273,6 +468,7 @@ export function isSessionBrowserAlive(session: ProjectSession): boolean {
 
 // Функція для закриття браузера конкретної сесії
 export async function closeSessionBrowser(session: ProjectSession) {
+  session.launchPromise = null;
   // Звільняємо виділений CDP порт
   releasePort(session.cdpPort);
 
@@ -296,6 +492,11 @@ export async function closeSessionBrowser(session: ProjectSession) {
   session.browser = null;
   session.context = null;
   session.page = null;
+
+  if (session.hasSemaphorePermit) {
+    session.hasSemaphorePermit = false;
+    browserSemaphore.release();
+  }
 }
 
 // Функція для підключення Playwright до запущеного браузера через CDP
@@ -370,6 +571,9 @@ async function connectOverCDP(session: ProjectSession, port: number, proxyUser?:
         }
       }
 
+      // Застосовуємо оптимізації CPU та мережі для відновленого CDP-підключення
+      await attachOptimizations(session).catch(() => {});
+
       // Повертаємо знайдену сторінку
       return session.page;
     }
@@ -385,50 +589,25 @@ async function connectOverCDP(session: ProjectSession, port: number, proxyUser?:
 // Функція для зміни розміру вікна браузера конкретної сторінки
 async function resizeBrowserWindow(session: ProjectSession, targetPage: Page, width: number, height: number) {
   try {
-    if (session.context) {
-      // Створюємо CDP сесію для керування вікном на низькому рівні
-      const CDPsession = await session.context.newCDPSession(targetPage);
-      try {
-        // Отримуємо ID вікна сторінки
-        const { windowId } = await CDPsession.send('Browser.getWindowForTarget');
-        // Відновлюємо вікно зі стану максимізації (інакше setWindowBounds не спрацює)
-        await CDPsession.send('Browser.setWindowBounds', {
-          windowId,
-          bounds: { windowState: 'normal' }
-        });
-        // Отримуємо поточні розміри вікна
-        const { bounds: currentBounds } = await CDPsession.send('Browser.getWindowBounds', { windowId });
-        // Отримуємо реальний viewport через JS (бо viewportSize() повертає null при viewport: null)
-        const innerSize = await targetPage.evaluate(() => ({
-          w: window.innerWidth,
-          h: window.innerHeight
-        }));
-        // Обчислюємо висоту хрому браузера (вкладки, адресний рядок тощо)
-        const chromeWidth = (currentBounds.width || 0) - innerSize.w;
-        const chromeHeight = (currentBounds.height || 0) - innerSize.h;
-        // Встановлюємо розміри вікна з урахуванням хрому, щоб viewport був ТОЧНО width × height
-        await CDPsession.send('Browser.setWindowBounds', {
-          windowId,
-          bounds: { width: width + chromeWidth, height: height + chromeHeight, windowState: 'normal' }
-        });
-      } finally {
-        // Відключаємо CDP сесію в будь-якому випадку
-        try {
-          await CDPsession.detach();
-        } catch (detachErr) {
-          logger.debug(`Failed to detach CDP session for project ${session.projectName}`, { error: String(detachErr) });
-        }
-      }
-    }
+    await targetPage.setViewportSize({ width, height });
+    (session as any)._deviceWidth = width;
+    (session as any)._deviceHeight = height;
+    logger.debug(`Resized browser viewport to ${width}x${height} for project ${session.projectName}`);
   } catch (e) {
     logger.warn(`Failed to resize browser window for project ${session.projectName}`, { error: String(e) });
   }
 }
 
 // Головна функція для підключення або запуску браузера конкретної сесії проекту
-export async function connectToBrowser(session: ProjectSession, width = 1280, height = 720, _profileName?: string, profileDir?: string, proxyServer?: string) {
-  // Визначаємо директорію профілю: вказану користувачем або дефолтну
-  const requestedProfileDir = profileDir && profileDir.trim() !== '' ? profileDir : ITBROWSER_PROFILE_DIR;
+export async function connectToBrowser(session: ProjectSession, width = 1280, height = 720, _profileName?: string, profileDir?: string, proxyServer?: string, forceHeaded = false): Promise<Page> {
+  if (session.launchPromise) {
+    logger.info(`Browser connection already in progress for project ${session.projectName}, awaiting existing launch...`);
+    return session.launchPromise;
+  }
+
+  const doConnect = async (): Promise<Page> => {
+    // Визначаємо директорію профілю: вказану користувачем або дефолтну
+    const requestedProfileDir = profileDir && profileDir.trim() !== '' ? profileDir : CAMOUFOX_DEFAULT_PROFILE;
 
   // Якщо профіль змінився в межах цієї ж сесії, закриваємо старий браузер та вбиваємо його процес
   if (session.currentlyRunningProfileDir && session.currentlyRunningProfileDir !== requestedProfileDir) {
@@ -444,16 +623,33 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     await killProcessTreeOnPort(session.cdpPort, session.projectName);
   }
 
-  // Якщо браузер сесії вже активний і сторінка існує, змінюємо розмір вікна та повертаємо сторінку
+  // Якщо браузер сесії вже активний і сторінка існує
   if (isSessionBrowserAlive(session) && session.page) {
-    try {
-      await resizeBrowserWindow(session, session.page, width, height);
-    } catch (resizeErr) {
-      logger.warn(`Failed to resize existing browser window for project ${session.projectName}`, { error: String(resizeErr) });
+    // Якщо користувач попросив відкрити у видимому режимі (forceHeaded), але поточний запущений браузер був headless
+    if (forceHeaded && session.currentlyRunningHeadless) {
+      logger.info(`Browser for project ${session.projectName} is currently headless, restarting in visible mode...`);
+      try {
+        await closeSessionBrowser(session);
+      } catch (closeErr) {
+        logger.warn(`Failed to close headless browser for project ${session.projectName}`, { error: String(closeErr) });
+      }
+      await killProcessTreeOnPort(session.cdpPort, session.projectName);
+    } else {
+      try {
+        await resizeBrowserWindow(session, session.page, width, height);
+      } catch (resizeErr) {
+        logger.warn(`Failed to resize existing browser window for project ${session.projectName}`, { error: String(resizeErr) });
+      }
+      return session.page;
     }
-    return session.page;
   }
 
+  if (!session.hasSemaphorePermit) {
+    await browserSemaphore.acquire();
+    session.hasSemaphorePermit = true;
+  }
+
+  try {
   // Розбираємо облікові дані проксі заздалегідь — вони потрібні як для нових браузерів, так і для CDP-підключення до вже запущених
   let parsedProxyUser: string | undefined; // Логін проксі після парсингу рядка налаштувань
   let parsedProxyPass: string | undefined; // Пароль проксі після парсингу рядка налаштувань
@@ -511,12 +707,7 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     return cdpPage;
   }
 
-  logger.debug(`IT Browser not found for project ${session.projectName}. Attempting manual launch...`);
-  
-  // Перевіряємо наявність шляхів в .env
-  if (!ITBROWSER_EXE || !USER_DATA) {
-    throw new Error('❌ Шлях до ITBrowser або UserData не вказано в .env');
-  }
+  logger.debug(`Camoufox not found for project ${session.projectName}. Attempting manual launch...`);
 
   // Визначаємо унікальний вільний порт для віддаленого налагодження цього проекту через атомарний allocatePort
   let freePort: number;
@@ -526,150 +717,218 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     logger.error(`Failed to allocate port for project ${session.projectName}`, portErr instanceof Error ? portErr : new Error(String(portErr)));
     throw new Error(`Cannot allocate CDP port: ${portErr instanceof Error ? portErr.message : String(portErr)}`);
   }
-  
+
   session.cdpPort = freePort;
   logger.info(`Allocated CDP port for project ${session.projectName}`, { port: session.cdpPort });
 
-  // Функція для безпосереднього запуску контексту браузера через Playwright
+  // Перевірка чи вимкнено завантаження картинок (глобально або в налаштуваннях бота)
+  const disableImages = internalConfig.get('disableImages') === 1 || session.botSettings?.disableImages === true;
+
+  // Функція для безпосереднього запуску контексту браузера через Playwright + Camoufox
   const launch = async () => {
     // Визначаємо активну директорію профілю
-    const activeProfileDir = profileDir && profileDir.trim() !== '' ? profileDir : ITBROWSER_PROFILE_DIR;
+    const activeProfileDir = profileDir && profileDir.trim() !== '' ? profileDir : CAMOUFOX_DEFAULT_PROFILE;
     // Формуємо повний шлях до userData профілю
-    const activeUserData = path.join(ITBROWSER_BASE_USERDATA, activeProfileDir);
-    
-    const extensionBaseDir = path.join(activeUserData, 'Default', 'Extensions', RONIN_EXTENSION_ID);
-    let loadExtensionPath = '';
-    if (fs.existsSync(extensionBaseDir)) {
-      try {
-        const versionDirs = fs.readdirSync(extensionBaseDir).filter(d => fs.statSync(path.join(extensionBaseDir, d)).isDirectory());
-        if (versionDirs.length > 0) {
-          loadExtensionPath = path.join(extensionBaseDir, versionDirs[0]);
+    const activeUserData = path.join(CAMOUFOX_PROFILES_DIR, activeProfileDir);
+
+    // Перевіряємо чи увімкнено невидимий режим
+    const isHeadless = !forceHeaded && (internalConfig.get('headless') === 1 || session.botSettings?.headless === true);
+
+    // Firefox launch args для Camoufox
+    const firefoxArgs: string[] = [];
+
+    // Об'єкт конфігурації проксі для Playwright
+    let proxyConfig: { server: string; username?: string; password?: string } | undefined = undefined;
+
+    if (proxyServer && proxyServer.trim() !== '') {
+      const trimmedProxy = proxyServer.trim();
+      if (trimmedProxy.match(/^[a-zA-Z0-9]+:\/\//) || trimmedProxy.includes('@')) {
+        try {
+          const urlStr = trimmedProxy.match(/^[a-zA-Z0-9]+:\/\//) ? trimmedProxy : `http://${trimmedProxy}`;
+          const url = new URL(urlStr);
+          proxyConfig = { server: `${url.protocol}//${url.host}` };
+          if (url.username) proxyConfig.username = decodeURIComponent(url.username);
+          if (url.password) proxyConfig.password = decodeURIComponent(url.password);
+        } catch (e) {
+          proxyConfig = { server: trimmedProxy.startsWith('http') ? trimmedProxy : `http://${trimmedProxy}` };
         }
-      } catch (e) {
-        logger.error(`Failed to read extension directory for project ${session.projectName}`, e instanceof Error ? e : new Error(String(e)));
+      } else {
+        const proxyParts = trimmedProxy.split(':');
+        if (proxyParts.length === 4) {
+          const [ip, port, user, pass] = proxyParts;
+          proxyConfig = { server: `http://${ip}:${port}`, username: user, password: pass };
+        } else if (proxyParts.length === 2) {
+          proxyConfig = { server: `http://${trimmedProxy}` };
+        }
+      }
+      logger.debug(`Project ${session.projectName} using proxy`, { server: proxyConfig?.server || 'unknown', hasAuth: !!proxyConfig?.username });
+    }
+
+    // Допоміжна функція для рекурсивного пошуку бінарника в папці
+    const findExecutableInDir = (dir: string, depth = 0): string | undefined => {
+      if (!fs.existsSync(dir) || depth > 3) return undefined;
+      try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isFile()) {
+            const name = entry.name.toLowerCase();
+            if ((name === 'camoufox-bin' || name === 'camoufox' || name === 'firefox') && !name.endsWith('.py')) {
+              const fullPath = path.join(dir, entry.name);
+              try { fs.chmodSync(fullPath, 0o755); } catch (_) {}
+              return fullPath;
+            }
+          }
+        }
+        for (const entry of entries) {
+          if (entry.isDirectory() && !entry.name.startsWith('.')) {
+            const found = findExecutableInDir(path.join(dir, entry.name), depth + 1);
+            if (found) return found;
+          }
+        }
+      } catch (_) {}
+      return undefined;
+    };
+
+    let camoufoxExe: string | undefined = undefined;
+
+    // 1. Спробуємо запитати у самого Python модуля Camoufox
+    try {
+      const { execSync } = require('child_process');
+      const pyCmd = `python3 -c "
+try:
+    from camoufox.utils import launch_options
+    opts = launch_options()
+    print(opts.get('executable_path') or '')
+except Exception:
+    try:
+        from camoufox.pkgman import get_path
+        import os
+        p = get_path('camoufox')
+        if os.path.isfile(p):
+            print(p)
+        elif os.path.isdir(p):
+            for f in ['camoufox-bin', 'camoufox', 'firefox']:
+                fp = os.path.join(p, f)
+                if os.path.isfile(fp):
+                    print(fp)
+                    break
+    except Exception:
+        pass
+" 2>/dev/null`;
+      const detected = execSync(pyCmd).toString().trim();
+      if (detected && fs.existsSync(detected) && fs.statSync(detected).isFile()) {
+        try { fs.chmodSync(detected, 0o755); } catch (_) {}
+        camoufoxExe = detected;
+      }
+    } catch (_) {}
+
+    // 2. Якщо не знайдено — шукаємо рекурсивно у відомих папках
+    if (!camoufoxExe) {
+      const searchDirs = [
+        '/root/.cache/camoufox',
+        '/root/.cache',
+        path.join(process.env.HOME || '/root', '.cache', 'camoufox'),
+        '/usr/local/bin'
+      ];
+      for (const d of searchDirs) {
+        const found = findExecutableInDir(d);
+        if (found && found !== '/usr/local/bin/camoufox') {
+          camoufoxExe = found;
+          break;
+        }
       }
     }
 
-    // Формуємо масив аргументів для запуску Chromium
-    const args = [
-      // Вказуємо шлях до файлу фінгерпринту IT Browser
-      `--itbrowser=${path.join(path.dirname(ITBROWSER_BASE_USERDATA), 'fingerprint', activeProfileDir + '.json')}`,
-      // Передаємо виділений динамічний порт віддаленого налагодження
-      `--remote-debugging-port=${session.cdpPort}`,
-      // Дозволяємо підключення з будь-яких IP (щоб DevTools працював з інших пристроїв)
-      '--remote-debugging-address=0.0.0.0',
-      // Директорія профілю за замовчуванням
-      '--profile-directory=Default',
-      // Вимикаємо вікно першого запуску
-      '--no-first-run',
-      // Вимикаємо перевірку браузера за замовчуванням
-      '--no-default-browser-check',
-      // Вимикаємо прапорці автоматизації Blink
-      '--disable-blink-features=AutomationControlled',
-      // Задаємо розмір вікна
-      `--window-size=${width},${height}`,
-      // Примусово встановлюємо масштаб 100%, щоб ігнорувати масштабування Windows (125%, 150% тощо)
-      '--force-device-scale-factor=1',
-      // Дозволяємо підключення з будь-яких хостів для CDP
-      '--remote-allow-origins=*',
-      // Оптимізація пам'яті та фонових процесів Chromium
-      '--mute-audio',
-      '--disable-background-networking',
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-renderer-backgrounding',
-      '--disable-ipc-flooding-protection',
-      '--js-flags=--max-old-space-size=256'
-    ];
-
-    // Якщо увімкнено вимкнення картинок, вимикаємо Service Worker-и, 
-    // щоб вони не віддавали закешовані картинки і всі запити йшли через наш route перехоплювач
-    if (session.botSettings?.disableImages) {
-      args.push('--disable-service-workers');
+    // 3. Якщо все ще не знайдено — спробуємо запустити camoufox fetch на льоту
+    if (!camoufoxExe) {
+      logger.warn(`Camoufox binary not found in cache. Attempting 'python3 -m camoufox fetch'...`);
+      try {
+        const { execSync } = require('child_process');
+        execSync('python3 -m camoufox fetch', { stdio: 'inherit' });
+        camoufoxExe = findExecutableInDir('/root/.cache/camoufox');
+      } catch (fetchErr) {
+        logger.error(`Failed to auto-fetch Camoufox`, fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr)));
+      }
     }
 
-    // Перевіряємо чи увімкнено невидимий режим в глобальному конфігу або в налаштуваннях бота
-    const isHeadless = internalConfig.get('headless') === 1 || session.botSettings?.headless === true;
-    if (isHeadless) {
-      // Сучасний нативний безголовий режим Chromium (Chrome 109+), який підтримує всі антидетект-функції ITBrowser без відкриття вікон
-      args.push('--headless=new');
+    if (!camoufoxExe) {
+      throw new Error(`❌ Не знайдено бінарник Camoufox у системі. Виконайте: docker compose exec backend python3 -m camoufox fetch`);
     }
 
-    // Якщо вимкнено завантаження картинок — блокуємо на рівні рушія Blink для максимальної економії пам'яті та CPU
-    const disableImages = internalConfig.get('disableImages') === 1 || session.botSettings?.disableImages === true;
-    if (disableImages) {
-      args.push('--blink-settings=imagesEnabled=false');
-    }
+    logger.info(`Launching browser for project ${session.projectName}`, {
+      executablePath: camoufoxExe,
+      profileDir: activeProfileDir,
+      isHeadless
+    });
 
-    // Об'єкт конфігурації проксі для Playwright, який дозволить автоматично авторизуватися без спливаючих вікон
-    let proxyConfig: { server: string; username?: string; password?: string } | undefined = undefined; // За замовчуванням проксі немає
+    // Налаштування Firefox Enterprise Policies та копіювання розширення у distribution
+    setupFirefoxPolicies(camoufoxExe);
 
-    // Якщо налаштовано проксі-сервер для проекту та рядок не є порожнім
-    if (proxyServer && proxyServer.trim() !== '') { // Перевіряємо наявність проксі
-      const trimmedProxy = proxyServer.trim(); // Очищаємо проксі від зайвих пробілів
-
-      // Спочатку перевіряємо: чи є протокол або @ — ознаки URL-формату
-      // Якщо так, парсимо як URL (щоб уникнути помилки split(':') для http://user:pass@host:port)
-      if (trimmedProxy.match(/^[a-zA-Z0-9]+:\/\//) || trimmedProxy.includes('@')) {
-        // Формат URL: http://user:pass@ip:port або socks5://user:pass@ip:port
-        try { // Спроба розпарсити як URL
-          // Якщо є @ але немає протоколу — додаємо http:// для коректного парсингу
-          const urlStr = trimmedProxy.match(/^[a-zA-Z0-9]+:\/\//) ? trimmedProxy : `http://${trimmedProxy}`;
-          const url = new URL(urlStr); // Парсимо за допомогою стандартного класу URL
-          proxyConfig = { // Створюємо об'єкт конфігурації Playwright
-            server: `${url.protocol}//${url.host}` // Сервер: протокол + хост:порт
-          };
-          if (url.username) { // Якщо знайдено логін у URL
-            proxyConfig.username = decodeURIComponent(url.username); // Декодуємо та записуємо
+    // Автоматичне копіювання розширення Ronin Wallet для профілю (для сумісності)
+    const extDir = path.join(activeUserData, 'extensions');
+    const targetXpi = path.join(extDir, 'ronin-wallet@axieinfinity.com.xpi');
+    if (!fs.existsSync(targetXpi)) {
+      try {
+        if (!fs.existsSync(extDir)) fs.mkdirSync(extDir, { recursive: true });
+        const possibleSources = [
+          path.join(CAMOUFOX_PROFILES_DIR, 'ronin-wallet@axieinfinity.com.xpi'),
+          '/app/backend/data/ronin-wallet@axieinfinity.com.xpi',
+          path.join(__dirname, '..', 'extensions', 'ronin-wallet@axieinfinity.com.xpi'),
+          path.join(__dirname, '..', 'data', 'ronin-wallet@axieinfinity.com.xpi'),
+          path.join(process.cwd(), 'backend', 'extensions', 'ronin-wallet@axieinfinity.com.xpi'),
+          path.join(process.cwd(), 'backend', 'data', 'ronin-wallet@axieinfinity.com.xpi'),
+          path.join(process.cwd(), 'extensions', 'ronin-wallet@axieinfinity.com.xpi'),
+          '/app/backend/extensions/ronin-wallet@axieinfinity.com.xpi',
+          '/app/extensions/ronin-wallet@axieinfinity.com.xpi'
+        ];
+        for (const src of possibleSources) {
+          if (fs.existsSync(src)) {
+            fs.copyFileSync(src, targetXpi);
+            logger.info(`Auto-copied Ronin Wallet extension for profile ${activeProfileDir}`);
+            break;
           }
-          if (url.password) { // Якщо знайдено пароль у URL
-            proxyConfig.password = decodeURIComponent(url.password); // Декодуємо та записуємо
-          }
-        } catch (e) { // Якщо URL некоректний
-          proxyConfig = { // Простий об'єкт без авторизації
-            server: trimmedProxy.startsWith('http') ? trimmedProxy : `http://${trimmedProxy}`
-          };
         }
-      } else {
-        // Формат ip:port:user:pass — лише коли немає протоколу і символу @
-        const proxyParts = trimmedProxy.split(':'); // Розділяємо рядок за двокрапкою
-        if (proxyParts.length === 4) { // Рівно 4 частини: ip, port, user, pass
-          const [ip, port, user, pass] = proxyParts; // Розпаковуємо значення
-          proxyConfig = { // Формуємо об'єкт проксі для Playwright
-            server: `http://${ip}:${port}`, // Сервер проксі
-            username: user, // Логін
-            password: pass // Пароль
-          };
-        } else if (proxyParts.length === 2) { // Формат ip:port (без авторизації)
-          proxyConfig = {
-            server: `http://${trimmedProxy}` // Проксі без авторизації
-          };
-        }
-        // Інакше — ігноруємо невалідний формат
-      } // Кінець розгалуження форматів
-      
-      logger.debug(`Project ${session.projectName} using proxy`, { server: proxyConfig?.server || 'unknown', hasAuth: !!proxyConfig?.username });
-    } // Кінець перевірки проксі
-
-    if (loadExtensionPath) {
-      args.push(`--disable-extensions-except=${loadExtensionPath}`);
-      args.push(`--load-extension=${loadExtensionPath}`);
+      } catch (extErr) {
+        logger.warn(`Failed to auto-copy Ronin extension to profile ${activeProfileDir}`, { error: String(extErr) });
+      }
     }
 
-    // Запускаємо стійкий контекст Playwright з усіма налаштуваннями
-    return await chromium.launchPersistentContext(activeUserData, { // Запускаємо браузер із профілем
-      executablePath: ITBROWSER_EXE, // Шлях до виконуваного файлу IT Browser
-      headless: false, // ITBrowser антидетект крашиться від нативного Playwright --headless, невидимість забезпечується через --window-position=-32000,-32000
-      viewport: null, // Дозволяємо браузеру самостійно визначати розмір вікна
-      ignoreDefaultArgs: ['--enable-automation', '--disable-extensions'], // Видаляємо повідомлення про автоматизацію і дозволяємо розширення
-      args, // Передаємо додаткові аргументи Chromium (включаючи зміщення вікна за екран для невидимого режиму)
-      proxy: proxyConfig // Передаємо об'єкт проксі для авто-авторизації без спливаючих вікон
-    }); // Повертаємо запущений контекст
+    // Запускаємо стійкий контекст Firefox (Camoufox) з усіма налаштуваннями
+    return await firefox.launchPersistentContext(activeUserData, {
+      executablePath: camoufoxExe && fs.existsSync(camoufoxExe) ? camoufoxExe : undefined,
+      headless: isHeadless,
+      viewport: { width, height },
+      args: firefoxArgs,
+      proxy: proxyConfig,
+      firefoxUserPrefs: {
+        'extensions.webextensions.uuids': JSON.stringify({
+          'ronin-wallet@axieinfinity.com': FIXED_RONIN_UUID
+        }),
+        'extensions.autoDisableScopes': 0,
+        'extensions.enabledScopes': 15,
+        'extensions.installDistroAddons': true,
+        'extensions.update.enabled': false,
+        'xpinstall.signatures.required': false,
+        'xpinstall.whitelist.required': false,
+        'extensions.webextensions.restrictedDomains': '',
+        // --- Оптимізації для слабких процесорів (Intel Pentium / 2 ядра) ---
+        'layout.frame_rate': 15, // Знижує частоту Canvas/Phaser рендерингу з 60 до 15 FPS (економить до 75% CPU!)
+        'layout.animation.frame-rate': 15,
+        'media.volume_scale': '0.0', // Повне вимкнення звуку та декодування аудіо
+        'media.autoplay.default': 5, // Блокування автовідтворення аудіо/відео
+        'media.autoplay.blocking_policy': 2,
+        'ui.prefersReducedMotion': 1, // Зменшення CSS-анімацій
+        'dom.ipc.processCount': 1, // Зниження кількості фонових процесів контенту
+        'browser.cache.disk.enable': false, // Вимкнення дискового кешу (знижує I/O навантаження)
+        'browser.cache.memory.capacity': 32768, // Обмеження RAM-кешу до 32 МБ
+        ...(disableImages ? { 'permissions.default.image': 2 } : {})
+      },
+    });
   };
 
   // Визначаємо активну директорію профілю для формування шляху блокування
-  const activeProfileDir = profileDir && profileDir.trim() !== '' ? profileDir : ITBROWSER_PROFILE_DIR;
-  const activeUserData = path.join(ITBROWSER_BASE_USERDATA, activeProfileDir);
+  const activeProfileDir = profileDir && profileDir.trim() !== '' ? profileDir : CAMOUFOX_DEFAULT_PROFILE;
+  const activeUserData = path.join(CAMOUFOX_PROFILES_DIR, activeProfileDir);
 
   try {
     // Спроба запустити браузер
@@ -678,9 +937,14 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     // Підключаємо фоновий перехоплювач мережі на рівні контексту (для API ноди)
     attachNetworkInterception(session);
     
-    // Якщо увімкнено економію трафіку (вимкнення картинок)
-    if (session.botSettings?.disableImages) {
-      // 1. Приховуємо картинки, які вшиті прямо в код сайту (data:image)
+    // Застосовуємо комплексні оптимізації (FPS лімітер 20 кадрів/сек, блокування важких медіа та трекерів)
+    await attachOptimizations(session).catch((optErr) => {
+      logger.warn(`Failed to attach optimizations for project ${session.projectName}`, { error: String(optErr) });
+    });
+
+    // 2. Якщо увімкнено економію трафіку (вимкнення картинок)
+    if (disableImages) {
+      // 2.1. Приховуємо картинки, які вшиті прямо в код сайту (data:image)
       // Вони не витрачають трафік, але щоб візуально їх теж не було і розмір був 25x25
       try {
         await session.context.addInitScript(() => {
@@ -695,34 +959,20 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
         logger.warn(`Failed to add init script for image hiding for project ${session.projectName}`, { error: String(initScriptErr) });
       }
 
-      // 2. Використовуємо перехоплення мережевих запитів для зовнішніх картинок
+      // 2.2. Використовуємо перехоплення мережевих запитів для зовнішніх картинок
       // Це дозволяє подіям onload спрацьовувати і не ламає DOM селектори
       try {
-        await session.context.route('**/*', (route) => {
+        await session.context.route(/(image|\.(png|jpe?g|gif|webp|svg|bmp))(\?.*)?$/i, (route) => {
           try {
-            const req = route.request();
-            const url = req.url().toLowerCase();
-            // Перевіряємо, чи це зображення за типом ресурсу АБО за розширенням файлу
-            // Оскільки ігри (PixiJS/Phaser) часто вантажать картинки через fetch/xhr
-            const isImage = req.resourceType() === 'image' || url.match(/\.(png|jpe?g|gif|webp|svg|bmp)(\?.*)?$/i);
-
-            if (isImage) {
-              // Віддаємо браузеру прозорий SVG фіксованого розміру 25x25
-              route.fulfill({
-                status: 200,
-                contentType: 'image/svg+xml',
-                body: '<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25"></svg>'
-              }).catch(fulfillErr => {
-                logger.debug(`Failed to fulfill image route for project ${session.projectName}`, { error: String(fulfillErr) });
-              });
-            } else {
-              route.continue().catch(continueErr => {
-                logger.debug(`Failed to continue route for project ${session.projectName}`, { error: String(continueErr) });
-              });
-            }
+            route.fulfill({
+              status: 200,
+              contentType: 'image/svg+xml',
+              body: '<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25"></svg>'
+            }).catch(fulfillErr => {
+              logger.debug(`Failed to fulfill image route for project ${session.projectName}`, { error: String(fulfillErr) });
+            });
           } catch (routeErr) {
             logger.debug(`Error in route handler for project ${session.projectName}`, { error: String(routeErr) });
-            // Спробуємо продовжити запит навіть при помилці
             route.continue().catch(() => {});
           }
         });
@@ -731,30 +981,43 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
       }
     }
 
+    // Підключаємо Ronin Wallet EIP-6963 Bridge у DOM для гарантованої появи кнопки 'Ronin Browser Extension' у грі
+    try {
+      const roninScript = getRoninInjectionScript(session.projectName);
+      await session.context.addInitScript({ content: roninScript });
+      logger.info(`Injected Ronin Wallet EIP-6963 Bridge for project ${session.projectName}`);
+    } catch (inPageErr) {
+      logger.warn(`Failed to inject Ronin Bridge for project ${session.projectName}`, { error: String(inPageErr) });
+    }
+
     // Отримуємо об'єкт браузера
     session.browser = session.context.browser() as any;
 
-    const isHeadless = internalConfig.get('headless') === 1 || session.botSettings?.headless === true;
-    if (isHeadless) {
-      logger.info(`Hiding taskbar window for project ${session.projectName} (CDP Port ${session.cdpPort})`);
-      hideProcessWindowByPort(session.cdpPort);
-    }
+    const isHeadless = !forceHeaded && (internalConfig.get('headless') === 1 || session.botSettings?.headless === true);
+    session.currentlyRunningHeadless = isHeadless;
 
-    logger.info(`Profile ${activeProfileDir} launched successfully for project ${session.projectName}`, { port: session.cdpPort });
+    logger.info(`Profile ${activeProfileDir} launched successfully for project ${session.projectName}`, { port: session.cdpPort, isHeadless });
     // Зберігаємо поточний запущений профіль
     session.currentlyRunningProfileDir = requestedProfileDir;
   } catch (err: any) {
     // Якщо виникла помилка блокування профілю
-    if (err.message.includes('user-data-dir') || err.message.includes('locked')) {
-      // Намагаємось видалити файл блокування SingletonLock
-      const lockFile = path.join(activeUserData, 'SingletonLock');
-      try {
-         if (fs.existsSync(lockFile)) {
-           fs.unlinkSync(lockFile);
-           logger.info(`Removed SingletonLock for profile ${activeProfileDir}`);
-         }
-      } catch (lockErr) {
-        logger.warn(`Failed to remove SingletonLock for profile ${activeProfileDir}`, { error: String(lockErr) });
+    if (err.message.includes('user-data-dir') || err.message.includes('locked') || err.message.includes('profile')) {
+      // Намагаємось видалити файли блокування
+      const lockFiles = [
+        path.join(activeUserData, 'SingletonLock'),
+        path.join(activeUserData, '.parentlock'),
+        path.join(activeUserData, 'parent.lock'),
+        path.join(activeUserData, 'lock')
+      ];
+      for (const lockFile of lockFiles) {
+        try {
+          if (fs.existsSync(lockFile)) {
+            fs.unlinkSync(lockFile);
+            logger.info(`Removed lock file ${path.basename(lockFile)} for profile ${activeProfileDir}`);
+          }
+        } catch (lockErr) {
+          logger.warn(`Failed to remove lock file ${path.basename(lockFile)} for profile ${activeProfileDir}`, { error: String(lockErr) });
+        }
       }
     }
     // Логуємо помилку запуску браузера
@@ -780,7 +1043,8 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     // Якщо сторінка порожня, переходимо на офіційний сайт гри Sunflower Land
     if (gamePage.url() === 'about:blank') {
       try {
-        await gamePage.goto('https://sunflower-land.com/play/#/', { waitUntil: 'networkidle' });
+        await gamePage.goto('https://sunflower-land.com/play/#/', { waitUntil: 'domcontentloaded' });
+        await gamePage.waitForSelector('#root, canvas, [role="main"]', { timeout: 15000 }).catch(() => {});
       } catch (gotoErr) {
         logger.warn(`Failed to navigate to Sunflower Land for project ${session.projectName}`, { error: String(gotoErr) });
         // Продовжуємо роботу навіть якщо навігація не вдалася
@@ -790,6 +1054,13 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
   
   // Зберігаємо сторінку гри у сесії
   session.page = gamePage;
+  try {
+    const roninScript = getRoninInjectionScript(session.projectName);
+    await session.page.addInitScript({ content: roninScript });
+    const fpsScript = getFpsLimiterScript(20);
+    await session.page.addInitScript({ content: fpsScript });
+    await session.page.evaluate(fpsScript).catch(() => {});
+  } catch (_) {}
   // Змінюємо розмір вікна сторінки
   try {
     await resizeBrowserWindow(session, session.page, width, height);
@@ -814,8 +1085,23 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     // Не критична помилка, продовжуємо
   }
   
-  // Повертаємо активну сторінку
-  return session.page;
+    // Повертаємо активну сторінку
+    return session.page;
+  } catch (err) {
+    if (session.hasSemaphorePermit && !isSessionBrowserAlive(session)) {
+      session.hasSemaphorePermit = false;
+      browserSemaphore.release();
+    }
+    throw err;
+  }
+};
+
+  session.launchPromise = doConnect();
+  try {
+    return await session.launchPromise;
+  } finally {
+    session.launchPromise = null;
+  }
 }
 
 // Функція для ін'єкції скрипту вибору елементів (пікера) на сторінку

@@ -21,6 +21,7 @@ export interface EngineParams {
   onNodeDisplayUpdate?: (nodeId: string, data: Record<string, unknown>) => void;
   onNodeExecuting?: (nodeId: string, nodeTitle?: string) => void;
   onFinished?: (status: 'success' | 'error' | 'stopped', errorMessage?: string) => void;
+  executionTimeoutMs?: number;
 }
 
 export interface QueueItem {
@@ -32,11 +33,14 @@ export interface QueueItem {
 
 export class BotEngine {
   private params: EngineParams;
-  private executionTimeoutMs = 24 * 60 * 60 * 1000; // 24 години — максимальний час виконання сценарію
+  private executionTimeoutMs = 24 * 60 * 60 * 1000; // 24 години за замовчуванням
   private static readonly MAX_QUEUE_SIZE = 1000; // Максимальний розмір черги нод для запобігання витокам пам'яті
 
   constructor(params: EngineParams) {
     this.params = params;
+    if (params.executionTimeoutMs !== undefined && params.executionTimeoutMs > 0) {
+      this.executionTimeoutMs = params.executionTimeoutMs;
+    }
   }
 
   /**

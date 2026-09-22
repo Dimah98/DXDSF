@@ -4,7 +4,7 @@ import { Logger } from '../logger';
 import { PROJECTS_DIR } from '../constants';
 import { MassLaunchStore } from '../scheduler/MassLaunchStore';
 import { ConfigStore } from '../configs/ConfigStore';
-import { evaluateConfig, loadConfigFiles, resolvePath } from '../configs/ConfigEvaluator';
+import { evaluateConfig, loadConfigFilesAsync, resolvePath } from '../configs/ConfigEvaluator';
 import { startProject } from './ProjectRunner';
 import { getOrCreateSession } from '../browserManager';
 import { schedulerService } from '../services';
@@ -168,7 +168,7 @@ export async function enrichMassLaunches(launches: any[]) {
           const matching: string[] = [];
           for (const p of allProjectNames) {
             try {
-              const fileCache = loadConfigFiles(config, p, () => {});
+              const fileCache = await loadConfigFilesAsync(config, p, () => {});
               const passed = evaluateConfig(config, p, fileCache, new Set(), {}, {}, () => {});
               if (passed) matching.push(p);
             } catch (e) {}
@@ -217,11 +217,19 @@ export async function enrichMassLaunches(launches: any[]) {
   }));
 }
 
+let isCheckingMassLaunches = false;
+
 // Функція періодичної перевірки та запуску задач за розкладом масових запусків
 export async function checkAndRunMassLaunches() {
+  if (isCheckingMassLaunches) {
+    logger.debug('[MassScheduler] Попередня перевірка ще триває, пропускаємо тік');
+    return;
+  }
+  isCheckingMassLaunches = true;
+
   try {
     // === Перевірка планових запусків від ноди setNextRunNode ===
-    const nodeScheduledProjects = schedulerService.checkAndGetProjectsToRun(PROJECTS_DIR);
+    const nodeScheduledProjects = await schedulerService.checkAndGetProjectsToRun(PROJECTS_DIR);
     for (const projectName of nodeScheduledProjects) {
       logger.info(`[NodeScheduler] Запуск проекту ${projectName} за розкладом від ноди`);
       runScheduledProject(projectName);
@@ -260,7 +268,7 @@ export async function checkAndRunMassLaunches() {
           const matching: string[] = [];
           for (const p of allProjectNames) {
             try {
-              const fileCache = loadConfigFiles(config, p, () => {});
+              const fileCache = await loadConfigFilesAsync(config, p, () => {});
               const passed = evaluateConfig(config, p, fileCache, new Set(), {}, {}, () => {});
               if (passed) matching.push(p);
             } catch (e) {}
@@ -291,9 +299,11 @@ export async function checkAndRunMassLaunches() {
               continue;
             }
             logger.info(`[MassScheduler] Старт проекту ${projectName} за масовим розкладом «${launch.name}» (контейнери: ${launch.containers && launch.containers.length > 0 ? launch.containers.join(', ') : 'всі'})`);
-            startProject(projectName, undefined, launch.containers).catch(err => {
+            try {
+              await startProject(projectName, undefined, launch.containers);
+            } catch (err) {
               logger.error(`[MassScheduler] Помилка старту проекту ${projectName}`, err instanceof Error ? err : new Error(String(err)));
-            });
+            }
           }
         }
       } else if (launch.mode === 'json_time') {
@@ -333,9 +343,11 @@ export async function checkAndRunMassLaunches() {
               projectLastRuns[projectName] = nowMs;
               updatedProjectRuns = true;
 
-              startProject(projectName, undefined, launch.containers).catch(err => {
+              try {
+                await startProject(projectName, undefined, launch.containers);
+              } catch (err) {
                 logger.error(`[MassScheduler JSON] Помилка старту проекту ${projectName}`, err instanceof Error ? err : new Error(String(err)));
-              });
+              }
             }
           } catch (e) {
             logger.debug(`[MassScheduler] Помилка обробки JSON для ${projectName}`, { error: String(e) });
@@ -349,6 +361,8 @@ export async function checkAndRunMassLaunches() {
     }
   } catch (err) {
     logger.error('Error in checkAndRunMassLaunches', err instanceof Error ? err : new Error(String(err)));
+  } finally {
+    isCheckingMassLaunches = false;
   }
 }
 

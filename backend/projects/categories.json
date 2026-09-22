@@ -329,7 +329,6 @@
     ],
     "Tomato Seed": [
       "насіння",
-      "рослини",
       "В насіння",
       "О насіння",
       "насіння дерев"
@@ -1047,6 +1046,53 @@
     ],
     "Ascension Age Raffle Ticket": [
       "ціності"
+    ],
+    "Pearl": [
+      "скарби"
+    ],
+    "Clam Shell": [
+      "скарби"
+    ],
+    "otter pebble": [
+      "ціності",
+      "скарби"
+    ],
+    "Red Lotus": [
+      "квіти"
+    ],
+    "Cockle Shell": [
+      "скарби"
+    ],
+    "Salt Sculpture": [
+      "будівлі"
+    ],
+    "crow": [
+      "декор"
+    ],
+    "Laurie the Chuckle Crow": [
+      "будівлі",
+      "декор"
+    ],
+    "Angelfish": [
+      "риба"
+    ],
+    "aged porgy": [
+      "соління"
+    ],
+    "Mahi Mahi": [
+      "риба"
+    ],
+    "Yellow Clover": [
+      "квіти"
+    ],
+    "Thermal Stone": [
+      "квіти"
+    ],
+    "Protective Pesticide": [
+      "квіти"
+    ],
+    "Blue Clover": [
+      "квіти"
     ]
   }
 }

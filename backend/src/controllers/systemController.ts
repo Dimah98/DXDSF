@@ -92,3 +92,16 @@ export function getSystemStatus(_req: Request, res: Response): void {
     res.status(500).json({ status: 'error', message: 'Failed to get system status' });
   }
 }
+
+export function restartBackend(_req: Request, res: Response): void {
+  try {
+    res.status(200).json({ status: 'restarting', message: 'Backend is restarting...' });
+    setTimeout(() => {
+      logger.info('Restart requested via API. Exiting process...');
+      process.exit(0);
+    }, 500);
+  } catch (err) {
+    logger.error('Error initiating restart', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ status: 'error', message: 'Restart failed' });
+  }
+}

@@ -1,0 +1,79 @@
+name: sunflower-land-bot
+services:
+  backend:
+    image: dimahoma/sf-backend:latest
+    container_name: sf_backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - HTTP_PORT=3001
+      - JWT_SECRET=sf_dxd_jwt_secret_production_key_983716245198273641
+      - ENCRYPTION_KEY=sf_dxd_encryption_key_secure_store_8471928374619283
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:80,http://localhost,https://dxd.pp.ua,http://dxd.pp.ua,http://192.168.0.107:5173,http://192.168.0.107
+      - CAMOUFOX_PROFILES_DIR=/app/profiles
+      - CAMOUFOX_DEFAULT_PROFILE=default
+      - CAMOUFOX_EXECUTABLE_PATH=/usr/local/bin/camoufox-bin
+      - MAX_PARALLEL_BROWSERS=11
+      - LOG_LEVEL=1
+    volumes:
+      - /DATA/AppData/SF/sf_server_deploy/data:/app/data
+      - /DATA/AppData/SF/sf_server_deploy/backend/data:/app/backend/data
+      - /DATA/AppData/SF/sf_server_deploy/backend/projects:/app/backend/projects
+      - /DATA/AppData/SF/sf_server_deploy/profiles:/app/profiles
+      - /DATA/AppData/SF/sf_server_deploy/backend/src:/app/backend/src
+    shm_size: '2gb'
+    networks:
+      - sf_network
+
+  frontend:
+    image: dimahoma/sf-frontend:latest
+    container_name: sf_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    volumes:
+      - /DATA/AppData/SF/sf_server_deploy/frontend/dist:/usr/share/nginx/html:ro
+      - /DATA/AppData/SF/sf_server_deploy/frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /DATA/AppData/SF/sf_server_deploy/logs/nginx:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - sf_network
+
+  goaccess:
+    image: xavierh/goaccess-for-nginxproxymanager:latest
+    container_name: sf_goaccess
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Kyiv
+      - LOG_TYPE=NCSA_COMBINED
+    ports:
+      - "7880:7880"
+    volumes:
+      - /DATA/AppData/SF/sf_server_deploy/logs/nginx:/opt/log:ro
+    networks:
+      - sf_network
+
+networks:
+  sf_network:
+    driver: bridge
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: frontend
+  description:
+    en_us: Visual bot builder and automation for Sunflower Land
+  tagline:
+    en_us: Sunflower Land Bot Builder
+  developer: Dimah
+  author: Dimah
+  icon: https://files.catbox.moe/9r0pip.png
+  thumbnail: https://files.catbox.moe/9r0pip.png
+  title:
+    en_us: Sunflower Bot
+  scheme: http
+  port_map: "5173"

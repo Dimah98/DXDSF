@@ -105,3 +105,30 @@ data/discord_exports/
 *.db-wal
 graphify-out/
 
+# ─── Архіви та великі медіафайли ──────────────────────────────────────────────
+*.tar.gz
+*.zip
+*.rar
+*.7z
+*.mp4
+*.mkv
+1/
+
+# ─── Проксі та облікові дані ──────────────────────────────────────────────────
+proxies.txt
+**/proxies.txt
+
+# ─── Профілі Camoufox / браузерів ────────────────────────────────────────────
+profiles/*
+!profiles/.gitkeep
+temp_test_profile/
+
+# ─── Бінарники розширень браузера ─────────────────────────────────────────────
+*.xpi
+backend/data/ronin-wallet@axieinfinity.com/
+backend/extensions/
+
+# ─── Тимчасові дебаг-скріншоти ─────────────────────────────────────────────────
+backend/projects/*_screenshots/screenshot_*.png
+
+

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Terminal, Camera, Trash2, Image as ImageIcon, Search, Bell, Bug } from 'lucide-react';
+import { Terminal, Camera, Trash2, Image as ImageIcon, Search, Bell, Bug, Maximize2, Minimize2, Grid, LayoutGrid } from 'lucide-react';
 import { NotificationsPanel } from './NotificationsPanel';
 import { useUIStore } from '../store/useUIStore';
 
@@ -11,6 +11,7 @@ interface ConsolePaneProps {
   logs: any[]; // Масив поточних логів
   setLogs: (logs: any) => void; // Функція оновлення масиву логів
   debugImages: any[]; // Масив скріншотів дебагу
+  setDebugImages?: (imgs: any[]) => void; // Очищення скріншотів
   activeTab: 'logs' | 'photos' | 'notifications'; // Активна вкладка
   setActiveTab: (tab: 'logs' | 'photos' | 'notifications') => void; // Функція зміни активної вкладки
   currentProject: string; // Назва поточного проекту для збереження логів
@@ -23,12 +24,16 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   logs,
   setLogs,
   debugImages,
+  setDebugImages,
   activeTab,
   setActiveTab,
   currentProject // Назва поточного проекту для збереження/очищення логів на диску
 }) => {
   const storeUnread = useUIStore((s) => s.unreadNotificationsCount);
   const [unreadNotifications, setUnreadNotifications] = useState(storeUnread);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [photoGridCols, setPhotoGridCols] = useState<'compact' | 'normal' | 'large'>('normal');
+
   // Чи показувати детальні (debug) логи кроків нод. Зберігається між сеансами.
   const [showDebug, setShowDebug] = useState(() => localStorage.getItem('sfl_console_show_debug') !== 'false');
 
@@ -78,7 +83,11 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
   }, [selectedFullImage, debugImages, currentIndex, hasPrev, hasNext]);
 
   return (
-    <div className={`absolute bottom-0 right-0 z-[var(--z-panel-console)] transition-all duration-300 ease-in-out ${isOpen ? 'h-[55vh] md:h-[350px]' : 'h-10'} left-0 ${isSidebarCollapsed ? 'md:left-14' : 'md:left-60'} bg-[var(--interface-bg)] backdrop-blur-md border-t border-[var(--interface-border)] shadow-2xl flex flex-col`}>
+    <div className={`transition-all duration-300 ease-in-out bg-[var(--interface-bg)] backdrop-blur-md shadow-2xl flex flex-col ${
+      isFullScreen 
+        ? 'fixed inset-0 z-[var(--z-modal)] w-screen h-screen left-0 md:left-0 border-none' 
+        : `absolute bottom-0 right-0 z-[var(--z-panel-console)] ${isOpen ? 'h-[55vh] md:h-[350px]' : 'h-10'} left-0 ${isSidebarCollapsed ? 'md:left-14' : 'md:left-60'} border-t border-[var(--interface-border)]`
+    }`}>
       {/* Модальне вікно скріншоту на весь екран */}
       {selectedFullImage && createPortal(
         <div 
@@ -181,7 +190,7 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
                   : 'text-white/40 hover:text-white/80'
               }`}
             >
-              <Camera size={12} /> <span className="hidden xs:inline sm:inline">Фото</span>
+              <Camera size={12} /> <span className="hidden xs:inline sm:inline">Фото ({debugImages.length})</span>
             </button>
             {/* Кнопка Сповіщень */}
             <button 
@@ -212,6 +221,22 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
               title={showDebug ? 'Сховати детальні логи кроків нод' : 'Показати детальні логи кроків нод'}
             >
               <Bug size={14} />
+            </button>
+          )}
+          {isOpen && (
+            <button
+              onClick={() => {
+                if (!isOpen) setIsOpen(true);
+                setIsFullScreen(!isFullScreen);
+              }}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isFullScreen 
+                  ? 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30' 
+                  : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+              }`}
+              title={isFullScreen ? 'Зменшити вікно' : 'Розгорнути на весь екран'}
+            >
+              {isFullScreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
           )}
           {isOpen && (
@@ -298,41 +323,100 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
               )}
             </div>
           ) : activeTab === 'photos' ? (
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-black/20">
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-black/20 flex flex-col gap-3">
+               {/* Панель керування галереєю фотодебагу */}
+               <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-card/40 border border-border/40 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                      <Camera size={13} className="text-indigo-400" />
+                      Галерея дебаг-знімків
+                    </span>
+                    <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono px-2 py-0.5 rounded-full">
+                      {debugImages.length} {debugImages.length === 1 ? 'знімок' : 'знімків'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Вибір розміру сітки */}
+                    <div className="flex items-center gap-1 bg-background/60 p-0.5 rounded-lg border border-border/40 text-[10px]">
+                      <button
+                        onClick={() => setPhotoGridCols('large')}
+                        className={`px-2 py-0.5 rounded font-medium transition-colors ${photoGridCols === 'large' ? 'bg-indigo-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                      >
+                        Великі
+                      </button>
+                      <button
+                        onClick={() => setPhotoGridCols('normal')}
+                        className={`px-2 py-0.5 rounded font-medium transition-colors ${photoGridCols === 'normal' ? 'bg-indigo-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                      >
+                        Середні
+                      </button>
+                      <button
+                        onClick={() => setPhotoGridCols('compact')}
+                        className={`px-2 py-0.5 rounded font-medium transition-colors ${photoGridCols === 'compact' ? 'bg-indigo-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                      >
+                        Компактні
+                      </button>
+                    </div>
+
+                    {/* Очистити галерею */}
+                    {debugImages.length > 0 && typeof setDebugImages === 'function' && (
+                      <button
+                        onClick={() => setDebugImages([])}
+                        className="px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-lg text-[10px] font-bold uppercase transition-colors flex items-center gap-1.5"
+                        title="Очистити всі збережені дебаг-знімки"
+                      >
+                        <Trash2 size={12} />
+                        <span>Очистити</span>
+                      </button>
+                    )}
+                  </div>
+               </div>
+
                {debugImages.length === 0 ? (
-                 <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 italic">
-                    <ImageIcon size={32} className="mb-2 opacity-20" />
+                 <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 italic py-12">
+                    <ImageIcon size={40} className="mb-2 opacity-20" />
                     Скріншотів поки немає...
                  </div>
                ) : (
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                 <div className={`grid gap-3.5 ${
+                   photoGridCols === 'large'
+                     ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                     : photoGridCols === 'compact'
+                     ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+                     : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
+                 }`}>
                     {debugImages.map((img) => (
                       <div 
                         key={img.id} 
                         onClick={() => setSelectedFullImage(img)}
-                        className="bg-muted/30 border border-border/50 rounded-xl overflow-hidden group hover:border-indigo-500/50 transition-all shadow-lg cursor-pointer hover:scale-[1.02]"
+                        className="bg-muted/30 border border-border/50 rounded-xl overflow-hidden group hover:border-indigo-500/50 transition-all shadow-md hover:shadow-xl cursor-pointer hover:scale-[1.02] flex flex-col"
                       >
-                         <div className="relative aspect-video bg-black/40">
-                            <img src={img.image} className="w-full h-full object-contain" alt="Debug View" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                         <div className="relative aspect-video bg-black/50 overflow-hidden">
+                            <img src={img.image} className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" alt="Debug View" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                               <span className="text-[9px] text-white/90 font-mono">Натисніть для перегляду</span>
+                            </div>
                          </div>
-                         <div className="p-2.5 flex items-center justify-between border-t border-border/50 bg-background/50">
-                            <div className="flex flex-col">
-                               <span className="text-[10px] font-black uppercase text-indigo-400 tracking-tighter truncate max-w-[150px]">
+                         <div className="p-2 flex items-center justify-between border-t border-border/50 bg-background/70 mt-auto">
+                            <div className="flex flex-col min-w-0 pr-1">
+                               <span className="text-[10px] font-black uppercase text-indigo-400 tracking-tighter truncate max-w-[120px]">
                                   {img.nodeName}
                                </span>
-                               <span className="text-[8px] text-muted-foreground">{img.time}</span>
+                               <span className="text-[8px] text-muted-foreground font-mono">{img.time}</span>
                             </div>
                             <button 
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 const link = document.createElement('a');
                                 link.href = img.image;
                                 link.download = `debug_${img.id}.png`;
                                 link.click();
                               }}
-                              className="p-1.5 hover:bg-indigo-500/20 text-muted-foreground hover:text-indigo-400 rounded-lg transition-colors"
+                              className="p-1 hover:bg-indigo-500/20 text-muted-foreground hover:text-indigo-400 rounded-md transition-colors"
+                              title="Завантажити знімок"
                             >
-                               <ImageIcon size={14} />
+                               <ImageIcon size={13} />
                             </button>
                          </div>
                       </div>

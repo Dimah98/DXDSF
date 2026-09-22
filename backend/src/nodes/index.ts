@@ -1,8 +1,9 @@
-﻿import { actionNodeHandler } from './ActionNode';
+import { actionNodeHandler } from './ActionNode';
 import { valueLoopNodeHandler } from './ValueLoopNode';
 import { delayNodeHandler } from './DelayNode';
 import { variableNodeHandler } from './VariableNode';
 import { browserNodeHandler } from './BrowserNode';
+import { browserResizeNodeHandler } from './BrowserResizeNode';
 import { keyboardNodeHandler } from './KeyboardNode';
 import { infoNodeHandler } from './InfoNode';
 import { visualSearchNodeHandler } from './VisualSearchNode';
@@ -35,6 +36,7 @@ import { islandArrangerNodeHandler } from './IslandArrangerNode';
 import { textInputNodeHandler } from './TextInputNode';
 import { flowerPlanterNodeHandler } from './FlowerPlanterNode';
 import { deliveryNodeHandler } from './DeliveryNode';
+import { buildingPlacerNodeHandler } from './BuildingPlacerNode';
 
 // Domain-specific plugins
 import { sunflowerLandPlugin } from '../plugins/sunflower-land';
@@ -51,6 +53,7 @@ const genericHandlers: Record<string, NodeHandler> = {
   variableNode: variableNodeHandler,
   calculatorNode: calculatorNodeHandler,
   browserNode: browserNodeHandler,
+  browserResizeNode: browserResizeNodeHandler,
   keyboardNode: keyboardNodeHandler,
   escNode: keyboardNodeHandler,
   infoNode: infoNodeHandler,
@@ -83,6 +86,7 @@ const genericHandlers: Record<string, NodeHandler> = {
   textInputNode: textInputNodeHandler,
   flowerPlanterNode: flowerPlanterNodeHandler,
   deliveryNode: deliveryNodeHandler,
+  buildingPlacerNode: buildingPlacerNodeHandler,
   subEntryNode: async ({ context }: NodeHandlerParams): Promise<NodeResult> => ({ data: context }),
   subExitNode: async ({ context }: NodeHandlerParams): Promise<NodeResult> => ({ data: context }),
 };

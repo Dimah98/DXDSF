@@ -83,6 +83,8 @@ const Sidebar = ({
       const filtered = Array.isArray(data) ? data.filter((name: string) => 
         name !== 'categories' &&
         name !== 'global_building_types' &&
+        name !== 'buildings_catalog_settings' &&
+        !name.includes('buildings_catalog_settings') &&
         name !== 'schedule' &&
         name !== 'notifications' &&
         !name.endsWith('_layout') &&

@@ -3,11 +3,11 @@ import { notificationService } from '../services';
 
 // Обробник ноди "Сповіщення" — відправляє текстове сповіщення від поточного проекту
 export const notifyNodeHandler = async ({
-  currentNode, context, globalVariables, projectName
+  currentNode, context, globalVariables, projectName, logToClient
 }: NodeHandlerParams) => {
   // Отримуємо шаблон повідомлення із налаштувань ноди (або використовуємо дефолтний)
-  const nodeData = currentNode.data as Record<string, unknown>;
-  const messageTemplate = (nodeData.message as string) || '🔔 Сповіщення від проекту';
+  const nodeData = (currentNode.data || {}) as Record<string, unknown>;
+  const messageTemplate = (nodeData.message as string) || (nodeData.text as string) || '🔔 Сповіщення від проекту';
 
   // Розпочинаємо підстановку: замінюємо {time} на поточний час
   let message = messageTemplate
@@ -22,8 +22,13 @@ export const notifyNodeHandler = async ({
       : match;
   });
 
-  // Записуємо сповіщення через сервіс — воно зберігається негайно в файл та автоматично логується через callback
+  // Записуємо сповіщення через сервіс — воно зберігається негайно в файл та транслюється у WebSocket
   notificationService.add(projectName, message);
+
+  // Також виводимо у консоль проекту та журнал запуску
+  if (typeof logToClient === 'function') {
+    logToClient(`🔔 [Сповіщення]: ${message}`, 'info');
+  }
 
   // Повертаємо контекст без змін для продовження виконання сценарію
   return { data: context };

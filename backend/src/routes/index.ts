@@ -10,6 +10,8 @@ import projectDataRoutes from './projectDataRoutes';
 import browserRoutes from './browserRoutes';
 import mediaRoutes from './mediaRoutes';
 import scheduleRoutes from './scheduleRoutes';
+import notificationsRoutes from './notificationsRoutes';
+import buildingsRoutes from './buildingsRoutes';
 
 const router = Router();
 
@@ -25,5 +27,7 @@ router.use(projectDataRoutes);
 router.use(browserRoutes);
 router.use(mediaRoutes);
 router.use(scheduleRoutes);
+router.use(notificationsRoutes);
+router.use(buildingsRoutes);
 
 export default router;

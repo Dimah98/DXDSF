@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { sessions } from '../browserManager';
+import { writeJsonAtomic } from '../utils/fileUtils';
 
 export interface ScheduledRun {
   projectName: string;
@@ -24,6 +25,8 @@ export class SchedulerService {
   private schedulePath: string;
   private lastAttemptTime: Map<string, number> = new Map();
   private readonly maxConcurrentLaunches = 3;
+  private projectCache: Map<string, { mtimeMs: number; data: any }> = new Map();
+  private statsCache: Map<string, { mtimeMs: number; lastRun: number }> = new Map();
 
   constructor(projectsDir: string) {
     this.schedulePath = path.join(projectsDir, 'schedule.json');
@@ -118,7 +121,7 @@ export class SchedulerService {
 
   private save(): void {
     this.cleanupExpired();
-    fs.promises.writeFile(this.schedulePath, JSON.stringify({ scheduledRuns: this.scheduledRuns }, null, 2), 'utf-8')
+    writeJsonAtomic(this.schedulePath, { scheduledRuns: this.scheduledRuns })
       .catch(err => {
         console.error('Помилка збереження schedule.json:', err);
       });
@@ -150,13 +153,52 @@ export class SchedulerService {
     }
   }
 
-  public checkAndGetProjectsToRun(projectsDir: string): string[] {
+  private async getProjectData(projectPath: string): Promise<any | null> {
+    try {
+      const stat = await fs.promises.stat(projectPath);
+      const cached = this.projectCache.get(projectPath);
+      if (cached && cached.mtimeMs === stat.mtimeMs) {
+        return cached.data;
+      }
+      const raw = await fs.promises.readFile(projectPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      this.projectCache.set(projectPath, { mtimeMs: stat.mtimeMs, data: parsed });
+      return parsed;
+    } catch {
+      this.projectCache.delete(projectPath);
+      return null;
+    }
+  }
+
+  private async getLastRunTime(projectName: string, projectsDir: string, projectData: any): Promise<number> {
+    const statPath = path.join(projectsDir, `${projectName}_stats.json`);
+    let lastRun = projectData?.updatedAt || 0;
+
+    try {
+      const stat = await fs.promises.stat(statPath);
+      const cached = this.statsCache.get(statPath);
+      if (cached && cached.mtimeMs === stat.mtimeMs) {
+        return cached.lastRun;
+      }
+      const statsContent = await fs.promises.readFile(statPath, 'utf-8');
+      const stats = JSON.parse(statsContent);
+      if (Array.isArray(stats) && stats.length > 0) {
+        lastRun = stats[stats.length - 1].timestamp || lastRun;
+      }
+      this.statsCache.set(statPath, { mtimeMs: stat.mtimeMs, lastRun });
+    } catch {
+      // stats file may not exist yet, fallback to projectData.updatedAt
+    }
+    return lastRun;
+  }
+
+  public async checkAndGetProjectsToRun(projectsDir: string): Promise<string[]> {
     const toRun: string[] = [];
     const now = Date.now();
     let files: string[] = [];
     
     try {
-      files = fs.readdirSync(projectsDir);
+      files = await fs.promises.readdir(projectsDir);
     } catch (err) {
       console.error('Scheduler: failed to read projects dir', err);
       return [];
@@ -181,10 +223,8 @@ export class SchedulerService {
       const projectName = file.replace('.json', '');
       const projectPath = path.join(projectsDir, file);
       
-      let projectData: any;
-      try {
-        projectData = JSON.parse(fs.readFileSync(projectPath, 'utf-8'));
-      } catch (err) {
+      const projectData = await this.getProjectData(projectPath);
+      if (!projectData) {
         continue;
       }
       
@@ -192,7 +232,7 @@ export class SchedulerService {
       const launchSettings = projectData.launchSettings;
 
       if (launchSettings && launchSettings.mode === 'interval' && launchSettings.intervalValue > 0) {
-        const lastRun = this.getLastRunTime(projectName, projectsDir, projectData);
+        const lastRun = await this.getLastRunTime(projectName, projectsDir, projectData);
         const requiredDiffMs = launchSettings.intervalUnit === 'hours'
           ? launchSettings.intervalValue * 3600000
           : launchSettings.intervalValue * 60000;
@@ -225,7 +265,7 @@ export class SchedulerService {
       }
 
       if (launchSettings && launchSettings.mode === 'schedule') {
-        const lastRun = this.getLastRunTime(projectName, projectsDir, projectData);
+        const lastRun = await this.getLastRunTime(projectName, projectsDir, projectData);
         const latestTime = this.getLatestScheduleTime(launchSettings.scheduleTime, launchSettings.scheduleDays);
         if (latestTime !== null && lastRun < latestTime) {
           const session = sessions.get(projectName);
@@ -264,30 +304,12 @@ export class SchedulerService {
     return toRun;
   }
 
-  private getLastRunTime(projectName: string, projectsDir: string, projectData: any): number {
-    const statPath = path.join(projectsDir, `${projectName}_stats.json`);
-    let lastRun = projectData.updatedAt || 0;
-    
-    try {
-      if (fs.existsSync(statPath)) {
-        const statsContent = fs.readFileSync(statPath, 'utf-8');
-        const stats = JSON.parse(statsContent);
-        if (stats && stats.length > 0) {
-          lastRun = stats[stats.length - 1].timestamp;
-        }
-      }
-    } catch (err) {
-      console.warn(`Scheduler: failed to read stats file for ${projectName}`);
-    }
-    return lastRun;
-  }
-
-  public getFullSchedule(projectsDir: string): ScheduleInfo[] {
+  public async getFullSchedule(projectsDir: string): Promise<ScheduleInfo[]> {
     const schedule: ScheduleInfo[] = [];
     let files: string[] = [];
     
     try {
-      files = fs.readdirSync(projectsDir);
+      files = await fs.promises.readdir(projectsDir);
     } catch (err) {
       return schedule;
     }
@@ -311,15 +333,13 @@ export class SchedulerService {
       const projectName = file.replace('.json', '');
       const projectPath = path.join(projectsDir, file);
       
-      let projectData: any;
-      try {
-        projectData = JSON.parse(fs.readFileSync(projectPath, 'utf-8'));
-      } catch (err) {
+      const projectData = await this.getProjectData(projectPath);
+      if (!projectData) {
         continue;
       }
       
       const launchSettings = projectData.launchSettings || { mode: 'none' };
-      const lastRun = this.getLastRunTime(projectName, projectsDir, projectData);
+      const lastRun = await this.getLastRunTime(projectName, projectsDir, projectData);
       
       let nextRun: number | null = null;
       

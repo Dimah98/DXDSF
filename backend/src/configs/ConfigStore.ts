@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { writeJsonAtomic } from '../utils/fileUtils';
 
 export interface ConfigRule {
   id: string;
@@ -57,7 +58,7 @@ function ensureCache(): SavedConfig[] {
 
 function persistAsync(configs: SavedConfig[]): void {
   fs.promises.mkdir(path.dirname(CONFIGS_FILE), { recursive: true })
-    .then(() => fs.promises.writeFile(CONFIGS_FILE, JSON.stringify(configs, null, 2), 'utf-8'))
+    .then(() => writeJsonAtomic(CONFIGS_FILE, configs))
     .catch(err => console.error('[ConfigStore] Failed to persist configs', err));
 }
 

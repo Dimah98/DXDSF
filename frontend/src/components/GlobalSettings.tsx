@@ -1,6 +1,6 @@
 // Панель глобальних налаштувань інтерфейсу
 import { useState, useEffect } from 'react';
-import { Settings, X, Palette, AppWindow, Layers, Type, Square, CreditCard, ClipboardList, Monitor, ImageOff, Globe, Camera, Grid3x3, Database, EyeOff, ListOrdered, Timer, UtensilsCrossed } from 'lucide-react';
+import { Settings, X, Palette, AppWindow, Layers, Type, Square, CreditCard, ClipboardList, Monitor, ImageOff, Globe, Camera, Grid3x3, Database, EyeOff, Eye, ListOrdered, Timer, UtensilsCrossed } from 'lucide-react';
 import { ConfigSettings } from './ConfigSettings';
 import { RecipeImagesSettings } from './RecipeImagesSettings';
 import { useGlobalSettingsStore } from '../store/useGlobalSettingsStore';
@@ -424,20 +424,40 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
                     </label>
 
                     {/* Опція невидимого режиму браузера */}
-                    <label className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors border border-transparent">
-                      {/* Підпис та іконка опції невидимого режиму */}
-                      <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
-                        <EyeOff size={13} className="text-slate-500" />
-                        <span>Невидимий режим браузера (Headless)</span>
-                      </div>
-                      {/* Чекбокс для увімкнення/вимкнення headless режиму */}
-                      <input 
-                        type="checkbox" 
-                        checked={settings.headless === true} 
-                        onChange={(e) => updateSetting('headless', e.target.checked)} 
-                        className="rounded border-white/20 text-blue-500 focus:ring-blue-500 bg-black/20" 
-                      />
-                    </label>
+                    <div className="space-y-1.5 p-1 rounded-xl bg-white/[0.02] border border-white/5">
+                      <label className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors border border-transparent">
+                        {/* Підпис та іконка опції невидимого режиму */}
+                        <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
+                          <EyeOff size={13} className="text-slate-500" />
+                          <span>Невидимий режим браузера (Headless)</span>
+                        </div>
+                        {/* Чекбокс для увімкнення/вимкнення headless режиму */}
+                        <input 
+                          type="checkbox" 
+                          checked={settings.headless === true} 
+                          onChange={(e) => updateSetting('headless', e.target.checked)} 
+                          className="rounded border-white/20 text-blue-500 focus:ring-blue-500 bg-black/20" 
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const proj = localStorage.getItem('sfl_current_project') || 'default';
+                          try {
+                            await fetch(`/api/browser/open/${encodeURIComponent(proj)}?forceHeaded=true`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ forceHeaded: true })
+                            });
+                          } catch (_) {}
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-[10px] font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 transition-all cursor-pointer active:scale-95"
+                        title="Запустити браузер поточного проекту у видимому режимі (навіть якщо увімкнено Headless)"
+                      >
+                        <Eye size={12} />
+                        <span>Запустити браузер у видимому режимі (Headed)</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 

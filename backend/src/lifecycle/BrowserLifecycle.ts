@@ -15,7 +15,10 @@
  * Requirements: 9, 27
  */
 
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 import { Page } from 'playwright';
 import { Logger } from '../logger';
 import { BrowserLifecycle as IBrowserLifecycle, BrowserSettings, ProjectSession } from '../types';
@@ -127,8 +130,8 @@ export class BrowserLifecycle implements IBrowserLifecycle {
       });
     }
 
-    if (!session.browser) {
-      logger.debug('No browser to close for session', { projectName: session.projectName });
+    if (!session.browser && !session.context) {
+      logger.debug('No browser or context to close for session', { projectName: session.projectName });
       return;
     }
 
@@ -234,18 +237,18 @@ export class BrowserLifecycle implements IBrowserLifecycle {
 
       logger.debug('Checking for zombie process on CDP port', { projectName, port });
 
-      const pid = this.findPidOnPort(port);
+      const pid = await this.findPidOnPort(port);
       if (!pid) {
         continue;
       }
 
       logger.warn('Found zombie browser process', { projectName, port, pid });
 
-      const killed = this.killProcess(pid, projectName, port);
+      const killed = await this.killProcess(pid, projectName, port);
       if (killed) {
         killedCount++;
         // Verify the process is gone
-        const stillRunning = this.findPidOnPort(port);
+        const stillRunning = await this.findPidOnPort(port);
         if (stillRunning) {
           logger.warn('Zombie process still running after kill attempt', {
             projectName,
@@ -266,39 +269,46 @@ export class BrowserLifecycle implements IBrowserLifecycle {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Find the PID of the process listening on the given TCP port using netstat.
+   * Find the PID of the process listening on the given TCP port.
+   * Uses lsof on Linux/macOS (Docker), netstat on Windows.
    *
    * Requirement 27.2: Identify processes using the CDP port
    *
    * @param port - The TCP port to check
    * @returns The PID as a string, or null if not found
    */
-  private findPidOnPort(port: number): string | null {
+  private async findPidOnPort(port: number): Promise<string | null> {
     try {
-      const output = execSync(`netstat -ano | findstr :${port}`, {
-        encoding: 'utf8',
-        timeout: 5000,
-      });
-
-      const lines = output.split('\n');
-      for (const line of lines) {
-        if (line.includes('LISTENING')) {
-          const parts = line.trim().split(/\s+/);
-          const pid = parts[parts.length - 1];
-          if (pid && pid !== '0' && /^\d+$/.test(pid)) {
-            return pid;
+      if (process.platform === 'win32') {
+        const { stdout } = await execAsync(`netstat -ano | findstr :${port}`);
+        const lines = stdout.split('\n');
+        for (const line of lines) {
+          if (line.includes('LISTENING')) {
+            const parts = line.trim().split(/\s+/);
+            const pid = parts[parts.length - 1];
+            if (pid && pid !== '0' && /^\d+$/.test(pid)) {
+              return pid;
+            }
           }
+        }
+      } else {
+        // Linux / macOS (Docker)
+        const { stdout } = await execAsync(`lsof -ti tcp:${port}`);
+        const pid = stdout.trim().split('\n')[0];
+        if (pid && /^\d+$/.test(pid)) {
+          return pid;
         }
       }
     } catch {
-      // netstat returned non-zero (no match) or timed out — that's fine
+      // No process found on port — that's fine
     }
 
     return null;
   }
 
   /**
-   * Kill a process and its entire process tree using taskkill.
+   * Kill a process and its entire process tree.
+   * Uses kill on Linux/macOS (Docker), taskkill on Windows.
    *
    * Requirement 27.3: Terminate zombie browser processes
    * Requirement 27.5: Log error and continue if termination fails
@@ -308,12 +318,13 @@ export class BrowserLifecycle implements IBrowserLifecycle {
    * @param port - Used for logging context
    * @returns true if the kill command succeeded, false otherwise
    */
-  private killProcess(pid: string, projectName: string, port: number): boolean {
+  private async killProcess(pid: string, projectName: string, port: number): Promise<boolean> {
     try {
-      execSync(`taskkill /F /PID ${pid} /T`, {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
+      if (process.platform === 'win32') {
+        await execAsync(`taskkill /F /PID ${pid} /T`);
+      } else {
+        await execAsync(`kill -9 ${pid}`);
+      }
       logger.info('Killed zombie browser process', { projectName, port, pid });
       return true;
     } catch (err) {

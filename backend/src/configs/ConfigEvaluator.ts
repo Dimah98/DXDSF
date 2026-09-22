@@ -2,23 +2,24 @@ import fs from 'fs';
 import path from 'path';
 import { ConfigRule, SavedConfig } from './ConfigStore';
 import { PROJECTS_DIR } from '../constants';
+import { writeJsonAtomic } from '../utils/fileUtils';
 
-export function resolvePath(obj: unknown, pathStr: string): { value: unknown; parent: unknown; key: string | number | null; exists: boolean } {
-  if (!pathStr || typeof pathStr !== 'string') {
-    return { value: undefined, parent: null, key: null, exists: false };
-  }
+const pathTokenCache = new Map<string, string[]>();
+const MAX_PATH_CACHE_SIZE = 1000;
 
+function tokenizePath(pathStr: string): string[] {
   let cleaned = pathStr.trim();
-  // Видаляємо початковий '$'
   if (cleaned.startsWith('$')) {
     cleaned = cleaned.slice(1);
   }
-  // Видаляємо початкову крапку '.' якщо є
   if (cleaned.startsWith('.')) {
     cleaned = cleaned.slice(1);
   }
+  if (!cleaned) return [];
 
-  // Розбиваємо шлях на токени: підтримує dot notation (a.b), bracket notation ([0], ["key-with-dash"], ['key']), та wildcard (*)
+  const cached = pathTokenCache.get(cleaned);
+  if (cached) return cached;
+
   const tokens: string[] = [];
   const regex = /\[(?:'([^']+)'|"([^"]+)"|([^\]]+))\]|([^.\[\]]+)/g;
   let match: RegExpExecArray | null;
@@ -29,6 +30,20 @@ export function resolvePath(obj: unknown, pathStr: string): { value: unknown; pa
       tokens.push(token.trim());
     }
   }
+
+  if (pathTokenCache.size >= MAX_PATH_CACHE_SIZE) {
+    pathTokenCache.clear();
+  }
+  pathTokenCache.set(cleaned, tokens);
+  return tokens;
+}
+
+export function resolvePath(obj: unknown, pathStr: string): { value: unknown; parent: unknown; key: string | number | null; exists: boolean } {
+  if (!pathStr || typeof pathStr !== 'string') {
+    return { value: undefined, parent: null, key: null, exists: false };
+  }
+
+  const tokens = tokenizePath(pathStr);
 
   if (tokens.length === 0) {
     return { value: obj, parent: null, key: null, exists: obj !== undefined };
@@ -493,7 +508,7 @@ export function saveConfigFiles(
 ) {
   for (const fileRef of filesToSave) {
     const filePath = getProjectFilePath(projectName, fileRef);
-    fs.promises.writeFile(filePath, JSON.stringify(fileCache.get(fileRef), null, 2), 'utf-8')
+    writeJsonAtomic(filePath, fileCache.get(fileRef))
       .then(() => {
         logToClient(`💾 Файл оновлено: ${path.basename(filePath)}`, 'success');
       })
@@ -512,7 +527,7 @@ export async function saveConfigFilesAsync(
   for (const fileRef of filesToSave) {
     const filePath = getProjectFilePath(projectName, fileRef);
     try {
-      await fs.promises.writeFile(filePath, JSON.stringify(fileCache.get(fileRef), null, 2), 'utf-8');
+      await writeJsonAtomic(filePath, fileCache.get(fileRef));
       logToClient(`💾 Файл оновлено: ${path.basename(filePath)}`, 'success');
     } catch (e: any) {
       logToClient(`❌ Помилка запису ${filePath}: ${e.message}`, 'error');

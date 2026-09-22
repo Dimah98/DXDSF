@@ -12,8 +12,29 @@ import { browserSemaphore } from '../concurrency/Semaphore';
  * Singleton instances of core backend services
  */
 export const schedulerService = new SchedulerService(PROJECTS_DIR);
-export const notificationService = new NotificationService(PROJECTS_DIR);
 export const wsLifecycle = new WebSocketLifecycle((projectName: string) => sessions.get(projectName));
+export const notificationService = new NotificationService(PROJECTS_DIR, (projectName, message, notification) => {
+  try {
+    const payload = {
+      type: 'NOTIFICATION',
+      projectName,
+      message,
+      notification
+    };
+    wsLifecycle.broadcast(payload);
+    const session = sessions.get(projectName);
+    if (session && session.activeSockets) {
+      const json = JSON.stringify(payload);
+      for (const socket of session.activeSockets) {
+        if (socket && socket.readyState === 1) {
+          try { socket.send(json); } catch (_) {}
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to broadcast notification:', err);
+  }
+});
 export const browserLifecycle = new BrowserLifecycle();
 export const timerManager = new TimerManager((projectName: string) => sessions.get(projectName));
 export const memoryMonitor = new MemoryMonitor();

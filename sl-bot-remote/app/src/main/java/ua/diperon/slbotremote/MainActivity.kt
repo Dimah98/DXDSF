@@ -1,11 +1,17 @@
 package ua.diperon.slbotremote
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -19,10 +25,27 @@ import ua.diperon.slbotremote.ui.theme.MyApplicationTheme
  * the routing between our connection setups, the control dashboard, and the livestream console monitor.
  */
 class MainActivity : ComponentActivity() {
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Log.d("MainActivity", "POST_NOTIFICATIONS permission granted")
+        } else {
+            Log.w("MainActivity", "POST_NOTIFICATIONS permission denied")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Enforces full bleeds and respects status bar space safely
         enableEdgeToEdge()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        NotificationSyncWorker.createNotificationChannel(this)
         setContent {
             MyApplicationTheme(darkTheme = true, dynamicColor = false) {
                 // Setup NavController and container scaffolds
@@ -113,6 +136,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToMap = { pName ->
                                      navController.navigate("island_map/$pName")
+                                },
+                                onNavigateToPurchasableBuildings = { pName ->
+                                    navController.navigate("purchasable_buildings/$pName")
                                 }
                             )
                         }
@@ -200,14 +226,20 @@ class MainActivity : ComponentActivity() {
 
                         // Island Map route
                         composable(
-                            route = "island_map/{projectName}",
+                            route = "island_map/{projectName}?building={building}",
                             arguments = listOf(
                                 navArgument("projectName") {
                                     type = NavType.StringType
+                                },
+                                navArgument("building") {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
                                 }
                             )
                         ) { backStackEntry ->
                             val projectName = backStackEntry.arguments?.getString("projectName") ?: ""
+                            val building = backStackEntry.arguments?.getString("building")
                             val apiService = sharedDashboardViewModel.getApiService()
                             
                             if (apiService != null) {
@@ -216,6 +248,45 @@ class MainActivity : ComponentActivity() {
                                     apiService = apiService,
                                     onBackClick = {
                                         navController.popBackStack()
+                                    },
+                                    buildingToPlace = building
+                                )
+                            } else {
+                                androidx.compose.foundation.layout.Box(
+                                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                                    contentAlignment = androidx.compose.ui.Alignment.Center
+                                ) {
+                                    androidx.compose.material3.Text("Завантаження...")
+                                }
+                            }
+                        }
+
+                        // 9.5 Purchasable Buildings Screen route
+                        composable(
+                            route = "purchasable_buildings/{projectName}",
+                            arguments = listOf(
+                                navArgument("projectName") {
+                                    type = NavType.StringType
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val projectName = backStackEntry.arguments?.getString("projectName") ?: ""
+                            val apiService = sharedDashboardViewModel.getApiService()
+
+                            if (apiService != null) {
+                                PurchasableBuildingsScreen(
+                                    projectName = projectName,
+                                    apiService = apiService,
+                                    onBackClick = {
+                                        navController.popBackStack()
+                                    },
+                                    onNavigateToMap = { pName, bName ->
+                                        val targetRoute = if (bName != null) {
+                                            "island_map/$pName?building=${java.net.URLEncoder.encode(bName, "UTF-8")}"
+                                        } else {
+                                            "island_map/$pName"
+                                        }
+                                        navController.navigate(targetRoute)
                                     }
                                 )
                             } else {

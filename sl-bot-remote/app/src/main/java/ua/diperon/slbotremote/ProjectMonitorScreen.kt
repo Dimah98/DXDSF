@@ -1,6 +1,7 @@
 package ua.diperon.slbotremote // Пакет нашого керуючого додатку
 
 import java.util.Locale
+import kotlinx.coroutines.launch
 import android.graphics.Bitmap // Клас бітмапів для роботи з кадрами трансляції екрану
 import androidx.compose.animation.AnimatedVisibility // Анімована видимість компонентів
 import androidx.compose.foundation.ExperimentalFoundationApi // Експериментальні API для пейджера
@@ -77,6 +78,7 @@ import androidx.compose.material.icons.filled.PlayArrow // Символ запу
 import androidx.compose.material.icons.filled.Refresh // Кнопка синхронізації метрик
 import androidx.compose.material.icons.filled.Stop // Квадрат термінового зупинення двигуна
 import androidx.compose.material.icons.filled.Download // Завантаження історії
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.UnfoldMore
@@ -123,16 +125,20 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text // Рендерер текстових полів
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TopAppBar // Комплект верхнього шапкового меню дій
 import androidx.compose.material3.TopAppBarDefaults // Кольори оформлення шапки екрану
 import androidx.compose.runtime.Composable // Будівельник UI декларацій Jetpack Compose
 import androidx.compose.runtime.DisposableEffect // Слідкувач знищення композиції
 import androidx.compose.runtime.LaunchedEffect // Запуск побічних процесів у корутинах
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState // Метод перетворення Flow потоків у Compose-стейт
 import androidx.compose.runtime.getValue // Спрощення зчитування змінних
 import androidx.compose.runtime.mutableStateOf // Метод декларації локальних змінних
 import androidx.compose.runtime.remember // Органайзер збереження значень під час рекомпозицій
 import androidx.compose.runtime.setValue // Спрощення перезапису локальних змінних
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment // Вирівнювання вкладених дочірніх компонентів
 import androidx.compose.ui.Modifier // Основна шина налаштувань властивостей елемента
 import androidx.compose.ui.draw.alpha // Прозорість елемента
@@ -172,7 +178,8 @@ fun ProjectMonitorScreen(
     onNavigateToEditor: (String) -> Unit,
     onNavigateToProject: (String) -> Unit,
     onNavigateToInventory: (String) -> Unit,
-    onNavigateToMap: (String) -> Unit
+    onNavigateToMap: (String) -> Unit,
+    onNavigateToPurchasableBuildings: (String) -> Unit = {}
 ) {
     // Збір реактивних потоків даних із нашої ViewModel
     val currentProjectName by viewModel.projectName.collectAsState() // Стейт поточного імені проекту у роботі
@@ -255,6 +262,7 @@ fun ProjectMonitorScreen(
         onBackClick = onBackClick,
         onNavigateToEditor = onNavigateToEditor,
         onNavigateToMap = onNavigateToMap,
+        onNavigateToPurchasableBuildings = onNavigateToPurchasableBuildings,
         onRefreshStats = { viewModel.fetchRestStats() },
         onToggleStream = { viewModel.toggleStream() },
         onStartBot = { viewModel.runBot() },
@@ -329,6 +337,7 @@ fun ProjectMonitorContent(
     onBackClick: () -> Unit,
     onNavigateToEditor: (String) -> Unit,
     onNavigateToMap: (String) -> Unit,
+    onNavigateToPurchasableBuildings: (String) -> Unit = {},
     onRefreshStats: () -> Unit,
     onToggleStream: () -> Unit,
     onStartBot: () -> Unit,
@@ -428,6 +437,18 @@ fun ProjectMonitorContent(
                             imageVector = Icons.Outlined.Map,
                             contentDescription = "Карта Острова",
                             tint = Color.White
+                        )
+                    }
+
+                    // Кнопка купівлі будівель
+                    IconButton(
+                        onClick = { onNavigateToPurchasableBuildings(projectName) },
+                        modifier = Modifier.testTag("monitor_purchasable_buildings")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.HomeWork,
+                            contentDescription = "Купівля Будівель",
+                            tint = Color(0xFFF59E0B)
                         )
                     }
                     
@@ -554,6 +575,7 @@ fun ProjectMonitorContent(
                     ViewMode.DELIVERY -> {
                         DeliveryComponent(
                             modifier = bottomModeModifier,
+                            projectName = projectName,
                             deliveryItems = deliveryItems,
                             inventoryItems = inventoryItems,
                             markedDeliveries = markedDeliveries,
@@ -2570,6 +2592,7 @@ fun ProjectMonitorPreview() {
 @Composable
 fun DeliveryComponent(
     modifier: Modifier = Modifier,
+    projectName: String = "",
     deliveryItems: List<Delivery>,
     inventoryItems: List<InventoryItem>,
     markedDeliveries: Set<String> = emptySet(),
@@ -2579,6 +2602,7 @@ fun DeliveryComponent(
 ) {
     val context = LocalContext.current
     val baseUrl = remember { ConnectionConfigManager(context).getHttpUrl().removeSuffix("/") }
+    var selectedDeliveryForDetails by remember { mutableStateOf<Delivery?>(null) }
 
     // Мапа назв NPC для спеціальних випадків
     val npcNameMap = mapOf(
@@ -2695,12 +2719,26 @@ fun DeliveryComponent(
                             baseUrl = baseUrl,
                             getNpcFileName = ::getNpcFileName,
                             isMarked = markedDeliveries.contains(getNpcFileName(delivery.from)),
+                            onClick = { selectedDeliveryForDetails = delivery },
                             onToggleMark = { onToggleMark(getNpcFileName(delivery.from)) }
                         )
                     }
                 }
             }
         }
+    }
+
+    // Модальне вікно деталей доставки та необхідних інгредієнтів
+    selectedDeliveryForDetails?.let { delivery ->
+        DeliveryDetailsDialog(
+            delivery = delivery,
+            projectName = projectName,
+            inventoryMap = inventoryMap,
+            baseUrl = baseUrl,
+            isMarked = markedDeliveries.contains(getNpcFileName(delivery.from)),
+            onToggleMark = { onToggleMark(getNpcFileName(delivery.from)) },
+            onDismiss = { selectedDeliveryForDetails = null }
+        )
     }
 }
 
@@ -2715,6 +2753,7 @@ fun DeliveryItemCard(
     baseUrl: String,
     getNpcFileName: (String) -> String,
     isMarked: Boolean = false,
+    onClick: () -> Unit = {},
     onToggleMark: () -> Unit = {}
 ) {
     // Перевіряємо, чи достатньо ресурсів
@@ -2745,7 +2784,7 @@ fun DeliveryItemCard(
         modifier = Modifier
             .fillMaxSize()
             .combinedClickable(
-                onClick = {},
+                onClick = onClick,
                 onLongClick = onToggleMark
             ),
         shape = RoundedCornerShape(24.dp),
@@ -4188,17 +4227,26 @@ fun SaveFileViewerComponent(
     var isSearchOpen by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
-    val rootNode = remember(rawJson) {
-        if (rawJson.isNullOrBlank()) null
+    var viewedSnapshot by remember { mutableStateOf<ProjectSaveSnapshot?>(null) }
+    var snapshotJsonContent by remember { mutableStateOf<String?>(null) }
+    var showHistoryDialog by remember { mutableStateOf(false) }
+    var showSaveCurrentDialog by remember { mutableStateOf(false) }
+    var newSnapshotLabel by remember { mutableStateOf("") }
+
+    val effectiveJson = viewedSnapshot?.let { snapshotJsonContent } ?: rawJson
+
+    val rootNode = remember(effectiveJson) {
+        if (effectiveJson.isNullOrBlank()) null
         else {
             try {
                 val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
-                val parsed = moshi.adapter(Any::class.java).fromJson(rawJson)
+                val parsed = moshi.adapter(Any::class.java).fromJson(effectiveJson)
                 parseJsonTreeNode("", "", parsed)
             } catch (e: Exception) {
                 try {
-                    val tokener = JSONTokener(rawJson)
+                    val tokener = JSONTokener(effectiveJson)
                     val rootVal = tokener.nextValue()
                     parseJsonTreeNode("", "", rootVal)
                 } catch (e2: Exception) {
@@ -4306,7 +4354,7 @@ fun SaveFileViewerComponent(
                                     val filename = "${projectName}_save.json"
                                     val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
                                     val file = java.io.File(downloadsDir, filename)
-                                    file.writeText(rawJson ?: "")
+                                    file.writeText(effectiveJson ?: "")
                                     Toast.makeText(context, "Збережено: $filename", android.widget.Toast.LENGTH_SHORT).show()
                                 } catch (e: Exception) {
                                     Toast.makeText(context, "Помилка: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
@@ -4321,10 +4369,148 @@ fun SaveFileViewerComponent(
                                 modifier = Modifier.size(14.dp)
                             )
                         }
+                        // Кнопка збереження поточної версії в архів
+                        IconButton(
+                            onClick = { showSaveCurrentDialog = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.BookmarkAdd,
+                                contentDescription = "Зберегти версію",
+                                tint = GlassPrimaryLight,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    // Кнопка історії та порівняння збережень
+                    IconButton(
+                        onClick = { showHistoryDialog = true },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = "Історія та порівняння збережень",
+                            tint = GlassGem,
+                            modifier = Modifier.size(14.dp)
+                        )
                     }
                 }
 
                 BottomViewModeSwitcher(viewMode = viewMode, onSetViewMode = onSetViewMode)
+            }
+
+            if (viewedSnapshot != null) {
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = GlassGem.copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, GlassGem.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                                tint = GlassGem,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = "Архів: ${viewedSnapshot?.label} (${viewedSnapshot?.formattedDate})",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                viewedSnapshot = null
+                                snapshotJsonContent = null
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text("До актуального", fontSize = 11.sp, color = GlassPrimaryLight, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            if (showSaveCurrentDialog) {
+                AlertDialog(
+                    onDismissRequest = { showSaveCurrentDialog = false },
+                    title = { Text("Зберегти версію файлу", color = Color.White) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "Зберегти поточний стан ${projectName}_save.json у пам'ять додатка для можливості порівняння:",
+                                color = GlassOnSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                            OutlinedTextField(
+                                value = newSnapshotLabel,
+                                onValueChange = { newSnapshotLabel = it },
+                                placeholder = { Text("Наприклад: Перед посадкою гарбузів") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                )
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (rawJson.isNullOrBlank()) {
+                                    Toast.makeText(context, "Файл збереження порожній", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                coroutineScope.launch {
+                                    ProjectSaveSnapshotManager.saveSnapshot(
+                                        context = context,
+                                        projectName = projectName,
+                                        label = newSnapshotLabel,
+                                        jsonContent = rawJson
+                                    )
+                                    showSaveCurrentDialog = false
+                                    newSnapshotLabel = ""
+                                    Toast.makeText(context, "Версію успішно збережено!", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = GlassPrimary)
+                        ) {
+                            Text("Зберегти", color = Color.White)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showSaveCurrentDialog = false }) {
+                            Text("Скасувати", color = GlassOnSurfaceVariant)
+                        }
+                    },
+                    containerColor = Color(0xFF13192B)
+                )
+            }
+
+            if (showHistoryDialog) {
+                ProjectSaveHistoryDialog(
+                    projectName = projectName,
+                    currentRawJson = rawJson,
+                    onDismiss = { showHistoryDialog = false },
+                    onLoadSnapshotToViewer = { snapshot, content ->
+                        viewedSnapshot = snapshot
+                        snapshotJsonContent = content
+                    }
+                )
             }
 
             if (isSearchOpen) {

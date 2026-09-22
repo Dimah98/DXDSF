@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { X, TrendingUp, Calendar, RefreshCcw, Filter, Settings, Plus, Trash2 } from 'lucide-react';
+import { X, TrendingUp, Calendar, RefreshCcw, Filter, Settings, Plus, Trash2, Layers } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface StatisticsModalProps {
@@ -19,6 +19,7 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
   const [loading, setLoading] = useState(false);
   const [selectedVariable, setSelectedVariable] = useState<string>('');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
+  const [selectedGrouping, setSelectedGrouping] = useState<string>('auto');
   
   // Групи змінних
   const [groups, setGroups] = useState<Record<string, string[]>>({});
@@ -115,17 +116,84 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
     }
   }, [availableVars, selectedVariable, groups]);
 
-  // Фільтрація за часом
-  const filteredData = useMemo(() => {
-    if (selectedPeriod === 'all') return dataPoints;
+  // Фільтрація та оптимізоване групування за часом
+  const { filteredData, bucketLabel } = useMemo(() => {
+    if (dataPoints.length === 0) return { filteredData: [], bucketLabel: '' };
     const now = Date.now();
-    let cutoff = now;
+    let cutoff = 0;
     if (selectedPeriod === '24h') cutoff = now - 24 * 60 * 60 * 1000;
     else if (selectedPeriod === '7d') cutoff = now - 7 * 24 * 60 * 60 * 1000;
     else if (selectedPeriod === '30d') cutoff = now - 30 * 24 * 60 * 60 * 1000;
     
-    return dataPoints.filter(p => p.timestamp >= cutoff);
-  }, [dataPoints, selectedPeriod]);
+    const rawFiltered = cutoff > 0 ? dataPoints.filter(p => p.timestamp >= cutoff) : dataPoints;
+    if (rawFiltered.length === 0) return { filteredData: [], bucketLabel: '' };
+
+    if (selectedGrouping === 'raw' || (selectedGrouping === 'auto' && rawFiltered.length <= 80)) {
+      return { filteredData: rawFiltered, bucketLabel: '' };
+    }
+
+    const minTime = rawFiltered[0].timestamp;
+    const maxTime = rawFiltered[rawFiltered.length - 1].timestamp;
+    const span = Math.max(0, maxTime - minTime);
+
+    const MINUTE = 60 * 1000;
+    const HOUR = 60 * MINUTE;
+    const DAY = 24 * HOUR;
+
+    let bucketMs: number;
+    if (selectedGrouping === '1h') {
+      bucketMs = HOUR;
+    } else if (selectedGrouping === '6h') {
+      bucketMs = 6 * HOUR;
+    } else if (selectedGrouping === '1d') {
+      bucketMs = DAY;
+    } else {
+      // auto
+      const targetPoints = 60;
+      const rawBucket = span / targetPoints;
+
+      if (rawBucket <= 5 * MINUTE) bucketMs = 5 * MINUTE;
+      else if (rawBucket <= 15 * MINUTE) bucketMs = 15 * MINUTE;
+      else if (rawBucket <= 30 * MINUTE) bucketMs = 30 * MINUTE;
+      else if (rawBucket <= HOUR) bucketMs = HOUR;
+      else if (rawBucket <= 2 * HOUR) bucketMs = 2 * HOUR;
+      else if (rawBucket <= 4 * HOUR) bucketMs = 4 * HOUR;
+      else if (rawBucket <= 6 * HOUR) bucketMs = 6 * HOUR;
+      else if (rawBucket <= 12 * HOUR) bucketMs = 12 * HOUR;
+      else if (rawBucket <= DAY) bucketMs = DAY;
+      else if (rawBucket <= 2 * DAY) bucketMs = 2 * DAY;
+      else if (rawBucket <= 7 * DAY) bucketMs = 7 * DAY;
+      else bucketMs = Math.ceil(rawBucket / DAY) * DAY;
+    }
+
+    let label = '';
+    if (bucketMs >= DAY) {
+      const days = Math.round(bucketMs / DAY);
+      label = days === 1 ? '1 день' : `${days} дн.`;
+    } else if (bucketMs >= HOUR) {
+      const hours = Math.round(bucketMs / HOUR);
+      label = `${hours} год.`;
+    } else {
+      const mins = Math.round(bucketMs / MINUTE);
+      label = `${mins} хв.`;
+    }
+
+    const bucketMap = new Map<number, any>();
+    rawFiltered.forEach(p => {
+      const bucketTime = Math.floor(p.timestamp / bucketMs) * bucketMs;
+      // Зберігаємо останнє відоме значення в цьому бакеті
+      bucketMap.set(bucketTime, {
+        ...p,
+        timestamp: bucketTime,
+        time: bucketMs >= DAY
+          ? new Date(bucketTime).toLocaleDateString([], { month: 'short', day: 'numeric' })
+          : new Date(bucketTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      });
+    });
+
+    const points = Array.from(bucketMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+    return { filteredData: points, bucketLabel: label };
+  }, [dataPoints, selectedPeriod, selectedGrouping]);
 
   if (!isOpen) return null;
 
@@ -189,6 +257,22 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                   <option value="7d" className="bg-slate-800">Останні 7 днів</option>
                   <option value="30d" className="bg-slate-800">Останні 30 днів</option>
                 </select>
+
+                <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+                  <Layers size={14} className="text-slate-400" />
+                  <select
+                    value={selectedGrouping}
+                    onChange={(e) => setSelectedGrouping(e.target.value)}
+                    className="bg-transparent text-sm text-slate-300 outline-none pr-2 cursor-pointer"
+                    title="Групування точок у часі"
+                  >
+                    <option value="auto" className="bg-slate-800">Авто (групування)</option>
+                    <option value="1h" className="bg-slate-800">1 година</option>
+                    <option value="6h" className="bg-slate-800">6 годин</option>
+                    <option value="1d" className="bg-slate-800">1 день</option>
+                    <option value="raw" className="bg-slate-800">Без групування</option>
+                  </select>
+                </div>
               </div>
             )}
             
@@ -291,9 +375,16 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
             <>
               {availableVars.length > 0 && selectedVariable ? (
                 <div className="flex-1 min-h-0 bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col">
-                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-4 ml-2">
-                    Динаміка зміни: <span className="text-blue-400">{selectedVariable}</span>
-                  </h3>
+                  <div className="flex items-center justify-between mb-4 ml-2 mr-2">
+                    <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                      Динаміка зміни: <span className="text-blue-400">{selectedVariable}</span>
+                    </h3>
+                    {bucketLabel && (
+                      <span className="text-[10px] text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10 font-medium">
+                        Згруповано: <span className="text-blue-300 font-bold">{filteredData.length}</span> точок (крок: {bucketLabel})
+                      </span>
+                    )}
+                  </div>
                   
                   {filteredData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="90%">
@@ -319,9 +410,10 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                               name={v}
                               stroke={colors[i % colors.length]} 
                               strokeWidth={2}
-                              dot={{ r: 3, strokeWidth: 1 }}
+                              dot={filteredData.length <= 60 ? { r: 2.5, strokeWidth: 1 } : false}
                               activeDot={{ r: 5 }}
                               connectNulls={true}
+                              isAnimationActive={false}
                             />
                           ))
                         ) : (
@@ -331,10 +423,10 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ isOpen, onClos
                             name={selectedVariable}
                             stroke="#3b82f6" 
                             strokeWidth={3}
-                            dot={{ r: 4, strokeWidth: 2, fill: '#020617' }}
+                            dot={filteredData.length <= 60 ? { r: 3, strokeWidth: 1.5, fill: '#020617' } : false}
                             activeDot={{ r: 6, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }}
                             connectNulls={true}
-                            animationDuration={1000}
+                            isAnimationActive={false}
                           />
                         )}
                       </LineChart>

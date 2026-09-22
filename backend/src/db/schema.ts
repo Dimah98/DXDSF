@@ -228,7 +228,9 @@ export function recordExecution(
   );
 }
 
-export function getRunsForProject(projectName: string): Array<{
+export const MAX_RUNS_HISTORY = 10;
+
+export function getRunsForProject(projectName: string, limit: number = MAX_RUNS_HISTORY): Array<{
   runId: string;
   startTime: number;
   endTime?: number;
@@ -240,8 +242,9 @@ export function getRunsForProject(projectName: string): Array<{
     FROM executions
     WHERE project_name = ? AND run_id IS NOT NULL
     ORDER BY started_at DESC
+    LIMIT ?
   `);
-  const rows = stmt.all(projectName) as Array<{
+  const rows = stmt.all(projectName, limit) as Array<{
     run_id: string;
     started_at: number;
     end_time: number | null;
@@ -255,6 +258,44 @@ export function getRunsForProject(projectName: string): Array<{
     status: r.status as 'running' | 'success' | 'error' | 'stopped',
     error: r.error || undefined
   }));
+}
+
+export function pruneProjectRuns(projectName: string, keepCount: number = MAX_RUNS_HISTORY): string[] {
+  try {
+    const stmt = db.prepare(`
+      SELECT run_id 
+      FROM executions 
+      WHERE project_name = ? AND run_id IS NOT NULL 
+      ORDER BY started_at DESC
+    `);
+    const rows = stmt.all(projectName) as Array<{ run_id: string }>;
+    if (rows.length <= keepCount) {
+      return [];
+    }
+
+    const runsToDelete = rows.slice(keepCount).map(r => r.run_id);
+    if (runsToDelete.length === 0) return [];
+
+    const deleteLogsStmt = db.prepare(`DELETE FROM execution_logs WHERE project_name = ? AND run_id = ?`);
+    const deleteExecStmt = db.prepare(`DELETE FROM executions WHERE project_name = ? AND run_id = ?`);
+
+    db.exec('BEGIN TRANSACTION');
+    try {
+      for (const rId of runsToDelete) {
+        deleteLogsStmt.run(projectName, rId);
+        deleteExecStmt.run(projectName, rId);
+      }
+      db.exec('COMMIT');
+    } catch (txErr) {
+      try { db.exec('ROLLBACK'); } catch {}
+      throw txErr;
+    }
+
+    return runsToDelete;
+  } catch (err) {
+    console.warn(`[schema] Failed to prune project runs for ${projectName}:`, err);
+    return [];
+  }
 }
 
 export function getProjectStats(projectName: string): Array<{

@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { writeJsonAtomic } from '../utils/fileUtils';
 import { Logger } from '../logger';
 import { RunLogger } from '../RunLogger';
 import { BotEngine } from '../engine/BotEngine';
@@ -66,24 +67,37 @@ export async function withRetry<T>(
   throw lastError;
 }
 
+// Допоміжна функція для трансляції повідомлень у всі активні сокети сесії
+export const broadcastToSession = (session: ProjectSession, msg: string | object) => {
+  const payload = typeof msg === 'string' ? msg : JSON.stringify(msg);
+  if (session.activeSockets && session.activeSockets.size > 0) {
+    for (const socket of session.activeSockets) {
+      if (socket && socket.readyState === 1) { // WebSocket.OPEN
+        try {
+          socket.send(payload);
+        } catch (_) {}
+      }
+    }
+  } else if (session.activeWs && session.activeWs.readyState === 1) {
+    try {
+      session.activeWs.send(payload);
+    } catch (_) {}
+  }
+};
+
 // Допоміжна функція для надсилання повідомлень логування у веб-сокет клієнта сесії
 export const logToClient = (session: ProjectSession, message: string, type: 'info' | 'error' | 'success' | 'debug' = 'info', data?: any) => {
   if (session.currentRunId) {
     RunLogger.logToRun(session.projectName, session.currentRunId, message, type);
   }
-  if (session.activeWs && session.activeWs.readyState === 1) {
-    session.activeWs.send(JSON.stringify({ type: 'CONSOLE_LOG', message, logType: type, data }));
-  }
+  broadcastToSession(session, { type: 'CONSOLE_LOG', message, logType: type, data });
 };
 
 // Допоміжна функція для надсилання стану виконання ноди клієнту сесії
 export const broadcastNodeExecuting = (session: ProjectSession, nodeId: string, nodeTitle?: string) => {
   session.lastActiveNodeId = nodeId;
   session.lastActiveNodeTitle = nodeTitle || null;
-  const msg = JSON.stringify({ type: 'NODE_EXECUTING', nodeId, nodeTitle });
-  if (session.activeWs && session.activeWs.readyState === 1) {
-    session.activeWs.send(msg);
-  }
+  broadcastToSession(session, { type: 'NODE_EXECUTING', nodeId, nodeTitle });
 };
 
 // Черга запису для серіалізації операцій запису файлів проектів
@@ -112,10 +126,7 @@ export async function ensureBrowserSettings(projectName: string, session: Projec
 
 // Функція для збереження змінних проекту та надсилання оновлень клієнту
 export const broadcastVariables = (session: ProjectSession) => {
-  const msg = JSON.stringify({ type: 'GLOBAL_VARIABLES_UPDATE', variables: session.globalVariables });
-  if (session.activeWs && session.activeWs.readyState === 1) {
-    session.activeWs.send(msg);
-  }
+  broadcastToSession(session, { type: 'GLOBAL_VARIABLES_UPDATE', variables: session.globalVariables });
 
   if (session.nodeRuntimeState) {
     memoryMonitor.limitNodeRuntimeState(session.nodeRuntimeState);
@@ -146,7 +157,7 @@ export const broadcastVariables = (session: ProjectSession) => {
             return;
           }
           projectData.variables = session.globalVariables;
-          await fs.promises.writeFile(projectPath, JSON.stringify(projectData, null, 2));
+          await writeJsonAtomic(projectPath, projectData);
         } catch (fileErr) {
           logger.error(`Failed to save variables for project ${session.projectName}`, fileErr instanceof Error ? fileErr : new Error(String(fileErr)));
         }
@@ -162,10 +173,18 @@ export const broadcastVariables = (session: ProjectSession) => {
 export async function smartSleep(ms: number, ws?: any): Promise<void> {
   const step = 100;
   let remaining = ms;
+  const projectName = ws?.projectName;
+  const session = projectName ? sessions.get(projectName) : undefined;
+
   while (remaining > 0) {
-    if (ws) {
-      const isRunning = ws.isSingleNodeRun ? ws.isBotRunning : ws.isBotRunning;
-      if (isRunning === false) break;
+    if (ws && typeof ws.checkRunning === 'function') {
+      if (!ws.checkRunning()) break;
+    } else if (ws && ws.isSingleNodeRun) {
+      if (ws.isBotRunning === false) break;
+    } else if (session) {
+      if (session.isBotRunning === false) break;
+    } else if (ws && ws.isBotRunning === false) {
+      break;
     }
     const sleepTime = Math.min(step, remaining);
     await new Promise(r => setTimeout(r, sleepTime));
@@ -271,6 +290,8 @@ export async function startProject(
   }
 
   if (ws) {
+    if (!session.activeSockets) session.activeSockets = new Set();
+    session.activeSockets.add(ws);
     session.activeWs = ws;
   }
 
@@ -286,14 +307,12 @@ export async function startProject(
       logToClient(session, `▶️ Черга дійшла: запуск проекту ${projectName}...`, 'info');
     }, overrideSettings);
 
-    if (session.activeWs && session.activeWs.readyState === 1) {
-      session.activeWs.send(JSON.stringify({ 
-        type: 'BOT_QUEUED', 
-        projectName, 
-        queuePosition: queuePos, 
-        maxParallel 
-      }));
-    }
+    broadcastToSession(session, { 
+      type: 'BOT_QUEUED', 
+      projectName, 
+      queuePosition: queuePos, 
+      maxParallel 
+    });
 
     return { started: false, queued: true };
   }
@@ -309,6 +328,9 @@ export async function executeProjectInternal(
   overrideSettings?: Record<string, any>
 ): Promise<boolean> {
   const session = getOrCreateSession(projectName);
+  session.isBotRunning = true;
+  session.isPaused = false;
+  session.nodeRuntimeState = new Map();
 
   try {
     const filePath = path.join(PROJECTS_DIR, `${projectName}.json`);
@@ -318,11 +340,13 @@ export async function executeProjectInternal(
       fileExists = fs.existsSync(filePath);
     } catch (checkErr) {
       logger.error(`Failed to check project file: ${projectName}`, checkErr instanceof Error ? checkErr : new Error(String(checkErr)));
+      session.isBotRunning = false;
       return false;
     }
 
     if (!fileExists) {
       logger.warn(`Project file not found: ${filePath}`);
+      session.isBotRunning = false;
       return false;
     }
 
@@ -331,6 +355,7 @@ export async function executeProjectInternal(
       fileContent = await fs.promises.readFile(filePath, 'utf-8');
     } catch (readErr) {
       logger.error(`Failed to read project file: ${projectName}`, readErr instanceof Error ? readErr : new Error(String(readErr)));
+      session.isBotRunning = false;
       return false;
     }
 
@@ -339,6 +364,7 @@ export async function executeProjectInternal(
       parsed = JSON.parse(fileContent);
     } catch (parseErr) {
       logger.error(`Failed to parse JSON for project: ${projectName}`, parseErr instanceof Error ? parseErr : new Error(String(parseErr)));
+      session.isBotRunning = false;
       return false;
     }
 
@@ -362,6 +388,7 @@ export async function executeProjectInternal(
 
       if (matchingContainers.length === 0) {
         logToClient(session, `⚠️ Жодного контейнера не знайдено за списком: ${targetContainers.join(', ')}`, 'error');
+        session.isBotRunning = false;
         return false;
       }
       
@@ -369,16 +396,10 @@ export async function executeProjectInternal(
       logToClient(session, `🎯 Знайдено контейнери для запуску: «${containerNames}»`, 'info');
     }
 
-    session.isBotRunning = true;
-    session.isPaused = false;
-    session.nodeRuntimeState = new Map();
-
     const runId = RunLogger.createRun(projectName);
     session.currentRunId = runId;
 
-    if (session.activeWs && session.activeWs.readyState === 1) {
-      session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: true, runId }));
-    }
+    broadcastToSession(session, { type: 'BOT_RUNNING_STATE', isRunning: true, runId });
 
     const page = await withRetry(
       () => connectToBrowser(
@@ -473,7 +494,7 @@ export async function executeProjectInternal(
                   error: containerErrorMessage,
                   snapshot: JSON.parse(JSON.stringify(session.globalVariables)) 
                 });
-                return fs.promises.writeFile(statPath, JSON.stringify(stats, null, 2));
+                return writeJsonAtomic(statPath, stats);
               })
               .catch(() => {});
           } catch (err) {}
@@ -482,18 +503,26 @@ export async function executeProjectInternal(
             logger.error(`Failed to close browser after container run for ${projectName}`, closeErr instanceof Error ? closeErr : new Error(String(closeErr)));
           });
 
-          if (session.activeWs && session.activeWs.readyState === 1) {
-            session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED', status: containerRunStatus, error: containerErrorMessage }));
-            session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false }));
-          }
+          broadcastToSession(session, { type: 'BOT_FINISHED', status: containerRunStatus, error: containerErrorMessage });
+          broadcastToSession(session, { type: 'BOT_RUNNING_STATE', isRunning: false });
 
           projectQueueManager.processNext();
         }
-      })().catch(err => {
+      })().catch(async err => {
         logger.error(`Error in container execution runner for ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+        session.isBotRunning = false;
+        session.lastActiveNodeId = null;
+        session.lastActiveNodeTitle = null;
         if (session.currentRunId) {
           RunLogger.finishRun(projectName, session.currentRunId, 'error', err.message || String(err));
           session.currentRunId = undefined;
+        }
+        await browserLifecycle.closeBrowser(session).catch(closeErr => {
+          logger.error(`Failed to close browser in container catch for ${projectName}`, closeErr instanceof Error ? closeErr : new Error(String(closeErr)));
+        });
+        if (session.activeWs && session.activeWs.readyState === 1) {
+          session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED', status: 'error', error: err.message || String(err) }));
+          session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false }));
         }
         projectQueueManager.processNext();
       });
@@ -560,7 +589,7 @@ export async function executeProjectInternal(
                 error: errorMessage,
                 snapshot: JSON.parse(JSON.stringify(session.globalVariables)) 
               });
-              return fs.promises.writeFile(statPath, JSON.stringify(stats, null, 2));
+                return writeJsonAtomic(statPath, stats);
             })
             .catch(() => {});
         } catch (err) {}
@@ -569,10 +598,8 @@ export async function executeProjectInternal(
           logger.error(`Failed to close browser for ${projectName}`, closeErr instanceof Error ? closeErr : new Error(String(closeErr)));
         });
 
-        if (session.activeWs && session.activeWs.readyState === 1) {
-          session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED', status: finalStatus, error: errorMessage }));
-          session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false }));
-        }
+        broadcastToSession(session, { type: 'BOT_FINISHED', status: finalStatus, error: errorMessage });
+        broadcastToSession(session, { type: 'BOT_RUNNING_STATE', isRunning: false });
 
         projectQueueManager.processNext();
       }
@@ -581,12 +608,20 @@ export async function executeProjectInternal(
     session.engine = engine;
     logToClient(session, '🚀 Старт виконання сценарію...', 'info');
 
-    engine.run().catch(err => {
+    engine.run().catch(async err => {
       logger.error(`Error in bot run for ${projectName}`, err instanceof Error ? err : new Error(String(err)));
+      session.isBotRunning = false;
+      session.lastActiveNodeId = null;
+      session.lastActiveNodeTitle = null;
       if (session.currentRunId) {
         RunLogger.finishRun(projectName, session.currentRunId, 'error', err.message || String(err));
         session.currentRunId = undefined;
       }
+      await browserLifecycle.closeBrowser(session).catch(closeErr => {
+        logger.error(`Failed to close browser in engine.run catch for ${projectName}`, closeErr instanceof Error ? closeErr : new Error(String(closeErr)));
+      });
+      broadcastToSession(session, { type: 'BOT_FINISHED', status: 'error', error: err.message || String(err) });
+      broadcastToSession(session, { type: 'BOT_RUNNING_STATE', isRunning: false });
       projectQueueManager.processNext();
     });
 
@@ -609,10 +644,8 @@ export async function executeProjectInternal(
     }
     
     logToClient(session, `❌ Помилка старту проекту: ${err.message || err}`, 'error');
-    if (session.activeWs && session.activeWs.readyState === 1) {
-      session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED', status: 'error', error: err.message || String(err) }));
-      session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false }));
-    }
+    broadcastToSession(session, { type: 'BOT_FINISHED', status: 'error', error: err.message || String(err) });
+    broadcastToSession(session, { type: 'BOT_RUNNING_STATE', isRunning: false });
 
     projectQueueManager.processNext();
     return false;
@@ -632,10 +665,8 @@ export async function stopProject(projectName: string): Promise<boolean> {
   session.lastActiveNodeId = null;
   session.lastActiveNodeTitle = null;
   
-  if (session.activeWs && session.activeWs.readyState === 1) {
-    session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED' }));
-    session.activeWs.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: false }));
-  }
+  broadcastToSession(session, { type: 'BOT_FINISHED' });
+  broadcastToSession(session, { type: 'BOT_RUNNING_STATE', isRunning: false });
   
   try {
     await browserLifecycle.closeBrowser(session);
@@ -674,10 +705,7 @@ export async function executeNodeLogic(
     checkRunning: () => (ws as any).isSingleNodeRun ? (ws as any).isBotRunning : session.isBotRunning,
     nodeHandlers,
     onNodeDisplayUpdate: (nodeId, data) => {
-      const msg = JSON.stringify({ type: 'UPDATE_NODE_DATA', nodeId, newData: data });
-      if (session.activeWs && session.activeWs.readyState === 1) {
-        session.activeWs.send(msg);
-      }
+      broadcastToSession(session, { type: 'UPDATE_NODE_DATA', nodeId, newData: data });
     },
     onNodeExecuting: (nodeId, nodeTitle) => broadcastNodeExecuting(session, nodeId, nodeTitle)
   });

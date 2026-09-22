@@ -22,11 +22,11 @@
   "готовка": 0,
   "желізо": 0,
   "disableImages": 0,
-  "timeout10mMode": 1,
+  "timeout10mMode": 0,
   "headless": 1,
   "queueMode": 1,
   "photoDebug": 0,
-  "maxParallelProjects": 2,
-  "browserSafetyTimeoutMinutes": 30,
-  "rateLimitRunMultiple": 9999999
+  "maxParallelProjects": 1,
+  "browserSafetyTimeoutMinutes": 15,
+  "rateLimitRunMultiple": 3
 }

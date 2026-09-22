@@ -73,6 +73,13 @@ export const groupNodeHandler = async ({
 
   logger.debug(`Entry node found for group "${groupLabel}"`, { entryNodeId: entryNode.id });
 
+  const timeoutSeconds = Number(nodeData.timeout || nodeData.maxExecutionTime || 0);
+  const timeoutMs = timeoutSeconds > 0 ? timeoutSeconds * 1000 : undefined;
+
+  if (timeoutMs && timeoutMs > 0) {
+    logToClient(`⏱️ [${groupLabel}] Встановлено ліміт часу виконання: ${timeoutSeconds}с`, 'info');
+  }
+
   const session = getOrCreateSession(projectName);
 
   const engine = new BotEngine({
@@ -88,6 +95,7 @@ export const groupNodeHandler = async ({
     smartSleep,
     nodeRuntimeState,
     nodeHandlers,
+    executionTimeoutMs: timeoutMs,
     checkRunning: () => (ws as any).isSingleNodeRun ? (ws as any).isBotRunning : session.isBotRunning,
     onNodeDisplayUpdate: (nodeId) => {
       try {
@@ -116,7 +124,29 @@ export const groupNodeHandler = async ({
 
   let result: { context: NodeData; status: 'success' | 'error' | 'stopped'; error?: string } | undefined;
   try {
-    result = await engine.run(entryNode.id, context);
+    if (timeoutMs && timeoutMs > 0) {
+      let timer: NodeJS.Timeout;
+      const timeoutPromise = new Promise<{ context: NodeData; status: 'error'; error: string }>((resolve) => {
+        timer = setTimeout(() => {
+          resolve({
+            context,
+            status: 'error',
+            error: `Перевищено ліміт часу виконання контейнера (${timeoutSeconds}с)`
+          });
+        }, timeoutMs);
+      });
+
+      try {
+        result = await Promise.race([
+          engine.run(entryNode.id, context),
+          timeoutPromise
+        ]);
+      } finally {
+        clearTimeout(timer!);
+      }
+    } else {
+      result = await engine.run(entryNode.id, context);
+    }
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     logger.error(`Group engine run failed for node ${currentNode.id}`, err instanceof Error ? err : new Error(String(err)), { groupLabel });
@@ -125,7 +155,12 @@ export const groupNodeHandler = async ({
   }
 
   if (result?.status === 'error') {
-    logToClient(`⚠️ [${groupLabel}] Підпрограма перервана через помилку: ${result.error || 'невідома помилка'}`, 'error');
+    const isTimeout = result.error?.includes('Перевищено ліміт часу');
+    if (isTimeout) {
+      logToClient(`⏱️ [${groupLabel}] ${result.error} — виконання контейнера примусово перервано`, 'error');
+    } else {
+      logToClient(`⚠️ [${groupLabel}] Підпрограма перервана через помилку: ${result.error || 'невідома помилка'}`, 'error');
+    }
   } else if (result?.status === 'stopped') {
     logToClient(`🛑 [${groupLabel}] Підпрограму зупинено`, 'info');
   } else {

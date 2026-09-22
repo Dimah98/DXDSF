@@ -376,7 +376,527 @@ async function checkExitButtons(
       if (verbose) logFn(`⚠️ Помилка пошуку "${entry}": ${err.message}`, 'debug');
     }
   }
-  return null; // Не знайдено
+
+  return null;
+}
+
+// ─── Phaser Hook для гри Вдарь Крота (Direct Memory / Event Whacking) ────────
+
+/**
+ * Знаходить фрейм з активним екземпляром Phaser гри Whack-a-Mole (mine-whack)
+ */
+export async function findMolePhaserFrame(page: Page): Promise<{ targetFrame: any } | null> {
+  const pages = (typeof (page as any).context === 'function' && page.context()) ? page.context().pages() : [page];
+
+  for (const p of pages) {
+    const frames = typeof p.frames === 'function' ? p.frames() : [p];
+    const sorted = [...frames].sort((a, b) => {
+      const aUrl = typeof a.url === 'function' ? a.url() : '';
+      const bUrl = typeof b.url === 'function' ? b.url() : '';
+      return (bUrl.includes('mine-whack') || bUrl.includes('mole') ? 1 : 0) -
+             (aUrl.includes('mine-whack') || aUrl.includes('mole') ? 1 : 0);
+    });
+
+    for (const f of sorted) {
+      try {
+        const hasPhaser = await Promise.resolve(
+          f.evaluate(`(() => {
+            const win = window;
+            let game = win.__PHASER_GAME__;
+            if (!game && win.Phaser && Array.isArray(win.Phaser.GAMES) && win.Phaser.GAMES.length > 0) game = win.Phaser.GAMES[0];
+            if (!game && win.game && win.game.scene) game = win.game;
+            if (!game) {
+              try {
+                const rootEl = document.getElementById('root') || document.body.firstElementChild;
+                if (rootEl) {
+                  const fiberKey = Object.keys(rootEl).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactContainer'));
+                  if (fiberKey) {
+                    const queue = [{ fiber: rootEl[fiberKey], depth: 0 }];
+                    while (queue.length > 0) {
+                      const item = queue.shift();
+                      if (!item || item.depth > 30) continue;
+                      const curr = item.fiber;
+                      let s = curr.memoizedState;
+                      while (s) {
+                        if (s.memoizedState && s.memoizedState.current && s.memoizedState.current.scene) { game = s.memoizedState.current; break; }
+                        if (s.memoizedState && s.memoizedState.scene) { game = s.memoizedState; break; }
+                        s = s.next;
+                      }
+                      if (game) break;
+                      if (curr.child) queue.push({ fiber: curr.child, depth: item.depth + 1 });
+                      if (curr.sibling) queue.push({ fiber: curr.sibling, depth: item.depth });
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+            if (game) {
+              win.__PHASER_GAME__ = game;
+              let sc = null;
+              if (game.scene && typeof game.scene.getScene === 'function') {
+                sc = game.scene.getScene('mine-whack') || game.scene.getScene('whack-a-mole');
+              }
+              if (!sc && game.scene && Array.isArray(game.scene.scenes)) {
+                for (let i = 0; i < game.scene.scenes.length; i++) {
+                  const s = game.scene.scenes[i];
+                  if (s && (s.sceneId === 'mine-whack' || s.sys?.settings?.key === 'mine-whack')) {
+                    sc = s;
+                    break;
+                  }
+                }
+              }
+              if (sc) return true;
+            }
+            return false;
+          })()`)
+        ).catch(() => false);
+
+        if (hasPhaser) return { targetFrame: f };
+      } catch (_) {}
+    }
+  }
+  return null;
+}
+
+export interface PhaserMoleSolveResult {
+  success: boolean;
+  score: number;
+  streak: number;
+  whacked: number;
+  rocks: number;
+  irons: number;
+  golds: number;
+  bunniesAvoided: number;
+  whiteHits?: number;
+  targetWhiteHits?: number;
+  screenTargetScore?: number;
+  effectiveTargetScore?: number;
+  error?: string;
+}
+
+/**
+ * Автоматичне проходження гри Вдарь Крота через Phaser Hook безпосередньо у фреймі гри.
+ * Розпізнає появу виключно корисних кротів (rock, iron, gold) та ігнорує зайців і порожні лунки.
+ */
+export async function solveWhackAMoleWithPhaserHook(
+  targetFrame: any,
+  logToClient: (msg: string, level?: 'info' | 'error' | 'success' | 'debug') => void,
+  smartSleep: (ms: number, ws?: any) => Promise<void>,
+  checkRunning: () => boolean,
+  ws: any,
+  targetScore = 0,
+  reactionDelay = 50,
+  maxDuration = 60000,
+  autoStart = true
+): Promise<PhaserMoleSolveResult> {
+  const startTime = Date.now();
+
+  logToClient(`⏳ Очікування завантаження сцени гри Вдарь Крота у Phaser...`, 'debug');
+
+  // 1. Очікуємо готовності 9 лунок
+  let isReady = false;
+  while (Date.now() - startTime < Math.min(maxDuration, 15000)) {
+    if (!checkRunning()) {
+      return { success: false, score: 0, streak: 0, whacked: 0, rocks: 0, irons: 0, golds: 0, bunniesAvoided: 0, error: 'зупинено користувачем' };
+    }
+
+    const readyCheck: any = await Promise.resolve(
+      targetFrame.evaluate(`(() => {
+        const win = window;
+        const game = win.__PHASER_GAME__;
+        let sc = null;
+        if (game && game.scene && typeof game.scene.getScene === 'function') {
+          sc = game.scene.getScene('mine-whack') || game.scene.getScene('whack-a-mole');
+        }
+        if (!sc && game && game.scene && Array.isArray(game.scene.scenes)) {
+          for (let i = 0; i < game.scene.scenes.length; i++) {
+            const s = game.scene.scenes[i];
+            if (s && (s.sceneId === 'mine-whack' || s.sys?.settings?.key === 'mine-whack')) {
+              sc = s;
+              break;
+            }
+          }
+        }
+        if (!sc) return { status: 'no_scene' };
+        if (!Array.isArray(sc.holes) || sc.holes.length !== 9) return { status: 'waiting_holes' };
+        return { status: 'ready', portalState: sc.portalService?.state?.value };
+      })()`)
+    ).catch(() => ({ status: 'error' }));
+
+    if (readyCheck?.status === 'ready') {
+      isReady = true;
+      break;
+    }
+    await smartSleep(300, ws);
+  }
+
+  if (!isReady) {
+    return { success: false, score: 0, streak: 0, whacked: 0, rocks: 0, irons: 0, golds: 0, bunniesAvoided: 0, error: 'сцена або 9 лунок не знайдені в Phaser' };
+  }
+
+  if (!checkRunning()) {
+    return { success: false, score: 0, streak: 0, whacked: 0, rocks: 0, irons: 0, golds: 0, bunniesAvoided: 0, error: 'зупинено користувачем' };
+  }
+
+  // 2. Якщо гра ще в стані "introduction" або після поразки ("loser" / "winner" / "gameOver"), запускаємо гру
+  if (autoStart) {
+    const started = await Promise.resolve(
+      targetFrame.evaluate(`(() => {
+        const win = window;
+        const game = win.__PHASER_GAME__;
+        let sc = null;
+        if (game && game.scene && typeof game.scene.getScene === 'function') {
+          sc = game.scene.getScene('mine-whack') || game.scene.getScene('whack-a-mole');
+        }
+        if (!sc && game && game.scene && Array.isArray(game.scene.scenes)) {
+          for (let i = 0; i < game.scene.scenes.length; i++) {
+            const s = game.scene.scenes[i];
+            if (s && (s.sceneId === 'mine-whack' || s.sys?.settings?.key === 'mine-whack')) {
+              sc = s;
+              break;
+            }
+          }
+        }
+        const ps = sc?.portalService;
+        const pVal = ps?.state?.value;
+
+        if (pVal === 'introduction') {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim().toLowerCase() === 'start');
+          if (btn) {
+            btn.click();
+            return 'button_clicked';
+          }
+          try {
+            ps.send('START', { duration: 6e4 });
+            return 'event_sent';
+          } catch (_) {}
+        } else if (pVal === 'loser' || pVal === 'winner' || pVal === 'gameOver') {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim().toLowerCase().includes('play again'));
+          if (btn) {
+            btn.click();
+            return 'retry_clicked';
+          }
+          try {
+            if (ps && ps.state && ps.state.nextEvents && ps.state.nextEvents.includes('RETRY')) {
+              ps.send('RETRY');
+              return 'retry_event_sent';
+            }
+          } catch (_) {}
+        }
+        return 'already_started: ' + pVal;
+      })()`)
+    ).catch(() => 'error');
+
+    if (started === 'button_clicked' || started === 'event_sent' || started === 'retry_clicked' || started === 'retry_event_sent') {
+      const isRetry = String(started).includes('retry');
+      logToClient(`▶️ Натиснуто кнопку запуску гри ("${isRetry ? 'Play Again' : 'Start'}"), очікую початку гри...`, 'info');
+      await smartSleep(1000, ws);
+    }
+  }
+
+  // 3. Інсталюємо автопілот безпосередньо у фрейм
+  logToClient(`🧠 Phaser Hook: Запуск автопілоту (затримка реакції: ${reactionDelay}мс, ліміт: ${Math.round(maxDuration / 1000)}с)...`, 'success');
+
+  const safeDelay = Number(reactionDelay) || 50;
+  const configuredTarget = Number(targetScore) || 0;
+
+  await Promise.resolve(
+    targetFrame.evaluate(`(() => {
+      const delayMs = ${safeDelay};
+      const configuredTargetScore = ${configuredTarget};
+      const win = window;
+      const game = win.__PHASER_GAME__;
+      let sc = null;
+      if (game && game.scene && typeof game.scene.getScene === 'function') {
+        sc = game.scene.getScene('mine-whack') || game.scene.getScene('whack-a-mole');
+      }
+      if (!sc && game && game.scene && Array.isArray(game.scene.scenes)) {
+        for (let i = 0; i < game.scene.scenes.length; i++) {
+          const s = game.scene.scenes[i];
+          if (s && (s.sceneId === 'mine-whack' || s.sys?.settings?.key === 'mine-whack')) {
+            sc = s;
+            break;
+          }
+        }
+      }
+
+      if (win.__MOLE_AUTOPILOT__ && win.__MOLE_AUTOPILOT__.timer) {
+        clearInterval(win.__MOLE_AUTOPILOT__.timer);
+      }
+
+      function detectScreenTargetScore() {
+        try {
+          const ps = sc?.portalService;
+          const ctx = ps?.state?.context;
+          if (ctx) {
+            if (typeof ctx.targetScore === 'number' && ctx.targetScore > 0) return ctx.targetScore;
+            if (typeof ctx.scoreToBeat === 'number' && ctx.scoreToBeat > 0) return ctx.scoreToBeat;
+            if (typeof ctx.goalScore === 'number' && ctx.goalScore > 0) return ctx.goalScore;
+            if (typeof ctx.minScore === 'number' && ctx.minScore > 0) return ctx.minScore;
+          }
+          if (typeof sc?.targetScore === 'number' && sc.targetScore > 0) return sc.targetScore;
+          if (typeof sc?.scoreToBeat === 'number' && sc.scoreToBeat > 0) return sc.scoreToBeat;
+        } catch (_) {}
+
+        try {
+          if (sc?.children?.list) {
+            for (let i = 0; i < sc.children.list.length; i++) {
+              const obj = sc.children.list[i];
+              const txt = obj.text || (typeof obj.getText === 'function' ? obj.getText() : '');
+              if (typeof txt === 'string' && /target\s*score/i.test(txt)) {
+                const match = txt.match(/target\s*score\s*[:=]?\s*([\d,]+)/i);
+                if (match) {
+                  const val = parseInt(match[1].replace(/,/g, ''), 10);
+                  if (!isNaN(val) && val > 0) return val;
+                }
+              }
+              if (obj.list && Array.isArray(obj.list)) {
+                for (let j = 0; j < obj.list.length; j++) {
+                  const child = obj.list[j];
+                  const childTxt = child.text || (typeof child.getText === 'function' ? child.getText() : '');
+                  if (typeof childTxt === 'string' && /target\s*score/i.test(childTxt)) {
+                    const match = childTxt.match(/target\s*score\s*[:=]?\s*([\d,]+)/i);
+                    if (match) {
+                      const val = parseInt(match[1].replace(/,/g, ''), 10);
+                      if (!isNaN(val) && val > 0) return val;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+
+        try {
+          const docText = (win.document && win.document.body && win.document.body.innerText) || '';
+          const m = docText.match(/target\s*score\s*[:=]?\s*([\d,]+)/i);
+          if (m) {
+            const val = parseInt(m[1].replace(/,/g, ''), 10);
+            if (!isNaN(val) && val > 0) return val;
+          }
+        } catch (_) {}
+
+        return 0;
+      }
+
+      const initialScreenTarget = detectScreenTargetScore();
+      // Визначаємо випадкову кількість ударів по білому зайцю: 1 або 2 рази
+      const targetWhiteHits = Math.floor(Math.random() * 2) + 1;
+
+      const state = {
+        whacked: 0,
+        rocks: 0,
+        irons: 0,
+        golds: 0,
+        bunniesAvoided: 0,
+        whiteHits: 0,
+        targetWhiteHits: targetWhiteHits,
+        screenTargetScore: initialScreenTarget,
+        effectiveTargetScore: initialScreenTarget > 0 ? (initialScreenTarget + 300) : (configuredTargetScore > 0 ? configuredTargetScore : 0),
+        targetReached: false,
+        score: 0,
+        streak: 0,
+        lives: 3,
+        hasStartedPlaying: false,
+        isPlaying: false,
+        isGameOver: false,
+        error: null
+      };
+
+      const emergedMap = new Map();
+
+      const timer = setInterval(() => {
+        try {
+          if (!sc) return;
+          const ps = sc.portalService;
+          state.score = ps?.state?.context?.score || 0;
+          state.streak = ps?.state?.context?.streak || 0;
+          state.lives = ps?.state?.context?.lives ?? 3;
+          const pVal = ps?.state?.value;
+
+          if (sc.isGamePlaying || pVal === 'playing') {
+            state.hasStartedPlaying = true;
+            state.isPlaying = true;
+          }
+
+          if (state.hasStartedPlaying) {
+            if (pVal === 'gameOver' || pVal === 'winner' || pVal === 'loser' || pVal === 'complete' || (sc.isGamePlaying === false && pVal !== 'playing')) {
+              state.isGameOver = true;
+              state.isPlaying = false;
+            }
+          }
+
+          // Оновлюємо значення цільового рахунку з екрана, якщо з'явився пізніше
+          if (state.screenTargetScore === 0) {
+            const dynamicTarget = detectScreenTargetScore();
+            if (dynamicTarget > 0) {
+              state.screenTargetScore = dynamicTarget;
+              state.effectiveTargetScore = dynamicTarget + 300;
+            }
+          }
+
+          // Перевірка досягнення цілі (екран + 300)
+          if (state.effectiveTargetScore > 0 && state.score >= state.effectiveTargetScore) {
+            state.targetReached = true;
+          }
+
+          // Якщо ціль досягнуто або гра завершилася — припиняємо удари, даємо таймеру завершитись
+          if (state.targetReached || state.isGameOver || !state.isPlaying) {
+            emergedMap.clear();
+            return;
+          }
+
+          const holes = sc.holes || [];
+          const now = Date.now();
+
+          for (let i = 0; i < holes.length; i++) {
+            const h = holes[i];
+            if (!h) continue;
+            const st = h.getState ? h.getState() : h._state;
+            const mole = h._mole;
+
+            if (st === 'show' || st === 'idle' || st === 'hide') {
+              if (mole === 'rock' || mole === 'iron' || mole === 'gold') {
+                let firstSeen = emergedMap.get(i);
+                if (!firstSeen) {
+                  firstSeen = now;
+                  emergedMap.set(i, firstSeen);
+                }
+
+                if (now - firstSeen >= delayMs) {
+                  try {
+                    if (h._hole && typeof h._hole.emit === 'function') {
+                      h._hole.emit('pointerup');
+                      state.whacked++;
+                      if (mole === 'rock') state.rocks++;
+                      if (mole === 'iron') state.irons++;
+                      if (mole === 'gold') state.golds++;
+                    }
+                  } catch (_) {}
+                  emergedMap.delete(i);
+                }
+              } else if (mole === 'white') {
+                // Випадковий клік по білому зайцю 1-2 рази за гру (лише якщо є запас життів > 1 та очок >= 300)
+                const canHitWhite = state.whiteHits < state.targetWhiteHits &&
+                                    state.score >= 300 &&
+                                    state.lives > 1;
+                if (canHitWhite && Math.random() < 0.45) {
+                  try {
+                    if (h._hole && typeof h._hole.emit === 'function') {
+                      h._hole.emit('pointerup');
+                      state.whiteHits++;
+                      state.whacked++;
+                    }
+                  } catch (_) {}
+                  emergedMap.delete(i);
+                } else {
+                  state.bunniesAvoided++;
+                  emergedMap.delete(i);
+                }
+              } else if (mole === 'orange') {
+                // Помаранчевих зайців ніколи не чіпаємо
+                state.bunniesAvoided++;
+                emergedMap.delete(i);
+              }
+            } else {
+              emergedMap.delete(i);
+            }
+          }
+        } catch (err) {
+          state.error = err.message;
+        }
+      }, 16);
+
+      win.__MOLE_AUTOPILOT__ = { timer, state, sc };
+      return { ok: true };
+    })()`)
+  ).catch(() => null);
+
+  // 4. Основний цикл моніторингу в Node.js
+  let lastScoreLogged = -1;
+  let lastWhiteHitsLogged = 0;
+  let targetReachedLogged = false;
+  let finalState: any = { score: 0, streak: 0, whacked: 0, rocks: 0, irons: 0, golds: 0, bunniesAvoided: 0, whiteHits: 0, targetWhiteHits: 1 };
+
+  try {
+    while (Date.now() - startTime < maxDuration && checkRunning()) {
+      if (!checkRunning()) break;
+
+      await smartSleep(350, ws);
+
+      const pollRes: any = await Promise.resolve(
+        targetFrame.evaluate(`(() => {
+          const win = window;
+          return win.__MOLE_AUTOPILOT__ ? win.__MOLE_AUTOPILOT__.state : null;
+        })()`)
+      ).catch(() => null);
+
+      if (pollRes) {
+        finalState = pollRes;
+
+        // Логуємо прогрес якщо рахунок збільшився
+        if (pollRes.score !== lastScoreLogged && pollRes.score > 0) {
+          lastScoreLogged = pollRes.score;
+          const targetStr = pollRes.effectiveTargetScore > 0 ? ` (Ціль: ${pollRes.effectiveTargetScore})` : '';
+          logToClient(`🔨 Очки: ${pollRes.score}${targetStr} (x${pollRes.streak} 🔥), Кроти: ${pollRes.whacked} [🪨:${pollRes.rocks} ⚙️:${pollRes.irons} 🪙:${pollRes.golds}], зайців оминуто: ${pollRes.bunniesAvoided}`, 'info');
+        }
+
+        // Логуємо клік по білому зайцю
+        if (pollRes.whiteHits > lastWhiteHitsLogged) {
+          lastWhiteHitsLogged = pollRes.whiteHits;
+          logToClient(`🐰 [Людська поведінка] Випадковий клік по білому зайцю (${pollRes.whiteHits}/${pollRes.targetWhiteHits || 1})! Життів: ${pollRes.lives}`, 'info');
+        }
+
+        // Логуємо досягнення цілі
+        if (pollRes.targetReached && !targetReachedLogged) {
+          targetReachedLogged = true;
+          const detail = pollRes.screenTargetScore > 0
+            ? `екран: ${pollRes.screenTargetScore} + 300 = ${pollRes.effectiveTargetScore}`
+            : `${pollRes.effectiveTargetScore}`;
+          logToClient(`🎯 Цільовий рахунок досягнуто! (${pollRes.score} >= ${detail}). Удари припинено, очікую завершення раунду...`, 'success');
+        }
+
+        // Перевірка завершення гри
+        if (pollRes.isGameOver) {
+          logToClient(`🏁 Гру завершено рушієм`, 'success');
+          break;
+        }
+
+        // Якщо вказано ручний targetScore без екранного і він досягнутий
+        if (targetScore > 0 && pollRes.score >= targetScore && !pollRes.screenTargetScore) {
+          logToClient(`🎯 Цільовий рахунок ${targetScore} досягнуто! Поточний: ${pollRes.score}`, 'success');
+          break;
+        }
+      }
+    }
+  } finally {
+    // Зупиняємо автопілот у сторінці
+    await Promise.resolve(
+      targetFrame.evaluate(`(() => {
+        const win = window;
+        if (win.__MOLE_AUTOPILOT__ && win.__MOLE_AUTOPILOT__.timer) {
+          clearInterval(win.__MOLE_AUTOPILOT__.timer);
+        }
+      })()`)
+    ).catch(() => null);
+  }
+
+  logToClient(`🎉 Підсумок: ${finalState.score} очок, ${finalState.whacked} кротів вдарено, ${finalState.whiteHits || 0} зайців зачеплено, ${finalState.bunniesAvoided} зайців оминуто!`, 'success');
+
+  return {
+    success: true,
+    score: finalState.score,
+    streak: finalState.streak,
+    whacked: finalState.whacked,
+    rocks: finalState.rocks,
+    irons: finalState.irons,
+    golds: finalState.golds,
+    whiteHits: finalState.whiteHits || 0,
+    targetWhiteHits: finalState.targetWhiteHits || 1,
+    screenTargetScore: finalState.screenTargetScore || 0,
+    effectiveTargetScore: finalState.effectiveTargetScore || 0,
+    bunniesAvoided: finalState.bunniesAvoided
+  };
 }
 
 // ─── Головний обробник ноди ──────────────────────────────────────────────────
@@ -413,15 +933,25 @@ export const whackAMoleNodeHandler = async ({
   // Зчитуємо налаштування ноди
   const nodeData = currentNode.data as Record<string, unknown>;
   const {
+    engineMode = 'auto',       // 'auto' | 'phaser' | 'vision'
+    reactionDelay = 50,        // Затримка реакції Phaser Hook (мс)
+    targetScore = 0,           // Цільовий рахунок (0 = до завершення гри)
+    autoStart = true,          // Автоматично тиснути Start
     checkInterval = 400,       // Інтервал перевірки поля (мс)
     clickDelay = 150,          // Затримка після кліку (мс)
     matchThreshold = 0.72,     // Поріг схожості NCC для визнання крота
     maxDuration = 60000,       // Максимальний час роботи (мс)
     exitButtonTexts = '',      // Тексти кнопок завершення
     templateDir = '',          // Папка шаблонів (порожнє = авто mine/)
+    photoDebug = false,        // 1. включити / виключити фото дебаг
+    cellCooldown = 800,        // 2. кулдаун на комірки (мс)
+    clickType = 'human',       // 3. вибір типу кліку ('human' | 'touch' | 'pointer' | 'fast')
   } = nodeData;
 
   const threshold = typeof matchThreshold === 'number' ? matchThreshold : 0.72;
+  const isPhotoDebug = photoDebug === true;
+  const cellCooldownMs = typeof cellCooldown === 'number' ? cellCooldown : 800;
+  const selectedClickType = typeof clickType === 'string' ? clickType : 'human';
 
   // Отримуємо конфігурацію 9 комірок
   let activeCells: MoleCellConfig[] = [];
@@ -456,10 +986,108 @@ export const whackAMoleNodeHandler = async ({
     ? path.resolve(templateDir as string)
     : path.resolve(process.cwd(), '..', 'mine');
 
-  logToClient(`🔨 Вдарь Крота: старт...`, 'info');
-  logToClient(`📁 Папка шаблонів: ${resolvedTemplateDir}`, 'debug');
+  logToClient(
+    `🔨 Вдарь Крота: старт [Режим: ${
+      engineMode === 'phaser' ? '🎮 Phaser Hook' : engineMode === 'vision' ? '👁️ Pixel Vision' : '⚡ Авто'
+    }]...`,
+    'info'
+  );
 
   try {
+    // ── Перша перевірка кнопок завершення ────────────────────────────────
+    if (exitTexts.length > 0) {
+      logToClient(`🔍 Перевіряю кнопки завершення (${exitTexts.length} варіантів, ${activePage.frames().length} фреймів)...`, 'debug');
+    }
+    const earlyExit = await checkExitButtons(activePage, exitTexts, logToClient, true);
+    if (earlyExit) {
+      logToClient(`🏁 Кнопка "${earlyExit}" вже на екрані — завершення`, 'success');
+      return { data: { ...context, value: 0 }, nextHandle: [null, undefined, 'success'] };
+    }
+
+    // ── РЕЖИМ PHASER HOOK (Швидкий доступ через стан рушія Phaser) ────────────
+    if (engineMode !== 'vision') {
+      logToClient(`🔍 [Phaser Hook] Пошук рушія гри Вдарь Крота у фреймах...`, 'debug');
+      let phaserInfo = await findMolePhaserFrame(activePage);
+
+      // Якщо відразу не знайдено, даємо декілька спроб (до ~3 секунд) на появу фрейму гри
+      if (!phaserInfo) {
+        for (let attempt = 0; attempt < 6 && !phaserInfo && checkRunning(); attempt++) {
+          await smartSleep(500, ws);
+          phaserInfo = await findMolePhaserFrame(activePage);
+        }
+      }
+
+      if (phaserInfo) {
+        logToClient(`⚡ Знайдено рушій Phaser гри Вдарь Крота! Запуск швидкісного режиму Phaser Hook...`, 'success');
+        const phaserRes = await solveWhackAMoleWithPhaserHook(
+          phaserInfo.targetFrame,
+          logToClient,
+          smartSleep,
+          checkRunning,
+          ws,
+          Number(targetScore) || 0,
+          Number(reactionDelay) ?? 50,
+          Number(maxDuration) || 60000,
+          autoStart !== false
+        );
+
+        if (phaserRes.success) {
+          logToClient(
+            `🎉 Phaser Hook: успішно пройдено! Рахунок: ${phaserRes.score} (x${phaserRes.streak}), кротів: ${phaserRes.whacked} [🪨:${phaserRes.rocks} ⚙️:${phaserRes.irons} 🪙:${phaserRes.golds}], зайців оминуто: ${phaserRes.bunniesAvoided}`,
+            'success'
+          );
+
+          // Пауза перед перевіркою кнопок завершення
+          await smartSleep(1000, ws);
+          const finalExit = await checkExitButtons(activePage, exitTexts, logToClient, true);
+          if (finalExit) {
+            logToClient(`🏁 Виявлено кнопку завершення "${finalExit}"`, 'success');
+          }
+
+          return {
+            data: {
+              ...context,
+              score: phaserRes.score,
+              streak: phaserRes.streak,
+              totalClicks: phaserRes.whacked,
+              whacked: phaserRes.whacked,
+              rocks: phaserRes.rocks,
+              irons: phaserRes.irons,
+              golds: phaserRes.golds,
+              whiteHits: phaserRes.whiteHits,
+              screenTargetScore: phaserRes.screenTargetScore,
+              bunniesAvoided: phaserRes.bunniesAvoided,
+              value: phaserRes.score
+            },
+            nextHandle: [null, undefined, 'success'],
+          };
+        } else {
+          // Якщо зупинено користувачем
+          if (!checkRunning()) {
+            return { data: context, nextHandle: ['error'] };
+          }
+
+          // Якщо вибрано суворо phaser режим
+          if (engineMode === 'phaser') {
+            logToClient(`❌ Помилка режиму Phaser Hook: ${phaserRes.error}`, 'error');
+            return { data: context, nextHandle: ['error'] };
+          }
+
+          // Якщо auto — повертаємося до комп'ютерного зору
+          logToClient(`⚠️ Phaser Hook не зміг завершити гру (${phaserRes.error}). Перемикаюсь на Pixel Vision...`, 'info');
+        }
+      } else {
+        if (engineMode === 'phaser') {
+          logToClient(`❌ Режим "Phaser Hook" увімкнено, але екземпляр гри Phaser не знайдено у відкритих сторінках/фреймах!`, 'error');
+          return { data: context, nextHandle: ['error'] };
+        }
+        logToClient(`ℹ️ Phaser не знайдено (можливо інша версія або завантаження). Перемикаюсь на Pixel Vision...`, 'debug');
+      }
+    }
+
+    // ── РЕЖИМ КОМП'ЮТЕРНОГО ЗОРУ (PIXEL VISION) ───────────────────────────
+    logToClient(`📁 Папка шаблонів: ${resolvedTemplateDir}`, 'debug');
+
     // ── Отримуємо Device Pixel Ratio ──────────────────────────────────────
     const dpr = await activePage.evaluate(() => window.devicePixelRatio || 1).catch(() => 1);
     logger.info(`WhackAMole: DPR=${dpr}`);
@@ -474,8 +1102,8 @@ export const whackAMoleNodeHandler = async ({
 
     logToClient(`✅ Завантажено ${templates.length} шаблон(ів) крота (поріг NCC: ${Math.round(threshold * 100)}%)`, 'success');
 
-    // Відправляємо завантажені шаблони крота у Фотодебаг
-    if (ws) {
+    // Відправляємо завантажені шаблони крота у Фотодебаг (тільки якщо увімкнено)
+    if (isPhotoDebug && ws) {
       for (const tmpl of templates) {
         try {
           const tmplBuf = encodePng(tmpl.data);
@@ -484,40 +1112,32 @@ export const whackAMoleNodeHandler = async ({
       }
     }
 
-    // ── Перша перевірка кнопок завершення ────────────────────────────────
-    if (exitTexts.length > 0) {
-      logToClient(`🔍 Перевіряю кнопки завершення (${exitTexts.length} варіантів, ${activePage.frames().length} фреймів)...`, 'debug');
-    }
-    const earlyExit = await checkExitButtons(activePage, exitTexts, logToClient, true);
-    if (earlyExit) {
-      logToClient(`🏁 Кнопка "${earlyExit}" вже на екрані — завершення`, 'success');
-      return { data: { ...context, value: 0 }, nextHandle: [null, undefined, 'success'] };
-    }
+    // ── Діагностичний скріншот та розмітка 9 комірок (тільки якщо увімкнено фото-дебаг) ──
+    if (isPhotoDebug && ws) {
+      try {
+        const diagBuf = await screenshotWithRetry(activePage, { type: 'png' });
+        await sendDebugPhoto(ws, '🔍 Стартовий скріншот вікна', currentNode.id, diagBuf);
 
-    // ── Діагностичний скріншот та розмітка 9 комірок ──────────────────────
-    try {
-      const diagBuf = await screenshotWithRetry(activePage, { type: 'png' });
-      await sendDebugPhoto(ws, '🔍 Стартовий скріншот вікна', currentNode.id, diagBuf);
+        const diagPng = await parsePng(diagBuf);
+        if (diagPng) {
+          const gridPx = Buffer.from(diagPng.pixels);
+          for (let i = 0; i < activeCells.length; i++) {
+            const c = activeCells[i];
+            const pxX0 = Math.max(0, Math.round(c.x * dpr));
+            const pxY0 = Math.max(0, Math.round(c.y * dpr));
+            const pxX1 = Math.min(diagPng.width - 1, Math.round((c.x + c.w) * dpr) - 1);
+            const pxY1 = Math.min(diagPng.height - 1, Math.round((c.y + c.h) * dpr) - 1);
+            const cx = Math.max(0, Math.min(diagPng.width - 1, Math.round((c.x + c.w / 2) * dpr)));
+            const cy = Math.max(0, Math.min(diagPng.height - 1, Math.round((c.y + c.h / 2) * dpr)));
 
-      const diagPng = await parsePng(diagBuf);
-      if (diagPng) {
-        const gridPx = Buffer.from(diagPng.pixels);
-        for (let i = 0; i < activeCells.length; i++) {
-          const c = activeCells[i];
-          const pxX0 = Math.max(0, Math.round(c.x * dpr));
-          const pxY0 = Math.max(0, Math.round(c.y * dpr));
-          const pxX1 = Math.min(diagPng.width - 1, Math.round((c.x + c.w) * dpr) - 1);
-          const pxY1 = Math.min(diagPng.height - 1, Math.round((c.y + c.h) * dpr) - 1);
-          const cx = Math.max(0, Math.min(diagPng.width - 1, Math.round((c.x + c.w / 2) * dpr)));
-          const cy = Math.max(0, Math.min(diagPng.height - 1, Math.round((c.y + c.h / 2) * dpr)));
-
-          drawRect(gridPx, diagPng.width, diagPng.height, pxX0, pxY0, pxX1, pxY1, 245, 158, 11, 2);
-          drawDot(gridPx, diagPng.width, diagPng.height, cx, cy, 3, 0, 255, 255);
+            drawRect(gridPx, diagPng.width, diagPng.height, pxX0, pxY0, pxX1, pxY1, 245, 158, 11, 2);
+            drawDot(gridPx, diagPng.width, diagPng.height, cx, cy, 3, 0, 255, 255);
+          }
+          const gridBuf = encodePng({ width: diagPng.width, height: diagPng.height, pixels: gridPx });
+          await sendDebugPhoto(ws, '🎯 Розмітка 9 комірок (3×3)', currentNode.id, gridBuf);
         }
-        const gridBuf = encodePng({ width: diagPng.width, height: diagPng.height, pixels: gridPx });
-        await sendDebugPhoto(ws, '🎯 Розмітка 9 комірок (3×3)', currentNode.id, gridBuf);
-      }
-    } catch (e) { logToClient(`⚠️ Діагностичний скріншот не вдався`, 'debug'); }
+      } catch (e) { logToClient(`⚠️ Діагностичний скріншот не вдався`, 'debug'); }
+    }
 
     // ── Розрахунок спільної області (bounding box) для захоплення ──────────
     const minClipX = Math.max(0, Math.min(...activeCells.map(c => c.x)));
@@ -532,6 +1152,8 @@ export const whackAMoleNodeHandler = async ({
     const startTime = Date.now();
     let totalClicks = 0;
     let frameCount = 0;
+    // Карта для відстеження кулдауну кожної з 9 комірок
+    const cellLastHitTimes = new Map<number, number>();
 
     while (Date.now() - startTime < (maxDuration as number) && checkRunning()) {
       if (!checkRunning()) break;
@@ -564,6 +1186,12 @@ export const whackAMoleNodeHandler = async ({
       let bestCandidate = { name: '', score: 0, x: 0, y: 0 };
 
       for (let i = 0; i < activeCells.length; i++) {
+        // Перевіряємо кулдаун для комірки: якщо кріт тут уже був вдарений, не шукаємо знову поки анімація не завершиться
+        const lastHit = cellLastHitTimes.get(i) || 0;
+        if (Date.now() - lastHit < cellCooldownMs) {
+          continue;
+        }
+
         const cell = activeCells[i];
         const row = Math.floor(i / 3);
         const col = i % 3;
@@ -593,27 +1221,97 @@ export const whackAMoleNodeHandler = async ({
 
       // ── Клікаємо по всіх знайдених кротах ───────────────────────────────
       for (const mole of matches) {
+        // Додаткова перевірка кулдауну комірки (щоб не бити двічі за один кадр)
+        const lastHit = cellLastHitTimes.get(mole.cellIndex) || 0;
+        if (Date.now() - lastHit < cellCooldownMs) {
+          continue;
+        }
+        cellLastHitTimes.set(mole.cellIndex, Date.now());
+
         const cell = activeCells[mole.cellIndex];
 
-        // Розраховуємо випадкову точку в межах всієї площі комірки (з відступом 10% від країв)
-        const marginX = Math.max(2, Math.floor(cell.w * 0.1));
-        const marginY = Math.max(2, Math.floor(cell.h * 0.1));
-        const usableW = Math.max(1, cell.w - 2 * marginX);
-        const usableH = Math.max(1, cell.h - 2 * marginY);
-        const randOffsetX = marginX + Math.floor(Math.random() * usableW);
-        const randOffsetY = marginY + Math.floor(Math.random() * usableH);
+        // Точні екранні координати центру виявленого крота у CSS-пікселях viewport
+        const moleVpCenterX = minClipX + mole.centerX / dpr;
+        const moleVpCenterY = minClipY + mole.centerY / dpr;
 
-        // Екранні координати кліку у CSS пікселях viewport
-        const vpClickX = cell.x + randOffsetX;
-        const vpClickY = cell.y + randOffsetY;
+        // Природне невелике відхилення (±3 пікселі)
+        const randJitterX = Math.round((Math.random() - 0.5) * 6);
+        const randJitterY = Math.round((Math.random() - 0.5) * 6);
+        const vpClickX = Math.round(moleVpCenterX + randJitterX);
+        const vpClickY = Math.round(moleVpCenterY + randJitterY);
 
         logToClient(
-          `🔨 Крот у комірці #${mole.cellIndex + 1} (${mole.row},${mole.col}) шаблон="${mole.templateName}" NCC=${Math.round(mole.score * 100)}% → клік (${vpClickX},${vpClickY}) [зсув +${randOffsetX},+${randOffsetY}]`,
+          `🔨 [${selectedClickType.toUpperCase()}] Крот у комірці #${mole.cellIndex + 1} (${mole.row},${mole.col}) "${mole.templateName}" NCC=${Math.round(mole.score * 100)}% → клік (${vpClickX},${vpClickY})`,
           'success'
         );
 
-        // Відправляємо фото удару в Фотодебаг
-        if (ws) {
+        // ── 1. ВИКОНАННЯ КЛІКУ СПОЧАТКУ (БЕЗ ЖОДНИХ ЗАТРИМОК НА ФОТО-ДЕБАГ) ────
+        if (selectedClickType === 'human') {
+          // Природна затримка реакції людини (70-130 мс)
+          await smartSleep(70 + Math.floor(Math.random() * 60), ws);
+
+          // Плавне переміщення курсору до крота (5-8 кроків)
+          await activePage.mouse.move(vpClickX, vpClickY, {
+            steps: 5 + Math.floor(Math.random() * 4)
+          });
+
+          // Природне утримання натискання кнопки миші (50-80 мс)
+          await activePage.mouse.down();
+          await smartSleep(50 + Math.floor(Math.random() * 30), ws);
+          await activePage.mouse.up();
+        } else if (selectedClickType === 'touch') {
+          // Сенсорний тап пальцем (мобільна емуляція)
+          try {
+            if (activePage.touchscreen) {
+              await activePage.touchscreen.tap(vpClickX, vpClickY);
+            } else {
+              await activePage.mouse.click(vpClickX, vpClickY, { delay: 50 });
+            }
+          } catch {
+            await activePage.mouse.click(vpClickX, vpClickY, { delay: 50 });
+          }
+        } else if (selectedClickType === 'pointer') {
+          // Пряма диспетчеризація PointerEvent у Canvas
+          try {
+            await activePage.evaluate(({ x, y }) => {
+              const el = document.elementFromPoint(x, y) || document.querySelector('canvas');
+              if (!el) return;
+              const opts = {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: x,
+                clientY: y,
+                screenX: x,
+                screenY: y,
+                button: 0,
+                buttons: 1,
+                pointerId: 1,
+                pointerType: 'mouse',
+                isPrimary: true,
+                pressure: 0.5
+              };
+              el.dispatchEvent(new PointerEvent('pointerdown', opts));
+              el.dispatchEvent(new MouseEvent('mousedown', opts));
+              setTimeout(() => {
+                el.dispatchEvent(new PointerEvent('pointerup', { ...opts, buttons: 0, pressure: 0 }));
+                el.dispatchEvent(new MouseEvent('mouseup', { ...opts, buttons: 0 }));
+                el.dispatchEvent(new MouseEvent('click', { ...opts, buttons: 0 }));
+              }, 50);
+            }, { x: vpClickX, y: vpClickY });
+          } catch {
+            await activePage.mouse.click(vpClickX, vpClickY, { delay: 50 });
+          }
+        } else {
+          // 'fast': швидкий прямий клік з безпечним утриманням 50мс
+          await activePage.mouse.click(vpClickX, vpClickY, { delay: 50 });
+        }
+
+        totalClicks++;
+        clicksThisFrame++;
+
+        // ── 2. ФОТО-ДЕБАГ ТІЛЬКИ ПІСЛЯ УДАРУ ТА ЯКЩО УВІМКНЕНО ────────────
+        if (isPhotoDebug && ws) {
           try {
             const hitPx = Buffer.from(fieldPng.pixels);
             // Зелена рамка навколо виявленого крота
@@ -659,10 +1357,7 @@ export const whackAMoleNodeHandler = async ({
           }
         }
 
-        await activePage.mouse.click(vpClickX, vpClickY);
         await smartSleep(clickDelay as number, ws);
-        totalClicks++;
-        clicksThisFrame++;
       }
 
       // Періодичний лог прогресу та контрольний знімок
@@ -673,7 +1368,7 @@ export const whackAMoleNodeHandler = async ({
           'info'
         );
 
-        if (ws && clicksThisFrame === 0) {
+        if (isPhotoDebug && ws && clicksThisFrame === 0) {
           try {
             await sendDebugPhoto(
               ws,
@@ -689,7 +1384,7 @@ export const whackAMoleNodeHandler = async ({
       const exitFound = await checkExitButtons(activePage, exitTexts, logToClient, frameCount <= 3);
       if (exitFound) {
         logToClient(`🏁 Виявлено кнопку завершення "${exitFound}" після ${totalClicks} кліків`, 'success');
-        if (ws) {
+        if (isPhotoDebug && ws) {
           try {
             const exitBuf = await screenshotWithRetry(activePage, { type: 'png' });
             await sendDebugPhoto(ws, `🏁 Фінал гри: "${exitFound}" (${totalClicks} кліків)`, currentNode.id, exitBuf);

@@ -47,23 +47,27 @@ export class Semaphore {
   private readonly queue: Array<() => void> = [];
   private readonly acquireTimeoutMs: number = 5 * 60 * 1000; // 5 хвилин таймаут за замовчуванням
   private readonly defaultLimit: number;
+  private readonly isConfigDriven: boolean;
 
   /**
    * @param defaultLimit Maximum number of concurrent operations allowed.
    *                     Defaults to the MAX_PARALLEL_BROWSERS configuration value.
    * @param acquireTimeoutMs Timeout in milliseconds for acquiring a slot. Default: 5 minutes.
    */
-  constructor(defaultLimit: number = config.get('MAX_PARALLEL_BROWSERS'), acquireTimeoutMs?: number) {
-    this.defaultLimit = defaultLimit;
+  constructor(defaultLimit?: number, acquireTimeoutMs?: number) {
+    this.isConfigDriven = defaultLimit === undefined;
+    this.defaultLimit = defaultLimit !== undefined ? defaultLimit : config.get('MAX_PARALLEL_BROWSERS');
     if (acquireTimeoutMs !== undefined) {
       this.acquireTimeoutMs = acquireTimeoutMs;
     }
   }
 
   get limit(): number {
-    const queueMode = internalConfig.get('queueMode') === 1;
-    if (queueMode) {
-      return Math.max(1, internalConfig.get('maxParallelProjects') || 1);
+    if (this.isConfigDriven) {
+      const queueMode = internalConfig.get('queueMode') === 1;
+      if (queueMode) {
+        return Math.max(1, internalConfig.get('maxParallelProjects') || 1);
+      }
     }
     return this.defaultLimit;
   }
@@ -91,8 +95,9 @@ export class Semaphore {
       this.queue.push(resolve);
     });
 
+    let timeoutTimer: NodeJS.Timeout | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
+      timeoutTimer = setTimeout(() => {
         reject(new Error(`Semaphore acquire timeout after ${this.acquireTimeoutMs}ms`));
       }, this.acquireTimeoutMs);
     });
@@ -107,10 +112,18 @@ export class Semaphore {
         const index = this.queue.findIndex(r => r === resolveFn);
         if (index !== -1) {
           this.queue.splice(index, 1);
+        } else {
+          // Slot was already handed over to this waiter before or during timeout.
+          // Release it so it's not permanently lost.
+          this.release();
         }
       }
       semaphoreLogger.error(`Failed to acquire slot: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
+    } finally {
+      if (timeoutTimer) {
+        clearTimeout(timeoutTimer);
+      }
     }
   }
 

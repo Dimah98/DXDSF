@@ -221,9 +221,12 @@ export interface ProjectSession {
   page: Page | null;
   cdpPort: number;
   currentlyRunningProfileDir: string | null;
+  currentlyRunningHeadless?: boolean;
+  launchPromise?: Promise<Page> | null;
 
   // WebSocket Connection (Requirement 8: WebSocket Connection Lifecycle Management)
   activeWs: ExtendedWebSocket | null;
+  activeSockets?: Set<ExtendedWebSocket>;
 
   // Bot State
   isBotRunning: boolean;
@@ -254,6 +257,7 @@ export interface ProjectSession {
   lastActivity: number;
   safetyTimeout: NodeJS.Timeout | null;
   timeout10mTimer?: NodeJS.Timeout | null;
+  hasSemaphorePermit?: boolean;
 }
 
 /**

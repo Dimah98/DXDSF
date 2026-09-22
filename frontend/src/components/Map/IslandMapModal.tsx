@@ -5,6 +5,7 @@ interface IslandMapModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectName: string;
+  buildingToPlace?: string | null;
 }
 
 interface MapItem {
@@ -84,7 +85,7 @@ const gameToPixel = (gx: number, gy: number) => ({ left: (gx + OFFSET) * CELL, t
 const BUILDING_TYPES = ['building', 'collectible', 'resource'] as const;
 const CAT_LABEL: Record<string, string> = { building: '🏗️ Будівлі', collectible: '🎨 Декор', resource: '🌳 Ресурси' };
 
-export const IslandMapModal: React.FC<IslandMapModalProps> = ({ isOpen, onClose, projectName }) => {
+export const IslandMapModal: React.FC<IslandMapModalProps> = ({ isOpen, onClose, projectName, buildingToPlace }) => {
   const [items, setItems] = useState<MapItem[]>([]);
   const [buildingTypes, setBuildingTypes] = useState<Record<string, BuildingTypeConfig>>({});
   const [loading, setLoading] = useState(true);
@@ -105,7 +106,7 @@ export const IslandMapModal: React.FC<IslandMapModalProps> = ({ isOpen, onClose,
 
   const gridRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { if (isOpen) loadMapData(); }, [isOpen, projectName]);
+  useEffect(() => { if (isOpen) loadMapData(); }, [isOpen, projectName, buildingToPlace]);
 
   const getTypeConfig = (name: string): BuildingTypeConfig => {
     if (buildingTypes[name]) return buildingTypes[name];
@@ -196,6 +197,25 @@ export const IslandMapModal: React.FC<IslandMapModalProps> = ({ isOpen, onClose,
         return cfg ? { ...item, w: cfg.w, h: cfg.h } : item;
       });
 
+      // Якщо передано buildingToPlace і його ще немає на карті — додаємо у центр (0, 0)
+      if (buildingToPlace) {
+        const exists = typedParsed.some(item => item.name === buildingToPlace);
+        if (!exists) {
+          const [defW, defH] = getDefaultSize(buildingToPlace);
+          const cfg = savedBuildingTypes[buildingToPlace] || { w: defW, h: defH };
+          typedParsed.push({
+            id: `buildings_${buildingToPlace}_new_${Date.now()}`,
+            name: buildingToPlace,
+            type: 'building',
+            x: 0,
+            y: 0,
+            w: cfg.w,
+            h: cfg.h,
+            image: IMAGE_MAPPING[buildingToPlace] || `${buildingToPlace}.png`,
+          });
+        }
+      }
+
       setBuildingTypes(savedBuildingTypes);
       setItems(typedParsed);
 
@@ -218,6 +238,9 @@ export const IslandMapModal: React.FC<IslandMapModalProps> = ({ isOpen, onClose,
 
     // Збираємо всі можливі назви об'єктів для карти
     const mapNames = new Set<string>([...Object.keys(placedTypes), ...Object.keys(btypes)]);
+    if (buildingToPlace) {
+      mapNames.add(buildingToPlace);
+    }
     
     // Знаходимо всі інвентарні імена, які вже використовуються як inventoryName у btypes
     const usedInventoryNames = new Set<string>();
@@ -242,7 +265,7 @@ export const IslandMapModal: React.FC<IslandMapModalProps> = ({ isOpen, onClose,
       
       // Назва в інвентарі (якщо не вказано — беремо назву карти)
       const invName = cfg.inventoryName || mapName;
-      const count = Number(inventory[invName]) || 0;
+      const count = Number(inventory[invName]) || (mapName === buildingToPlace ? 1 : 0);
       const placed = placedCounts[mapName] || 0;
 
       if (count > 0 || placed > 0) {

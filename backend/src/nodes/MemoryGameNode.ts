@@ -605,6 +605,326 @@ async function openCardAndCaptureFingerprint(
   return { fingerprint: '', isInvalid: false };
 }
 
+// ─── Phaser Hook для гри Пам'ять (Zero-Latency Direct Memory Solving) ────────
+
+/**
+ * Знаходить фрейм (або сторінку), де запущено Phaser екземпляр гри Пам'ять
+ */
+export async function findMemoryPhaserFrame(page: Page): Promise<{ targetFrame: any } | null> {
+  const frames = typeof page.frames === 'function' ? page.frames() : [page];
+  const sorted = [...frames].sort((a, b) => {
+    const aUrl = typeof a.url === 'function' ? a.url() : '';
+    const bUrl = typeof b.url === 'function' ? b.url() : '';
+    return (bUrl.includes('memory') ? 1 : 0) - (aUrl.includes('memory') ? 1 : 0);
+  });
+
+  for (const f of sorted) {
+    try {
+      const hasPhaser = await Promise.resolve(
+        f.evaluate(() => {
+          const win = window as any;
+          if (win.__PHASER_GAME__?.scene) return true;
+          if (win.Phaser && Array.isArray(win.Phaser.GAMES) && win.Phaser.GAMES.length > 0) return true;
+          if (win.game?.scene) return true;
+
+          // React Fiber Search у контейнерах
+          try {
+            const rootEl = document.getElementById('root') || document.body.firstElementChild;
+            if (rootEl) {
+              const fiberKey = Object.keys(rootEl).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactContainer'));
+              if (fiberKey) {
+                const queue = [{ fiber: (rootEl as any)[fiberKey], depth: 0 }];
+                while (queue.length > 0) {
+                  const item = queue.shift();
+                  if (!item || item.depth > 30) continue;
+                  const curr = item.fiber;
+                  let s = curr.memoizedState;
+                  while (s) {
+                    if (s.memoizedState?.current?.scene) {
+                      win.__PHASER_GAME__ = s.memoizedState.current;
+                      return true;
+                    }
+                    if (s.memoizedState?.scene) {
+                      win.__PHASER_GAME__ = s.memoizedState;
+                      return true;
+                    }
+                    s = s.next;
+                  }
+                  if (curr.child) queue.push({ fiber: curr.child, depth: item.depth + 1 });
+                  if (curr.sibling) queue.push({ fiber: curr.sibling, depth: item.depth });
+                }
+              }
+            }
+          } catch (_) {}
+          return false;
+        })
+      ).catch(() => false);
+
+      if (hasPhaser) return { targetFrame: f };
+    } catch (_) {}
+  }
+  return null;
+}
+
+export interface PhaserMemorySolveResult {
+  success: boolean;
+  matchedPairs: number;
+  totalPairs: number;
+  moves: number;
+  error?: string;
+}
+
+/**
+ * Автоматичне 100% безпомилкове проходження гри через Phaser Hook.
+ * Зчитує всі 30 карток та їх пари безпосередньо з об'єкта gameBoard у пам'яті Phaser.
+ */
+export async function solveMemoryGameWithPhaserHook(
+  targetFrame: any,
+  logToClient: (msg: string, level?: 'info' | 'error' | 'success' | 'debug') => void,
+  smartSleep: (ms: number, ws?: any) => Promise<void>,
+  checkRunning: () => boolean,
+  ws: any,
+  flipDelay = 400,
+  pairDelay = 500,
+  maxWaitMs = 60000
+): Promise<PhaserMemorySolveResult> {
+  const startTime = Date.now();
+
+  // 1. Очікуємо готовності дошки та карток
+  logToClient(`⏳ Очікування завантаження дошки карток у Phaser...`, 'debug');
+  let isReady = false;
+
+  while (Date.now() - startTime < Math.min(maxWaitMs, 15000)) {
+    if (!checkRunning()) {
+      return { success: false, matchedPairs: 0, totalPairs: 15, moves: 0, error: 'зупинено користувачем' };
+    }
+
+    const checkRes: any = await Promise.resolve(
+      targetFrame.evaluate(() => {
+        const win = window as any;
+        let game = win.__PHASER_GAME__;
+        if (!game) {
+          const rootEl = document.getElementById('root') || document.body.firstElementChild;
+          if (rootEl) {
+            const fiberKey = Object.keys(rootEl).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactContainer'));
+            if (fiberKey) {
+              const queue = [{ fiber: (rootEl as any)[fiberKey], depth: 0 }];
+              while (queue.length > 0) {
+                const item = queue.shift();
+                if (!item || item.depth > 30) continue;
+                const curr = item.fiber;
+                let s = curr.memoizedState;
+                while (s) {
+                  if (s.memoizedState?.current?.scene) { win.__PHASER_GAME__ = s.memoizedState.current; game = win.__PHASER_GAME__; break; }
+                  if (s.memoizedState?.scene) { win.__PHASER_GAME__ = s.memoizedState; game = win.__PHASER_GAME__; break; }
+                  s = s.next;
+                }
+                if (game) break;
+                if (curr.child) queue.push({ fiber: curr.child, depth: item.depth + 1 });
+                if (curr.sibling) queue.push({ fiber: curr.sibling, depth: item.depth });
+              }
+            }
+          }
+        }
+        if (!game) return { status: 'no_game' };
+        const sc = (game.scene && typeof game.scene.getScene === 'function' && game.scene.getScene('memory')) ||
+                   (game.scene?.scenes?.find((s: any) => s && s.sceneId === 'memory')) ||
+                   game.scene?.scenes?.[0];
+        if (!sc) return { status: 'no_scene' };
+        const gb = sc.gameBoard;
+        if (!gb) return { status: 'no_gameboard' };
+
+        const cards = (Array.isArray(gb.cards) && gb.cards.length === 30) ? gb.cards :
+                      (Array.isArray(gb._cards) && gb._cards.length === 30 ? gb._cards : []);
+        if (cards.length < 30) return { status: 'waiting_cards', count: cards.length };
+
+        return { status: 'ready', count: cards.length };
+      })
+    ).catch(() => ({ status: 'error' }));
+
+    if (checkRes?.status === 'ready') {
+      isReady = true;
+      break;
+    }
+
+    await smartSleep(300, ws);
+  }
+
+  if (!isReady) {
+    return { success: false, matchedPairs: 0, totalPairs: 15, moves: 0, error: 'дошка карток не готова або не знайдена у Phaser' };
+  }
+
+  if (!checkRunning()) {
+    return { success: false, matchedPairs: 0, totalPairs: 15, moves: 0, error: 'зупинено користувачем' };
+  }
+
+  // 2. Зчитуємо всі 30 карток з пам'яті
+  const cardsData: any = await Promise.resolve(
+    targetFrame.evaluate(() => {
+      const win = window as any;
+      const game = win.__PHASER_GAME__;
+      const sc = game?.scene?.getScene('memory') || game?.scene?.scenes?.[0];
+      const gb = sc?.gameBoard;
+      const cards = (Array.isArray(gb.cards) && gb.cards.length === 30) ? gb.cards : gb._cards;
+      const solvedSet = new Set(gb?.solvedCards || []);
+
+      return (cards || []).map((c: any, i: number) => ({
+        index: i,
+        name: c.name,
+        isFlipped: Boolean(c.isFlipped),
+        isSolved: solvedSet.has(c) || Boolean(c.matched) || Boolean(c.isMatched) || Boolean(c.isSolved) || (c.image && c.image.visible === false)
+      }));
+    })
+  ).catch(() => []);
+
+  if (!Array.isArray(cardsData) || cardsData.length < 30) {
+    return { success: false, matchedPairs: 0, totalPairs: 15, moves: 0, error: 'не вдалося зчитати карти з пам\'яті Phaser' };
+  }
+
+  // 3. Відстежуємо стан розв'язаних карток
+  const solvedIndices = new Set<number>();
+  for (const c of cardsData) {
+    if (c.isSolved) solvedIndices.add(c.index);
+  }
+
+  const totalPairs = Math.floor(cardsData.length / 2); // 15
+  let matchedCount = Math.floor(solvedIndices.size / 2);
+  let movesCount = 0;
+
+  logToClient(`🧠 Phaser Hook: Розпізнано всі ${cardsData.length} карток! Відкриваю по порядку як людина...`, 'success');
+
+  // 4. Почергово проходимо по картках ПО ПОРЯДКУ від 0 до 29 (як послідовно відкриває людина)
+  for (let i = 0; i < cardsData.length; i++) {
+    if (!checkRunning()) {
+      return { success: false, matchedPairs: matchedCount, totalPairs, moves: movesCount, error: 'зупинено користувачем' };
+    }
+    if (Date.now() - startTime > maxWaitMs) {
+      return { success: false, matchedPairs: matchedCount, totalPairs, moves: movesCount, error: 'вичерпано ліміт часу гри' };
+    }
+
+    // Якщо картку вже відкрито та зібрано в парі раніше — переходимо до наступної по порядку
+    if (solvedIndices.has(i)) continue;
+
+    const firstCard = cardsData[i];
+    // Знаходимо парну картку з такою ж назвою культури серед ще не зібраних
+    const pairCard = cardsData.find(c => c.index !== i && c.name === firstCard.name && !solvedIndices.has(c.index));
+    if (!pairCard) continue;
+
+    const idx1 = i;
+    const idx2 = pairCard.index;
+
+    // Очікування розблокування рушія перед новим ходом
+    let lockWait = 0;
+    while (lockWait < 20) {
+      const lockState = await Promise.resolve(
+        targetFrame.evaluate(() => {
+          const win = window as any;
+          const game = win.__PHASER_GAME__;
+          const sc = game?.scene?.getScene('memory') || game?.scene?.scenes?.[0];
+          const gb = sc?.gameBoard;
+          return {
+            locked: Boolean(sc?.locked || gb?.locked),
+            flipped: gb?.flippedCards ? gb.flippedCards.length : 0
+          };
+        })
+      ).catch(() => ({ locked: false, flipped: 0 }));
+
+      if (!lockState.locked && lockState.flipped === 0) break;
+      await smartSleep(80, ws);
+      lockWait++;
+    }
+
+    logToClient(`👆 [Хід] Відкриваю картку #${idx1 + 1} по порядку ("${firstCard.name}")...`, 'debug');
+
+    // Клік по 1-й картці (по порядку)
+    await Promise.resolve(
+      targetFrame.evaluate((cardIdx: number) => {
+        const win = window as any;
+        const game = win.__PHASER_GAME__;
+        const sc = game?.scene?.getScene('memory') || game?.scene?.scenes?.[0];
+        const gb = sc?.gameBoard;
+        if (!gb) return false;
+        const cards = (Array.isArray(gb.cards) && gb.cards.length === 30) ? gb.cards : gb._cards;
+        const card = cards?.[cardIdx];
+        if (!card) return false;
+        if (sc) sc.locked = false;
+        if (gb) gb.locked = false;
+        try {
+          if (typeof gb.handleCardClick === 'function') {
+            gb.handleCardClick(card);
+            return true;
+          }
+        } catch (_) {}
+        try {
+          if (card.image && typeof card.image.emit === 'function') {
+            card.image.emit('pointerup');
+            return true;
+          }
+        } catch (_) {}
+        return false;
+      }, idx1)
+    ).catch(() => false);
+
+    movesCount++;
+
+    // Природна людська пауза перед кліком по парній картці (з джитером)
+    const humanFlipDelay = Math.max(150, flipDelay) + Math.floor(Math.random() * 60 - 30);
+    await smartSleep(humanFlipDelay, ws);
+
+    logToClient(`👆 [Пара] Відкриваю парну картку #${idx2 + 1} ("${firstCard.name}")...`, 'debug');
+
+    // Клік по 2-й картці (з пари)
+    await Promise.resolve(
+      targetFrame.evaluate((cardIdx: number) => {
+        const win = window as any;
+        const game = win.__PHASER_GAME__;
+        const sc = game?.scene?.getScene('memory') || game?.scene?.scenes?.[0];
+        const gb = sc?.gameBoard;
+        if (!gb) return false;
+        const cards = (Array.isArray(gb.cards) && gb.cards.length === 30) ? gb.cards : gb._cards;
+        const card = cards?.[cardIdx];
+        if (!card) return false;
+        if (sc) sc.locked = false;
+        if (gb) gb.locked = false;
+        try {
+          if (typeof gb.handleCardClick === 'function') {
+            gb.handleCardClick(card);
+            return true;
+          }
+        } catch (_) {}
+        try {
+          if (card.image && typeof card.image.emit === 'function') {
+            card.image.emit('pointerup');
+            return true;
+          }
+        } catch (_) {}
+        return false;
+      }, idx2)
+    ).catch(() => false);
+
+    movesCount++;
+    matchedCount++;
+    solvedIndices.add(idx1);
+    solvedIndices.add(idx2);
+
+    logToClient(`✅ Зібрано пару "${firstCard.name}" (${matchedCount}/${totalPairs})`, 'success');
+
+    // Пауза на анімацію зникнення карт (poof) з невеликим людським джитером
+    const humanPairDelay = Math.max(200, pairDelay) + Math.floor(Math.random() * 80 - 40);
+    await smartSleep(humanPairDelay, ws);
+  }
+
+  // Фінальна пауза перед поверненням результату
+  await smartSleep(500, ws);
+
+  return {
+    success: matchedCount >= totalPairs,
+    matchedPairs: matchedCount,
+    totalPairs,
+    moves: movesCount
+  };
+}
+
 // ─── Головний обробник ноди ─────────────────────────────────────────────────
 
 export const memoryGameNodeHandler = async ({ // Головна функція-обробник ноди
@@ -620,6 +940,9 @@ export const memoryGameNodeHandler = async ({ // Головна функція-�
   // Зчитуємо налаштування з інтерфейсу ноди
   const nodeData = currentNode.data as Record<string, unknown>;
   const { // Деструктуризація даних ноди
+    engineMode = 'auto',   // 'auto' | 'phaser' | 'vision'
+    phaserFlipDelay = 250, // Затримка анімації перевороту для Phaser (мс)
+    phaserPairDelay = 380, // Затримка між парами для анімації poof у Phaser (мс)
     flipDelay = 800,       // Затримка анімації перевороту (мс)
     mismatchDelay = 1500,  // Затримка після невдалого перевороту (мс)
     useCropZone = false,   // Чи використовувати зону обрізки
@@ -735,6 +1058,75 @@ export const memoryGameNodeHandler = async ({ // Головна функція-�
 
   try { // Основний блок перехоплення помилок
 
+    // ── Перевірка кнопок завершення ПЕРЕД початком гри ────────────────
+    if (exitTexts.length > 0) { // Логуємо стан перевірки
+      const frameCount = activePage.frames().length; // Кількість фреймів
+      logToClient(`🔍 Перевіряю кнопки завершення (${exitTexts.length} варіантів, ${frameCount} фреймів)...`, 'debug');
+    } // Кінець логу
+    const exitBeforeGame = await checkExitButtons(true); // Перевіряємо з вербозним логом
+    if (exitBeforeGame) { // Якщо кнопка вже є
+      logToClient(`🏁 Виявлено кнопку завершення "${exitBeforeGame}" — гра вже завершена`, 'success');
+      return { // Успішний вихід
+        data: { ...context, matchedPairs: 0, moveCount: 0, value: 0 }, // Контекст
+        nextHandle: [null, undefined, 'success'], // Зелений порт
+      }; // Кінець early exit
+    } // Кінець перевірки до гри
+
+    // ── РЕЖИМ PHASER HOOK (Швидкий доступ через стан рушія Phaser) ────────────
+    if (engineMode !== 'vision') {
+      logToClient(`🔍 [Phaser Hook] Пошук рушія гри Пам'ять у фреймах...`, 'debug');
+      const phaserInfo = await findMemoryPhaserFrame(activePage);
+
+      if (phaserInfo) {
+        logToClient(`⚡ Знайдено рушій Phaser гри Пам'ять! Запуск режиму Phaser Hook (відкриття по порядку як людина)...`, 'success');
+        const phaserRes = await solveMemoryGameWithPhaserHook(
+          phaserInfo.targetFrame,
+          logToClient,
+          smartSleep,
+          checkRunning,
+          ws,
+          Number(phaserFlipDelay) || 400,
+          Number(phaserPairDelay) || 500
+        );
+
+        if (phaserRes.success) {
+          logToClient(`🎉 Phaser Hook: успішно зібрано всі ${phaserRes.matchedPairs} пар за ${phaserRes.moves} ходів!`, 'success');
+
+          // Пауза перед перевіркою кнопок завершення
+          await smartSleep(1000, ws);
+          const finalExit = await checkExitButtons(true);
+          if (finalExit) {
+            logToClient(`🏁 Виявлено кнопку завершення "${finalExit}"`, 'success');
+          }
+
+          return {
+            data: { ...context, matchedPairs: phaserRes.matchedPairs, moveCount: phaserRes.moves, value: phaserRes.matchedPairs },
+            nextHandle: [null, undefined, 'success'],
+          };
+        } else {
+          // Якщо зупинено користувачем
+          if (!checkRunning()) {
+            return { data: context, nextHandle: ['error'] };
+          }
+
+          // Якщо вибрано суворо phaser режим
+          if (engineMode === 'phaser') {
+            logToClient(`❌ Помилка режиму Phaser Hook: ${phaserRes.error}`, 'error');
+            return { data: context, nextHandle: ['error'] };
+          }
+
+          // Якщо auto — повертаємося до комп'ютерного зору
+          logToClient(`⚠️ Phaser Hook не зміг зібрати карти (${phaserRes.error}). Перемикаюсь на Pixel Vision...`, 'info');
+        }
+      } else {
+        if (engineMode === 'phaser') {
+          logToClient(`❌ Режим "Phaser Hook" увімкнено, але екземпляр гри Phaser не знайдено у відкритих сторінках/фреймах!`, 'error');
+          return { data: context, nextHandle: ['error'] };
+        }
+        logToClient(`ℹ️ Phaser не знайдено (можливо інша версія або завантаження). Перемикаюсь на Pixel Vision...`, 'debug');
+      }
+    }
+
     // ── ДІАГНОСТИКА: 2 скріншоти на початку ─────────────────────────────────
 
     // 1. Скріншот всього вікна браузера для перевірки
@@ -823,20 +1215,6 @@ export const memoryGameNodeHandler = async ({ // Головна функція-�
       } // Кінець циклу
       return null; // Не знайдено
     }; // Кінець findMatchInMemory
-
-    // ── Перша перевірка кнопок завершення ПЕРЕД початком гри ────────────────
-    if (exitTexts.length > 0) { // Логуємо стан перевірки
-      const frameCount = activePage.frames().length; // Кількість фреймів
-      logToClient(`🔍 Перевіряю кнопки завершення (${exitTexts.length} варіантів, ${frameCount} фреймів)...`, 'debug');
-    } // Кінець логу
-    const exitBeforeGame = await checkExitButtons(true); // Перевіряємо з вербозним логу
-    if (exitBeforeGame) { // Якщо кнопка вже є
-      logToClient(`🏁 Виявлено кнопку завершення "${exitBeforeGame}" — гра вже завершена`, 'success');
-      return { // Успішний вихід
-        data: { ...context, matchedPairs: 0, moveCount: 0, value: 0 }, // Контекст
-        nextHandle: [null, undefined, 'success'], // Зелений порт
-      }; // Кінець early exit
-    } // Кінець перевірки до гри
 
     // ── Головний цикл гри ───────────────────────────────────────────────────
 

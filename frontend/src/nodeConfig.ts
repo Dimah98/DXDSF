@@ -7,9 +7,9 @@ import {
   GitFork, MousePointerClick, Crosshair, Keyboard,
   Camera, Layers, Monitor, Repeat, Move,
   MessageSquare, Timer, XCircle, Calculator, Activity,
-  ArrowRightLeft, Package, Clock, CalendarClock, Bell, Sprout, Flame, ChefHat, Gamepad2, Hammer, Sparkles,
+  ArrowRightLeft, Package, Clock, CalendarClock, Bell, Sprout, Flame, ChefHat, Gamepad2, Hammer, Sparkles, Egg,
   Settings, Type, Flower, PackageCheck,
-  Wallet,
+  Wallet, Maximize, Puzzle,
 } from 'lucide-react';
 
 // Тип одного запису конфігурації ноди
@@ -167,10 +167,26 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     hint: 'Навігація та дії браузера: перехід за URL, оновлення сторінки, Натиснути F5, Рандом ПТ (випадкова ферма), натискання "Назад", очікування завантаження.',
     defaultColor: '#a855f7',
   },
+  browserResizeNode: {
+    label: 'Розмір та масштаб',
+    icon: Maximize,
+    desc: 'Розмір вікна та зум',
+    hint: 'Змінює розмір вікна браузера (W × H, повноекранний, розгорнутий) та збільшення/масштаб сторінки (як у меню браузера: 75%, 50%, 100% тощо) прямо на ходу під час виконання сценарію.',
+    defaultColor: '#4f46e5',
+    defaults: {
+      sizePreset: '1280x720',
+      width: 1280,
+      height: 720,
+      windowState: 'normal',
+      zoomPercent: 75,
+      zoomMode: 'both',
+      waitDelay: 500,
+    },
+  },
   infoNode: {
-    label: 'Сканер',
+    label: 'Зчитування даних',
     icon: Scan,
-    desc: 'Отримати текст/дані',
+    desc: 'Отримати текст/атрибут',
     hint: 'Витягує текст, HTML або атрибут вказаного елемента (по CSS чи XPath) та зберігає його у змінну для подальшого використання.',
     defaultColor: '#3b82f6',
   },
@@ -238,17 +254,17 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     defaultColor: '#d946ef',
   },
   multiLogicNode: {
-    label: 'Диспетчер подій',
+    label: 'Каскад умов (IF/ELSE)',
     icon: GitFork,
-    desc: 'Варіації (Пріоритет)',
-    hint: 'Крута нода для гнучкості: перевіряє список умов згори донизу. Виконує гілку першої умови, що спрацювала.',
+    desc: 'Умови змінних (Пріоритет)',
+    hint: 'Перевіряє список умов над змінними згори донизу (наприклад {gold} > 100 або time_is_today). Виконує гілку першої умови, що виявилася істинною.',
     defaultColor: '#f43f5e',
   },
   searchInNode: {
-    label: 'Пошук в області',
+    label: 'Пошук картинки в блоці',
     icon: Layers,
-    desc: 'Знайти елемент в іншому',
-    hint: 'Спочатку шукає батьківський елемент, а потім всередині нього виконує клік/перевірку за дочірнім селектором.',
+    desc: 'Знайти зображення в контейнері',
+    hint: 'Шукає батьківський контейнер за селектором, а всередині нього знаходить картинку за її назвою та повертає координати для кліку.',
     defaultColor: '#14b8a6',
   },
   compareNode: {
@@ -266,10 +282,10 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     defaultColor: '#3b82f6',
   },
   gateNode: {
-    label: 'Логічний Шлюз',
+    label: 'Лічильник проходів',
     icon: ArrowRightLeft,
-    desc: 'Обʼєднання сигналів',
-    hint: 'Може обʼєднувати багато вхідних зʼєднань в одне (або розгалужувати сигнал). Також може працювати як "AND-вентиль" або "Перемикач".',
+    desc: 'Обмежувач повторень (Шлюз)',
+    hint: 'Пропускає сигнал перші N разів через зелений порт "Прохід", а після вичерпання ліміту блокує і скеровує через червоний порт "Блок". Порт setLimit скидає лічильник та задає новий ліміт.',
     defaultColor: '#8b5cf6',
   },
   escNode: {
@@ -298,10 +314,10 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     }
   },
   eventVariationsNode: {
-    label: 'Диспетчер подій',
+    label: 'Вибір варіанту на екрані',
     icon: GitFork,
-    desc: 'Варіації (Пріоритет)',
-    hint: 'Перевіряє список умов згори донизу. Клікає по першій підходящій.',
+    desc: 'Клік по знайденому (DOM)',
+    hint: 'Шукає на сторінці браузера варіанти (селектор кнопки, текст або картинку, наприклад: модалка з кнопками «Прийняти» / «Відхилити») і клікає по першому знайденому варіанту.',
     defaultColor: '#f43f5e',
     defaults: {
       variations: [
@@ -344,10 +360,10 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     },
   },
   cooldownNode: {
-    label: 'Таймаут',
+    label: 'Кулдаун (Періодичність)',
     icon: Clock, // або Timer, але Timer вже є вище
-    desc: 'Затримка викликів',
-    hint: 'Пропускає сигнал лише раз на вказаний проміжок часу. Всі інші спроби протягом таймауту йдуть по червоній гілці.',
+    desc: 'Обмеження частоти запуску',
+    hint: 'Пропускає сигнал не частіше ніж раз на вказаний проміжок часу. Всі повторні спроби протягом кулдауну йдуть по червоній гілці.',
     defaultColor: '#0d9488',
     defaults: {
       duration: 20,
@@ -499,9 +515,12 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     label: 'Гра Пам\'ять',
     icon: Gamepad2,
     desc: 'Міні-гра memory',
-    hint: 'Автоматично проходить міні-гру на пам\'ять (перевертання карток). Використовує комп\'ютерний зір для аналізу скріншотів та стратегію запам\'ятовування позицій.',
+    hint: 'Автоматично проходить міні-гру на пам\'ять (перевертання карток). Підтримує миттєвий режим Phaser Hook безпосередньо через стан рушія гри або класичний комп\'ютерний зір.',
     defaultColor: '#7c3aed',
     defaults: {
+      engineMode: 'auto',
+      phaserFlipDelay: 250,
+      phaserPairDelay: 380,
       flipDelay: 800,
       mismatchDelay: 1500,
     }
@@ -510,9 +529,13 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     label: 'Вдарь Крота',
     icon: Hammer,
     desc: 'Міні-гра Whack-a-Mole',
-    hint: 'Автоматично проходить міні-гру «Вдарь Крота» (3×3). Порівнює кожну клітинку з шаблонами з папки mine/ через NCC (нормалізована перехресна кореляція). Клікає по знайдених кротах.',
+    hint: 'Автоматично проходить міні-гру «Вдарь Крота» (3×3). Підтримує надшвидкий режим Phaser Hook (зчитування 9 лунок безпосередньо з рушія Phaser, захист від зайців і пустих лунок) з авто-фолбеком на комп\'ютерний зір (NCC-шаблони).',
     defaultColor: '#d97706',
     defaults: {
+      engineMode: 'auto',
+      reactionDelay: 50,
+      targetScore: 0,
+      autoStart: true,
       checkInterval: 400,
       clickDelay: 150,
       matchThreshold: 0.72,
@@ -526,11 +549,70 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
     hint: 'Автоматично проходить міні-гру на запам\'ятовування послідовності спалахів (9 предметів). Фіксує порядок загоряння, відстежує індикатор помилки та індикатор перемоги, а після завершення демонстрації автоматично клікає збережену чергу.',
     defaultColor: '#6366f1',
     defaults: {
+      engineMode: 'auto',
+      targetScore: 5,
+      reactionDelay: 100,
+      pressDuration: 60,
+      stepDelay: 120,
+      autoStart: true,
       flashThreshold: 0.25,
       flashSilenceTimeout: 1200,
       clickDelay: 200,
       maxDuration: 120000,
       onErrorAction: 'reset',
+    }
+  },
+  chickenRescueNode: {
+    label: 'Порятунок Кур',
+    icon: Egg,
+    desc: 'Міні-гра Chicken Rescue / Змійка',
+    hint: 'Автоматично проходить міні-гру «Порятунок Кур» (збір сплячих курчат у конга-хвіст, ухиляння від гоблінів та перешкод). Працює у надшвидкому 60 FPS режимі Phaser Hook з BFS-пошуком та захистом від глухих кутів (Flood Fill).',
+    defaultColor: '#eab308',
+    defaults: {
+      engineMode: 'phaser',
+      targetScore: 40,
+      autoStart: true,
+      maxDuration: 120000,
+      retryOnDeath: true,
+      maxRetries: 3
+    }
+  },
+  captchaSolverNode: {
+    label: 'Капча (Quick Check)',
+    icon: Puzzle,
+    desc: 'Проходження капчі (Drag Puzzle & Rotate)',
+    hint: 'Автоматично виявляє та проходить обидва типи захисної капчі Sunflower Land: 1) Пазл перетягування («Drag the crop into the empty slot»); 2) Обертання предмета («Rotate the item until it is upright»). Зчитує точні кути або координати, виконує плавний поворот чи перетягування, підтверджує та натискає «Continue». Якщо капчі немає — передає керування далі (режим пропуску).',
+    defaultColor: '#f97316',
+    defaults: {
+      skipIfNotFound: true,
+      timeout: 5000,
+      dragDurationMs: 400,
+      dragSteps: 30,
+      autoClickContinue: true,
+      maxRetries: 2
+    }
+  },
+  fruitRunnerNode: {
+    label: 'Фруктовий Ранер',
+    icon: Gamepad2,
+    desc: 'Міні-гра ухиляння та збору фруктів',
+    hint: 'Автоматично проходить міні-гру Fruit Dash (Sunflower Land). Адаптивний комп\'ютерний зір з калібруванням кольорів дороги, lane-based ухиляння від перешкод (ями, камені, могили), збір фруктів та пауер-апів (мухомор, кирка, годинник). Динамічний горизонт захисту, що зростає зі швидкістю гри.',
+    defaultColor: '#10b981',
+    defaults: {
+      targetScore: 2500,
+      maxDuration: 120000,
+      dangerLookahead: 400,
+      safetyMargin: 30,
+      snapshotInterval: 500,
+      numLanes: 5,
+      gameAreaSelector: 'canvas',
+      manualRoadLeft: 0,
+      manualRoadRight: 0,
+      playerFrameTop: 0,
+      playerFrameBottom: 0,
+      detectionTopY: 0,
+      detectionBottomY: 0,
+      enableDebugSnapshot: true,
     }
   },
   // Конфігурація для нової ноди "Введення та Клік"
@@ -583,6 +665,26 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
       step8Selector: '',
       step9Selector: '',
       step10Selector: ''
+    }
+  },
+  buildingPlacerNode: {
+    label: 'Розміщення Будівлі',
+    icon: Hammer,
+    desc: 'Купівля і розміщення будівлі',
+    hint: 'Автоматично відкриває магазин, вибирає категорію, будівлю, натискає Craft, розміщує на карті острова по координатах, підтверджує (2 кліки) та зберігає.',
+    defaultColor: '#f59e0b',
+    defaults: {
+      shopImage: '',
+      categoryImage: '',
+      buildingImage: '',
+      craftButtonSelector: 'button:has-text("Craft")',
+      craftButtonImage: '',
+      buildingName: '',
+      confirmImage1: '',
+      confirmImage2: '',
+      saveButtonSelector: 'button:has-text("Save")',
+      saveButtonImage: '',
+      stepDelayMs: 1000,
     }
   },
   deliveryNode: {

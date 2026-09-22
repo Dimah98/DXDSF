@@ -77,6 +77,7 @@ fun NpcSelectorItem(
     npcName: String,
     npcFileName: String?,
     isSelected: Boolean,
+    baseUrl: String = "",
     onClick: () -> Unit
 ) {
     Column(
@@ -104,9 +105,11 @@ fun NpcSelectorItem(
                 .background(GlassBg)
         ) {
             if (npcFileName != null) {
+                val cleanNpc = npcFileName.trim()
+                val npcUrl = if (baseUrl.isNotBlank()) "${baseUrl.trimEnd('/')}/api/im/$cleanNpc.png" else "file:///android_asset/im/$cleanNpc.png"
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data("file:///android_asset/im/$npcFileName.png")
+                        .data(npcUrl)
                         .crossfade(true)
                         .build(),
                     contentDescription = npcName,
@@ -149,6 +152,7 @@ fun AllDeliveriesItemCard(
     inventoryMap: Map<String, Double>,
     baseUrl: String = "",
     isMarked: Boolean = false,
+    onClick: () -> Unit = {},
     onToggleMark: () -> Unit = {}
 ) {
     // Перевіряємо стан доставки для кольору рамки
@@ -178,7 +182,7 @@ fun AllDeliveriesItemCard(
             modifier = Modifier
                 .fillMaxSize()
                 .combinedClickable(
-                    onClick = {},
+                    onClick = onClick,
                     onLongClick = onToggleMark
                 ),
             shape = RoundedCornerShape(24.dp),
@@ -409,6 +413,7 @@ fun AllDeliveriesScreen(
     var selectedNpc by remember { mutableStateOf<String?>(null) }
     // Мітки: projectName → Set<deliveryId>
     var markedDeliveries by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
+    var selectedDeliveryForDetails by remember { mutableStateOf<Pair<String, Delivery>?>(null) }
     val scope = rememberCoroutineScope()
     val baseUrl = remember { ConnectionConfigManager(context).getHttpUrl().removeSuffix("/") }
     val MARKED_KEY = "__markedDeliveries"
@@ -529,7 +534,7 @@ fun AllDeliveriesScreen(
                     )
                 }
                 val updatedVariables = projectData.variables.toMutableMap()
-                updatedVariables.remove(MARKED_KEY)
+                updatedVariables[MARKED_KEY] = markedSet.toList()
                 val keysToRemove = updatedVariables.keys.filter { it.startsWith("__markedItems_") }
                 keysToRemove.forEach { updatedVariables.remove(it) }
 
@@ -691,6 +696,7 @@ fun AllDeliveriesScreen(
                                 npcName = "Усі",
                                 npcFileName = null,
                                 isSelected = selectedNpc == null,
+                                baseUrl = baseUrl,
                                 onClick = { selectedNpc = null }
                             )
                         }
@@ -700,6 +706,7 @@ fun AllDeliveriesScreen(
                                 npcName = npcName,
                                 npcFileName = getNpcFileName(npcName),
                                 isSelected = selectedNpc == npcName,
+                                baseUrl = baseUrl,
                                 onClick = { selectedNpc = npcName }
                             )
                         }
@@ -737,12 +744,31 @@ fun AllDeliveriesScreen(
                             inventoryMap = inventoryMap,
                             baseUrl = baseUrl,
                             isMarked = markedDeliveries[projectName]?.contains(getNpcFileName(delivery.from)) == true,
+                            onClick = { selectedDeliveryForDetails = projectName to delivery },
                             onToggleMark = { toggleMark(projectName, getNpcFileName(delivery.from)) }
                         )
                     }
                 }
             }
         }
+    }
+
+    // Модальне вікно деталей доставки та інгредієнтів страв
+    selectedDeliveryForDetails?.let { (projName, deliv) ->
+        val invMap = allInventories[projName]?.associate {
+            val itemName = it.image.substringAfterLast("/").substringBefore(".")
+            itemName.lowercase() to it.number
+        } ?: emptyMap()
+
+        DeliveryDetailsDialog(
+            delivery = deliv,
+            projectName = projName,
+            inventoryMap = invMap,
+            baseUrl = baseUrl,
+            isMarked = markedDeliveries[projName]?.contains(getNpcFileName(deliv.from)) == true,
+            onToggleMark = { toggleMark(projName, getNpcFileName(deliv.from)) },
+            onDismiss = { selectedDeliveryForDetails = null }
+        )
     }
 }
 }

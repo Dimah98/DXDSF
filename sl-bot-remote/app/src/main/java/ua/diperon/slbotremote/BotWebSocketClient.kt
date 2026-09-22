@@ -5,6 +5,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -43,6 +44,11 @@ sealed class BotWsMessage {
     data class GlobalVariablesUpdate(val variables: Map<String, Any?>) : BotWsMessage()
     data class ScreenshotSaved(val filename: String, val projectName: String) : BotWsMessage()
     data class BotFinished(val status: String? = null, val error: String? = null) : BotWsMessage()
+    data class NotificationReceived(
+        val projectName: String,
+        val message: String,
+        val notification: NotificationItem? = null
+    ) : BotWsMessage()
 }
 
 /**
@@ -59,7 +65,15 @@ class BotWebSocketClient {
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState
 
-    private val _messages = MutableSharedFlow<BotWsMessage>(replay = 0, extraBufferCapacity = 64)
+    // Conflated flow for stream frames to avoid OutOfMemoryError and heap pressure
+    private val _streamFrame = MutableStateFlow<BotWsMessage.StreamFrame?>(null)
+    val streamFrame: StateFlow<BotWsMessage.StreamFrame?> = _streamFrame
+
+    private val _messages = MutableSharedFlow<BotWsMessage>(
+        replay = 0,
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
     val messages: SharedFlow<BotWsMessage> = _messages
 
     companion object {
@@ -407,6 +421,27 @@ class BotWebSocketClient {
                     val error = jsonObject.optString("error", "").takeIf { it.isNotBlank() }
                     BotWsMessage.BotFinished(status, error)
                 }
+                "NOTIFICATION" -> {
+                    val projName = jsonObject.optString("projectName", "")
+                    val msg = jsonObject.optString("message", "")
+                    val notifObj = jsonObject.optJSONObject("notification")
+                    val notifItem = notifObj?.let { obj ->
+                        NotificationItem(
+                            id = obj.optString("id", System.currentTimeMillis().toString()),
+                            projectName = obj.optString("projectName", projName),
+                            message = obj.optString("message", msg),
+                            timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                            read = obj.optBoolean("read", false)
+                        )
+                    } ?: NotificationItem(
+                        id = System.currentTimeMillis().toString(),
+                        projectName = projName,
+                        message = msg,
+                        timestamp = System.currentTimeMillis(),
+                        read = false
+                    )
+                    BotWsMessage.NotificationReceived(projName, msg, notifItem)
+                }
                 else -> {
                     Log.w(TAG, "Unknown message type discovered: $type")
                     null
@@ -414,9 +449,14 @@ class BotWebSocketClient {
             }
 
             message?.let {
-                if (!_messages.tryEmit(it)) {
-                    scope.launch {
-                        _messages.emit(it)
+                if (it is BotWsMessage.StreamFrame) {
+                    _streamFrame.value = it
+                    _messages.tryEmit(it)
+                } else {
+                    if (!_messages.tryEmit(it)) {
+                        scope.launch {
+                            _messages.emit(it)
+                        }
                     }
                 }
             }

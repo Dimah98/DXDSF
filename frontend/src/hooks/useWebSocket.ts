@@ -65,9 +65,17 @@ export function useWebSocket(props: UseWebSocketProps) {
           setGlobalVariables(data.variables || {});
         } else if (data.type === 'UPDATE_NODE_DATA' || data.type === 'NODE_DATA_UPDATE') {
           const newData = data.newData || data.data;
-          setNodes((nds) => nds.map((node) => 
-            node.id === data.nodeId ? { ...node, data: { ...node.data, ...newData } } : node
-          ));
+          setNodes((nds) => {
+            let changed = false;
+            const next = nds.map((node) => {
+              if (node.id === data.nodeId) {
+                changed = true;
+                return { ...node, data: { ...node.data, ...newData } };
+              }
+              return node;
+            });
+            return changed ? next : nds;
+          });
           useExecutionStore.getState().updateNodeData(data.nodeId, newData);
           window.dispatchEvent(new CustomEvent('sfl-node-data-update', { 
             detail: { nodeId: data.nodeId, data: newData } 
@@ -77,13 +85,21 @@ export function useWebSocket(props: UseWebSocketProps) {
           const nodeName = data.nodeTitle || node?.data.title || node?.type || 'Нода';
           addLog(`Виконання: ${nodeName}`, 'info', data.context);
           
+          useExecutionStore.getState().setIsBotRunning(true);
           useExecutionStore.getState().setActiveExecutingNodeId(data.nodeId);
-          window.dispatchEvent(new CustomEvent('sfl-node-executing', { detail: { nodeId: data.nodeId } }));
+          window.dispatchEvent(new CustomEvent('sfl-node-executing', { detail: { nodeId: data.nodeId, parentGroupId: (data as any).parentGroupId } }));
         } else if (data.type === 'NODE_DISPLAY_DATA') {
-          setNodes((nds) => nds.map((node) => {
-            if (node.id === data.nodeId) return { ...node, data: { ...node.data, value: data.value, rawData: data.rawData } };
-            return node;
-          }));
+          setNodes((nds) => {
+            let changed = false;
+            const next = nds.map((node) => {
+              if (node.id === data.nodeId) {
+                changed = true;
+                return { ...node, data: { ...node.data, value: data.value, rawData: data.rawData } };
+              }
+              return node;
+            });
+            return changed ? next : nds;
+          });
           const displayData = { value: data.value, rawData: data.rawData };
           useExecutionStore.getState().updateNodeData(data.nodeId, displayData);
           window.dispatchEvent(new CustomEvent('sfl-node-data-update', { 
@@ -95,6 +111,10 @@ export function useWebSocket(props: UseWebSocketProps) {
           setIsBotRunning(false);
         } else if (data.type === 'BOT_RUNNING_STATE') {
           setIsBotRunning(data.isRunning);
+          useExecutionStore.getState().setIsBotRunning(data.isRunning);
+          if (!data.isRunning) {
+            useExecutionStore.getState().setActiveExecutingNodeId(null);
+          }
         } else if (data.type === 'NODE_RECORDED') {
           const newNode: Node = {
             id: `node_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -111,7 +131,7 @@ export function useWebSocket(props: UseWebSocketProps) {
           const nodeName = node?.data.title || node?.type || 'Нода';
           setDebugImages(prev => [
             { id: Date.now().toString(), time: new Date().toLocaleTimeString(), nodeName, image: data.image },
-            ...prev.slice(0, 19)
+            ...prev.slice(0, 199)
           ]);
         } else if (data.type === 'SCREENSHOT_SAVED') {
           useUIStore.getState().setLastSavedScreenshot(data);
@@ -146,6 +166,7 @@ export function useWebSocket(props: UseWebSocketProps) {
     };
 
     websocket.onerror = (e) => {
+      if (!isMounted) return;
       const errorMsg = e instanceof Event ? `WebSocket error: ${e.type}` : String(e);
       propsRef.current.addLog(`WebSocket помилка: ${errorMsg}`, 'error');
       console.error('WebSocket помилка:', errorMsg);
@@ -154,7 +175,13 @@ export function useWebSocket(props: UseWebSocketProps) {
     wsRef.current = websocket;
     return () => {
       isMounted = false;
-      websocket.close();
+      if (websocket.readyState === WebSocket.OPEN) {
+        websocket.close();
+      } else {
+        websocket.onopen = () => {
+          try { websocket.close(); } catch (_) {}
+        };
+      }
     };
   }, [WS_HOST, wsRef, retryCount]);
 }

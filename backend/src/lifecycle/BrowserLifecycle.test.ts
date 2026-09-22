@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { BrowserLifecycle, withBrowser } from './BrowserLifecycle';
+import { BrowserLifecycle, withBrowser, getBrowserSafetyTimeoutMs } from './BrowserLifecycle';
 import { ProjectSession, BrowserSettings } from '../types';
 
 // ─── Mock external dependencies ─────────────────────────────────────────────
@@ -23,17 +23,18 @@ vi.mock('../browserManager', () => ({
   closeSessionBrowser: vi.fn(),
 }));
 
-// Mock child_process execSync for zombie cleanup tests
+// Mock child_process exec/execSync for zombie cleanup tests
 vi.mock('child_process', () => ({
+  exec: vi.fn(),
   execSync: vi.fn(),
 }));
 
 import { connectToBrowser, closeSessionBrowser } from '../browserManager';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
 
 const mockConnectToBrowser = vi.mocked(connectToBrowser);
 const mockCloseSessionBrowser = vi.mocked(closeSessionBrowser);
-const mockExecSync = vi.mocked(execSync);
+const mockExec = vi.mocked(exec);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -169,12 +170,21 @@ describe('BrowserLifecycle', () => {
   // ── closeBrowser ──────────────────────────────────────────────────────────
 
   describe('closeBrowser', () => {
-    it('does nothing when session has no browser', async () => {
-      const session = createMockSession({ browser: null });
+    it('does nothing when session has no browser and no context', async () => {
+      const session = createMockSession({ browser: null, context: null });
 
       await lifecycle.closeBrowser(session);
 
       expect(mockCloseSessionBrowser).not.toHaveBeenCalled();
+    });
+
+    it('calls closeSessionBrowser when context exists even if browser is null', async () => {
+      const session = createMockSession({ browser: null, context: {} as any });
+      mockCloseSessionBrowser.mockResolvedValue(undefined);
+
+      await lifecycle.closeBrowser(session);
+
+      expect(mockCloseSessionBrowser).toHaveBeenCalledWith(session);
     });
 
     it('calls closeSessionBrowser when browser exists', async () => {
@@ -321,12 +331,12 @@ describe('BrowserLifecycle', () => {
   describe('cleanupZombieBrowsers', () => {
     it('resolves immediately when sessions map is undefined', async () => {
       await expect(lifecycle.cleanupZombieBrowsers(undefined)).resolves.toBeUndefined();
-      expect(mockExecSync).not.toHaveBeenCalled();
+      expect(mockExec).not.toHaveBeenCalled();
     });
 
     it('resolves immediately when sessions map is empty', async () => {
       await expect(lifecycle.cleanupZombieBrowsers(new Map())).resolves.toBeUndefined();
-      expect(mockExecSync).not.toHaveBeenCalled();
+      expect(mockExec).not.toHaveBeenCalled();
     });
 
     it('skips sessions where browser is alive and connected', async () => {
@@ -335,7 +345,7 @@ describe('BrowserLifecycle', () => {
 
       await lifecycle.cleanupZombieBrowsers(sessions);
 
-      expect(mockExecSync).not.toHaveBeenCalled();
+      expect(mockExec).not.toHaveBeenCalled();
     });
 
     it('skips sessions with no CDP port', async () => {
@@ -344,7 +354,7 @@ describe('BrowserLifecycle', () => {
 
       await lifecycle.cleanupZombieBrowsers(sessions);
 
-      expect(mockExecSync).not.toHaveBeenCalled();
+      expect(mockExec).not.toHaveBeenCalled();
     });
 
     it('runs netstat to find zombie process on CDP port', async () => {
@@ -352,13 +362,13 @@ describe('BrowserLifecycle', () => {
       const sessions = new Map([['proj1', session]]);
 
       // netstat finds nothing
-      mockExecSync.mockImplementation(() => { throw new Error('no match'); });
+      mockExec.mockImplementationOnce((_cmd: any, cb: any) => { cb(new Error('no match'), '', ''); return {} as any; });
 
       await lifecycle.cleanupZombieBrowsers(sessions);
 
-      expect(mockExecSync).toHaveBeenCalledWith(
+      expect(mockExec).toHaveBeenCalledWith(
         expect.stringContaining('9222'),
-        expect.any(Object)
+        expect.any(Function)
       );
     });
 
@@ -369,21 +379,21 @@ describe('BrowserLifecycle', () => {
       // First call: netstat finds PID 1234 listening
       // Second call: taskkill succeeds
       // Third call: netstat finds nothing (process gone)
-      mockExecSync
-        .mockReturnValueOnce('  TCP    0.0.0.0:9222    0.0.0.0:0    LISTENING    1234\n' as any)
-        .mockReturnValueOnce('' as any) // taskkill success
-        .mockImplementationOnce(() => { throw new Error('no match'); }); // verify gone
+      mockExec
+        .mockImplementationOnce((_cmd: any, cb: any) => { cb(null, { stdout: '  TCP    0.0.0.0:9222    0.0.0.0:0    LISTENING    1234\n', stderr: '' }); return {} as any; })
+        .mockImplementationOnce((_cmd: any, cb: any) => { cb(null, { stdout: '', stderr: '' }); return {} as any; })
+        .mockImplementationOnce((_cmd: any, cb: any) => { cb(new Error('no match'), '', ''); return {} as any; });
 
       await lifecycle.cleanupZombieBrowsers(sessions);
 
       // Should have called taskkill with the PID
-      expect(mockExecSync).toHaveBeenCalledWith(
+      expect(mockExec).toHaveBeenCalledWith(
         expect.stringContaining('taskkill'),
-        expect.any(Object)
+        expect.any(Function)
       );
-      expect(mockExecSync).toHaveBeenCalledWith(
+      expect(mockExec).toHaveBeenCalledWith(
         expect.stringContaining('1234'),
-        expect.any(Object)
+        expect.any(Function)
       );
     });
 
@@ -392,15 +402,15 @@ describe('BrowserLifecycle', () => {
       const sessions = new Map([['proj1', session]]);
 
       // netstat returns output without LISTENING
-      mockExecSync.mockReturnValueOnce('  TCP    0.0.0.0:9222    0.0.0.0:0    TIME_WAIT    1234\n' as any);
+      mockExec.mockImplementationOnce((_cmd: any, cb: any) => { cb(null, { stdout: '  TCP    0.0.0.0:9222    0.0.0.0:0    TIME_WAIT    1234\n', stderr: '' }); return {} as any; });
 
       await lifecycle.cleanupZombieBrowsers(sessions);
 
       // Only netstat was called, not taskkill
-      expect(mockExecSync).toHaveBeenCalledTimes(1);
-      expect(mockExecSync).not.toHaveBeenCalledWith(
+      expect(mockExec).toHaveBeenCalledTimes(1);
+      expect(mockExec).not.toHaveBeenCalledWith(
         expect.stringContaining('taskkill'),
-        expect.any(Object)
+        expect.any(Function)
       );
     });
 
@@ -409,13 +419,13 @@ describe('BrowserLifecycle', () => {
       const session2 = createMockSession({ projectName: 'proj2', browser: null, cdpPort: 9223 });
       const sessions = new Map([['proj1', session1], ['proj2', session2]]);
 
-      mockExecSync
+      mockExec
         // proj1: netstat finds PID
-        .mockReturnValueOnce('  TCP    0.0.0.0:9222    0.0.0.0:0    LISTENING    1234\n' as any)
+        .mockImplementationOnce((_cmd: any, cb: any) => { cb(null, { stdout: '  TCP    0.0.0.0:9222    0.0.0.0:0    LISTENING    1234\n', stderr: '' }); return {} as any; })
         // proj1: taskkill fails
-        .mockImplementationOnce(() => { throw new Error('access denied'); })
+        .mockImplementationOnce((_cmd: any, cb: any) => { cb(new Error('access denied'), '', ''); return {} as any; })
         // proj2: netstat finds nothing
-        .mockImplementationOnce(() => { throw new Error('no match'); });
+        .mockImplementationOnce((_cmd: any, cb: any) => { cb(new Error('no match'), '', ''); return {} as any; });
 
       // Should not throw
       await expect(lifecycle.cleanupZombieBrowsers(sessions)).resolves.toBeUndefined();
@@ -428,7 +438,7 @@ describe('BrowserLifecycle', () => {
 
       await lifecycle.cleanupZombieBrowsers(sessions);
 
-      expect(mockExecSync).not.toHaveBeenCalled();
+      expect(mockExec).not.toHaveBeenCalled();
     });
   });
 
@@ -519,7 +529,7 @@ describe('BrowserLifecycle', () => {
 
       await withBrowser(lifecycle, session, defaultSettings, runFn);
 
-      expect(setupSpy).toHaveBeenCalledWith(session, 10 * 60 * 1000);
+      expect(setupSpy).toHaveBeenCalledWith(session, getBrowserSafetyTimeoutMs());
       setupSpy.mockRestore();
     });
 

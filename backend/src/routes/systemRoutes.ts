@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getHealth, getSystemStatus } from '../controllers/systemController';
+import { getHealth, getSystemStatus, restartBackend } from '../controllers/systemController';
 import { authMiddleware } from '../auth/AuthMiddleware';
 
 const router = Router();
@@ -9,5 +9,8 @@ router.get('/health', getHealth);
 
 // /api/system/status endpoint (authenticated)
 router.get('/api/system/status', authMiddleware, getSystemStatus);
+
+// /api/system/restart endpoint
+router.post('/api/system/restart', restartBackend);
 
 export default router;

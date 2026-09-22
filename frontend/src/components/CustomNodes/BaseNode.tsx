@@ -42,7 +42,7 @@ const BaseNode: React.FC<BaseNodeProps> = ({
   children, width = 'w-64', className = '',
 }) => {
   const updateNodeInternals = useUpdateNodeInternals();
-  const isExecuting = useExecutionStore((s) => s.activeExecutingNodeId === id);
+  const isExecuting = useExecutionStore((s) => s.isBotRunning && s.activeExecutingNodeId === id);
 
   // Оновлюємо позиції handles після анімації згортання
   useEffect(() => {

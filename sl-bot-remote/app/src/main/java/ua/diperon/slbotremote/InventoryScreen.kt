@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable // Імпорт для клікабельності елементів
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow // Імпорт для горизонтального списку категорій
 import androidx.compose.foundation.lazy.items // Імпорт для відображення елементів у списках
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -41,6 +43,7 @@ import coil.fetch.SourceResult
 import coil.request.Options
 import okio.Buffer
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -89,6 +92,18 @@ class Base64Fetcher(
 }
 
 /**
+ * Перевіряє, чи є категорія категорією "без категорій"
+ */
+fun isUncategorizedCategory(category: String?): Boolean {
+    if (category == null) return false
+    val trimmed = category.trim().lowercase(Locale.ROOT)
+    return trimmed == "без категорії" || 
+           trimmed == "без категорій" || 
+           trimmed == "uncategorized" || 
+           trimmed == "без категории"
+}
+
+/**
  * Екран відображення інвентаря проекту
  * Показує grid з елементами інвентаря (зображення + кількість)
  */
@@ -100,11 +115,12 @@ fun InventoryScreen(
     onBackClick: () -> Unit
 ) {
     var inventoryItems by remember { mutableStateOf<List<InventoryItem>>(emptyList()) } // Стейт для предметів інвентаря
+    var combinedCounts by remember { mutableStateOf<Map<String, Pair<Double, Double>>>(emptyMap()) } // Стейт для кількості (інвентар / склад)
     var categories by remember { mutableStateOf<List<String>>(emptyList()) } // Стейт для списку категорій
     var itemToCategories by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) } // Стейт зв'язків предметів з категоріями
     var selectedCategory by remember { mutableStateOf<String?>(null) } // Стейт вибраної категорії для фільтрації
     var editingItem by remember { mutableStateOf<InventoryItem?>(null) } // Предмет для редагування категорій
-    var dataSource by remember { mutableStateOf("inventory") } // Стейт джерела ("inventory" або "stock")
+    var dataSource by remember { mutableStateOf("inventory") } // Стейт джерела ("inventory", "stock", "both")
     
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -138,15 +154,46 @@ fun InventoryScreen(
                     android.util.Log.e("InventoryScreen", "Помилка завантаження категорій", catEx) // Логуємо помилку категорій
                 }
 
-                val response = apiService.getInventory(projectName, dataSource)
-                inventoryItems = response.data
-                timestamp = response.timestamp?.toLong()
+                if (dataSource == "both") {
+                    val invDeferred = async {
+                        try { apiService.getInventory(projectName, "inventory") } catch (e: Exception) { null }
+                    }
+                    val stockDeferred = async {
+                        try { apiService.getInventory(projectName, "stock") } catch (e: Exception) { null }
+                    }
+                    val invResp = invDeferred.await()
+                    val stockResp = stockDeferred.await()
+
+                    val invData = invResp?.data ?: emptyList()
+                    val stockData = stockResp?.data ?: emptyList()
+
+                    val invMap = invData.associateBy { it.image }
+                    val stockMap = stockData.associateBy { it.image }
+
+                    val allImages = (invData.map { it.image } + stockData.map { it.image }).distinct()
+
+                    val counts = mutableMapOf<String, Pair<Double, Double>>()
+                    val items = mutableListOf<InventoryItem>()
+
+                    allImages.forEach { image ->
+                        val invNum = invMap[image]?.number ?: 0.0
+                        val stockNum = stockMap[image]?.number ?: 0.0
+                        counts[image] = Pair(invNum, stockNum)
+                        items.add(InventoryItem(image = image, number = invNum + stockNum))
+                    }
+
+                    combinedCounts = counts
+                    inventoryItems = items
+                    timestamp = invResp?.timestamp?.toLong() ?: stockResp?.timestamp?.toLong()
+                } else {
+                    combinedCounts = emptyMap()
+                    val response = apiService.getInventory(projectName, dataSource)
+                    inventoryItems = response.data
+                    timestamp = response.timestamp?.toLong()
+                }
                 
                 // Логування URL зображень для відладки
-                android.util.Log.d("InventoryScreen", "Loaded ${response.data.size} items")
-                response.data.forEachIndexed { index, item ->
-                    android.util.Log.d("InventoryScreen", "Item $index: number=${item.number}, imageUrl=${item.image}")
-                }
+                android.util.Log.d("InventoryScreen", "Loaded ${inventoryItems.size} items")
             } catch (e: Exception) {
                 android.util.Log.e("InventoryScreen", "Error loading inventory", e)
                 errorMessage = when {
@@ -174,7 +221,11 @@ fun InventoryScreen(
                 title = {
                     Column {
                         Text(
-                            text = if (dataSource == "inventory") "Інвентар" else "Склад (Stock)",
+                            text = when (dataSource) {
+                                "inventory" -> "Інвентар"
+                                "stock" -> "Склад (Stock)"
+                                else -> "Інвентар / Склад"
+                            },
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = GlassIndigoLight
@@ -291,7 +342,7 @@ fun InventoryScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        // Перемикач джерела даних: Інвентар / Склад
+                        // Перемикач джерела даних: Інвентар / Склад / Разом
                         Row(
                             modifier = Modifier.padding(bottom = 16.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -318,6 +369,17 @@ fun InventoryScreen(
                                     labelColor = GlassOnSurfaceVariant
                                 )
                             )
+                            FilterChip(
+                                selected = (dataSource == "both"),
+                                onClick = { dataSource = "both" },
+                                label = { Text("📦/🏬 Інвентар/Склад", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = GlassIndigo,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color.White.copy(alpha = 0.06f),
+                                    labelColor = GlassOnSurfaceVariant
+                                )
+                            )
                         }
 
                         Text(
@@ -326,7 +388,11 @@ fun InventoryScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = if (dataSource == "inventory") "Інвентар порожній" else "Склад порожній",
+                            text = when (dataSource) {
+                                "inventory" -> "Інвентар порожній"
+                                "stock" -> "Склад порожній"
+                                else -> "Інвентар та склад порожні"
+                            },
                             color = GlassOnSurfaceVariant,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
@@ -345,7 +411,7 @@ fun InventoryScreen(
                 // Grid з інвентарем / складом
                 else -> {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Перемикач джерела даних: Інвентар / Склад
+                        // Перемикач джерела даних: Інвентар / Склад / Разом
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -367,6 +433,17 @@ fun InventoryScreen(
                                 selected = (dataSource == "stock"),
                                 onClick = { dataSource = "stock" },
                                 label = { Text("🏬 Склад", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = GlassIndigo,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color.White.copy(alpha = 0.06f),
+                                    labelColor = GlassOnSurfaceVariant
+                                )
+                            )
+                            FilterChip(
+                                selected = (dataSource == "both"),
+                                onClick = { dataSource = "both" },
+                                label = { Text("📦/🏬 Інвентар/Склад", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = GlassIndigo,
                                     selectedLabelColor = Color.White,
@@ -431,6 +508,13 @@ fun InventoryScreen(
                         val filteredItems = remember(inventoryItems, selectedCategory, itemToCategories) {
                             if (selectedCategory == null) {
                                 inventoryItems // Якщо категорію не вибрано — показуємо все
+                            } else if (isUncategorizedCategory(selectedCategory)) {
+                                // Категорія "без категорій" відображає предмети які не мають категорії
+                                inventoryItems.filter { item ->
+                                    val itemName = item.image.substringAfterLast("/").substringBeforeLast(".")
+                                    val cats = itemToCategories[itemName]
+                                    cats.isNullOrEmpty() || cats.all { isUncategorizedCategory(it) }
+                                }
                             } else {
                                 inventoryItems.filter { item ->
                                     val itemName = item.image.substringAfterLast("/").substringBeforeLast(".") // Отримуємо назву предмета з картинки
@@ -465,9 +549,18 @@ fun InventoryScreen(
                                     .weight(1f)
                             ) {
                                 items(filteredItems) { item ->
+                                    val badge = if (dataSource == "both") {
+                                        val counts = combinedCounts[item.image]
+                                        if (counts != null) {
+                                            fun fmt(n: Double) = if (n % 1.0 == 0.0) n.toInt().toString() else n.toString()
+                                            "${fmt(counts.first)}/${fmt(counts.second)}"
+                                        } else null
+                                    } else null
+
                                     InventoryItemCard(
                                         item = item, 
                                         assetFiles = assetFiles,
+                                        badgeText = badge,
                                         onCardClick = { clickedItem ->
                                             editingItem = clickedItem // При кліці на картку відкриваємо діалог
                                         }
@@ -486,6 +579,7 @@ fun InventoryScreen(
         val item = editingItem!!
         val itemName = remember(item) { item.image.substringAfterLast("/").substringBeforeLast(".") } // Отримуємо ім'я предмета
         val itemCats = itemToCategories[itemName] ?: emptyList() // Отримуємо поточні категорії предмета
+        val availableCats = categories.filter { !isUncategorizedCategory(it) }
 
         AlertDialog(
             onDismissRequest = { editingItem = null }, // Закриваємо діалог
@@ -501,16 +595,28 @@ fun InventoryScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(max = 350.dp)
+                        .verticalScroll(rememberScrollState())
                         .padding(vertical = 8.dp)
                 ) {
-                    if (categories.isEmpty()) {
+                    val isUncat = itemCats.isEmpty() || itemCats.all { isUncategorizedCategory(it) }
+                    if (isUncat) {
+                        Text(
+                            text = "📌 Наразі предмет без категорії",
+                            color = Color(0xFFFBBF24),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+
+                    if (availableCats.isEmpty()) {
                         Text(
                             text = "Немає доступних категорій. Додайте їх на екрані всіх інвентарів.", // Повідомлення, якщо категорій немає
                             color = GlassOnSurfaceVariant,
                             fontSize = 14.sp
                         )
                     } else {
-                        categories.forEach { category ->
+                        availableCats.forEach { category ->
                             val isChecked = itemCats.contains(category) // Перевіряємо чи додано предмет до категорії
                             Row(
                                 modifier = Modifier
@@ -613,6 +719,7 @@ object ImageLoaderProvider {
 fun InventoryItemCard(
     item: InventoryItem, 
     assetFiles: List<String>,
+    badgeText: String? = null,
     onCardClick: (InventoryItem) -> Unit // Лямбда для обробки кліку
 ) {
     val context = LocalContext.current
@@ -700,6 +807,12 @@ fun InventoryItemCard(
         )
 
         // Бейдж з числом зверху справа
+        val displayText = badgeText ?: if (item.number % 1.0 == 0.0) {
+            item.number.toInt().toString()
+        } else {
+            item.number.toString()
+        }
+
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -713,13 +826,9 @@ fun InventoryItemCard(
                 .padding(horizontal = 3.dp, vertical = 1.dp)
         ) {
             Text(
-                text = if (item.number % 1.0 == 0.0) {
-                    item.number.toInt().toString()
-                } else {
-                    item.number.toString()
-                },
+                text = displayText,
                 color = Color.White,
-                fontSize = 9.sp,
+                fontSize = if (displayText.length > 5) 7.5.sp else 9.sp,
                 fontWeight = FontWeight.Bold
             )
         }

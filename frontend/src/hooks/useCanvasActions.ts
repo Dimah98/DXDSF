@@ -12,6 +12,7 @@ interface UseCanvasActionsProps {
   getPasteData: (pos?: { x: number; y: number }) => { newNodes: Node[]; newEdges: Edge[] } | null;
   attachCallbacks: (nodes: Node[]) => Node[];
   protectedIds?: string[];
+  filterPasteNodes?: (node: Node) => boolean;
 }
 
 /**
@@ -25,7 +26,8 @@ export function useCanvasActions({
   onCopyRaw,
   getPasteData,
   attachCallbacks,
-  protectedIds = []
+  protectedIds = [],
+  filterPasteNodes
 }: UseCanvasActionsProps) {
   
   // Копіювання виділеного
@@ -37,7 +39,14 @@ export function useCanvasActions({
   const onPaste = useCallback((pos?: { x: number; y: number }) => {
     const data = getPasteData(pos);
     if (!data) return;
-    const { newNodes, newEdges } = data;
+    let { newNodes, newEdges } = data;
+
+    if (filterPasteNodes) {
+      newNodes = newNodes.filter(filterPasteNodes);
+      const allowedIds = new Set(newNodes.map(n => n.id));
+      newEdges = newEdges.filter(e => allowedIds.has(e.source) && allowedIds.has(e.target));
+    }
+    if (newNodes.length === 0) return;
     
     // Використовуємо уніфіковану утиліту для ребер
     const finalEdges = attachEdgeCallbacks(newEdges, setEdges);
@@ -52,7 +61,7 @@ export function useCanvasActions({
       const deselected = eds.map(e => ({ ...e, selected: false }));
       return [...deselected, ...finalEdges];
     });
-  }, [getPasteData, attachCallbacks, setNodes, setEdges]);
+  }, [getPasteData, attachCallbacks, setNodes, setEdges, filterPasteNodes]);
 
   // Видалення виділених елементів
   const onDeleteSelected = useCallback(() => {

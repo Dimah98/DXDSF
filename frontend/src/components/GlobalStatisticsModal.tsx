@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { X, Calendar, RefreshCcw, Filter, Globe } from 'lucide-react';
+import { X, Calendar, RefreshCcw, Filter, Globe, Layers } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface GlobalStatisticsModalProps {
@@ -21,6 +21,7 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
   const [loading, setLoading] = useState(false);
   const [selectedVariable, setSelectedVariable] = useState<string>('');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
+  const [selectedGrouping, setSelectedGrouping] = useState<string>('auto');
   
   const colors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#14b8a6', '#6366f1'];
 
@@ -74,19 +75,11 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
     }
   }, [availableVars, selectedVariable]);
 
-  // Підготовлюємо точки даних для вибраної змінної
-  const { dataPoints, projectNames } = useMemo(() => {
-    if (!selectedVariable) return { dataPoints: [], projectNames: [] };
-    
-    // Збираємо всі унікальні timestamp (округлені до хвилин для групування)
-    const timeMap = new Map<number, any>();
-    const projNames = new Set<string>();
-    
-    // Щоб графік не стрибав на 0, нам треба пам'ятати останнє відоме значення змінної для кожного проекту
-    const lastKnownValue: Record<string, number> = {};
-
-    // Збираємо всі події в один плоский масив і сортуємо за часом
-    const allEvents: { time: number, proj: string, val: number }[] = [];
+  // Збираємо сирі події для вибраної змінної
+  const { allEvents, projectNames } = useMemo(() => {
+    if (!selectedVariable) return { allEvents: [], projectNames: [] };
+    const events: { time: number; proj: string; val: number }[] = [];
+    const projSet = new Set<string>();
 
     globalStats.forEach(project => {
       let currentSnapshot: Record<string, any> = {};
@@ -95,68 +88,125 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
           currentSnapshot = { ...currentSnapshot, ...entry.snapshot };
         } else if (entry.changes) {
           Object.keys(entry.changes).forEach(key => {
-             currentSnapshot[key] = entry.changes![key].new;
+            currentSnapshot[key] = entry.changes![key].new;
           });
         }
-        
+
         const val = currentSnapshot[selectedVariable];
         if (val !== undefined) {
           const numVal = Number(val);
           if (!isNaN(numVal)) {
-            projNames.add(project.projectName);
-            // Округлюємо час до найближчих 5 хвилин щоб точки з різних проектів могли злитися
-            const roundedTime = Math.floor(entry.timestamp / (5 * 60 * 1000)) * (5 * 60 * 1000);
-            allEvents.push({ time: roundedTime, proj: project.projectName, val: numVal });
+            projSet.add(project.projectName);
+            events.push({ time: entry.timestamp, proj: project.projectName, val: numVal });
           }
         }
       });
     });
-    
-    allEvents.sort((a, b) => a.time - b.time);
-    
-    allEvents.forEach(ev => {
+
+    events.sort((a, b) => a.time - b.time);
+    return { allEvents: events, projectNames: Array.from(projSet) };
+  }, [globalStats, selectedVariable]);
+
+  // Групування точок у часі для уникнення перевантаження та зависання інтерфейсу
+  const { filteredData, bucketLabel } = useMemo(() => {
+    if (!selectedVariable || allEvents.length === 0) return { filteredData: [], bucketLabel: '' };
+
+    const now = Date.now();
+    let cutoff = 0;
+    if (selectedPeriod === '24h') cutoff = now - 24 * 60 * 60 * 1000;
+    else if (selectedPeriod === '7d') cutoff = now - 7 * 24 * 60 * 60 * 1000;
+    else if (selectedPeriod === '30d') cutoff = now - 30 * 24 * 60 * 60 * 1000;
+
+    const events = cutoff > 0 ? allEvents.filter(e => e.time >= cutoff) : allEvents;
+    if (events.length === 0) return { filteredData: [], bucketLabel: '' };
+
+    const minTime = events[0].time;
+    const maxTime = events[events.length - 1].time;
+    const span = Math.max(0, maxTime - minTime);
+
+    const MINUTE = 60 * 1000;
+    const HOUR = 60 * MINUTE;
+    const DAY = 24 * HOUR;
+
+    let bucketMs: number;
+    if (selectedGrouping === '1h') {
+      bucketMs = HOUR;
+    } else if (selectedGrouping === '6h') {
+      bucketMs = 6 * HOUR;
+    } else if (selectedGrouping === '1d') {
+      bucketMs = DAY;
+    } else if (selectedGrouping === 'raw') {
+      bucketMs = 5 * MINUTE;
+    } else {
+      // 'auto': підбираємо інтервал так, щоб отримати близько 40–80 точок на графіку
+      const targetPoints = 60;
+      const rawBucket = span / targetPoints;
+
+      if (rawBucket <= 5 * MINUTE) bucketMs = 5 * MINUTE;
+      else if (rawBucket <= 15 * MINUTE) bucketMs = 15 * MINUTE;
+      else if (rawBucket <= 30 * MINUTE) bucketMs = 30 * MINUTE;
+      else if (rawBucket <= HOUR) bucketMs = HOUR;
+      else if (rawBucket <= 2 * HOUR) bucketMs = 2 * HOUR;
+      else if (rawBucket <= 4 * HOUR) bucketMs = 4 * HOUR;
+      else if (rawBucket <= 6 * HOUR) bucketMs = 6 * HOUR;
+      else if (rawBucket <= 12 * HOUR) bucketMs = 12 * HOUR;
+      else if (rawBucket <= DAY) bucketMs = DAY;
+      else if (rawBucket <= 2 * DAY) bucketMs = 2 * DAY;
+      else if (rawBucket <= 7 * DAY) bucketMs = 7 * DAY;
+      else bucketMs = Math.ceil(rawBucket / DAY) * DAY;
+    }
+
+    let label = '';
+    if (bucketMs >= DAY) {
+      const days = Math.round(bucketMs / DAY);
+      label = days === 1 ? '1 день' : `${days} дн.`;
+    } else if (bucketMs >= HOUR) {
+      const hours = Math.round(bucketMs / HOUR);
+      label = `${hours} год.`;
+    } else {
+      const mins = Math.round(bucketMs / MINUTE);
+      label = `${mins} хв.`;
+    }
+
+    const bucketMap = new Map<number, any>();
+    const lastKnownValue: Record<string, number> = {};
+
+    events.forEach(ev => {
       lastKnownValue[ev.proj] = ev.val;
-      if (!timeMap.has(ev.time)) {
-        timeMap.set(ev.time, { 
-          timestamp: ev.time, 
-          time: new Date(ev.time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          ...lastKnownValue // Копіюємо останні відомі значення всіх проектів
+      const bucketTime = Math.floor(ev.time / bucketMs) * bucketMs;
+
+      if (!bucketMap.has(bucketTime)) {
+        bucketMap.set(bucketTime, {
+          timestamp: bucketTime,
+          ...lastKnownValue
         });
       } else {
-        const point = timeMap.get(ev.time);
+        const point = bucketMap.get(bucketTime);
         point[ev.proj] = ev.val;
       }
     });
 
-    const points = Array.from(timeMap.values()).sort((a, b) => a.timestamp - b.timestamp);
-    
-    // Заповнюємо пропуски: кожна точка повинна мати значення для кожного проекту (останнє відоме)
-    // Оскільки ми вже робили ...lastKnownValue, це частково вирішено, але пройдемось ще раз для певності
+    const points = Array.from(bucketMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+
     let currentFill: Record<string, number> = {};
     points.forEach(p => {
-       projNames.forEach(proj => {
-          if (p[proj] !== undefined) {
-             currentFill[proj] = p[proj];
-          } else if (currentFill[proj] !== undefined) {
-             p[proj] = currentFill[proj];
-          }
-       });
+      projectNames.forEach(proj => {
+        if (p[proj] !== undefined) {
+          currentFill[proj] = p[proj];
+        } else if (currentFill[proj] !== undefined) {
+          p[proj] = currentFill[proj];
+        }
+      });
+
+      if (bucketMs >= DAY) {
+        p.time = new Date(p.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+      } else {
+        p.time = new Date(p.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      }
     });
 
-    return { dataPoints: points, projectNames: Array.from(projNames) };
-  }, [globalStats, selectedVariable]);
-
-  // Фільтрація за часом
-  const filteredData = useMemo(() => {
-    if (selectedPeriod === 'all') return dataPoints;
-    const now = Date.now();
-    let cutoff = now;
-    if (selectedPeriod === '24h') cutoff = now - 24 * 60 * 60 * 1000;
-    else if (selectedPeriod === '7d') cutoff = now - 7 * 24 * 60 * 60 * 1000;
-    else if (selectedPeriod === '30d') cutoff = now - 30 * 24 * 60 * 60 * 1000;
-    
-    return dataPoints.filter(p => p.timestamp >= cutoff);
-  }, [dataPoints, selectedPeriod]);
+    return { filteredData: points, bucketLabel: label };
+  }, [allEvents, projectNames, selectedVariable, selectedPeriod, selectedGrouping]);
 
   if (!isOpen) return null;
 
@@ -203,6 +253,22 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
                   <option value="7d" className="bg-slate-800">Останні 7 днів</option>
                   <option value="30d" className="bg-slate-800">Останні 30 днів</option>
                 </select>
+
+                <div className="flex items-center gap-1 pl-1.5 border-l border-white/10">
+                  <Layers size={13} className="text-slate-400" />
+                  <select
+                    value={selectedGrouping}
+                    onChange={(e) => setSelectedGrouping(e.target.value)}
+                    className="bg-transparent text-xs md:text-sm text-slate-300 outline-none pr-1.5 md:pr-2 cursor-pointer"
+                    title="Групування точок у часі"
+                  >
+                    <option value="auto" className="bg-slate-800">Авто (групування)</option>
+                    <option value="1h" className="bg-slate-800">1 година</option>
+                    <option value="6h" className="bg-slate-800">6 годин</option>
+                    <option value="1d" className="bg-slate-800">1 день</option>
+                    <option value="raw" className="bg-slate-800">Без групування</option>
+                  </select>
+                </div>
               </div>
             )}
             
@@ -226,9 +292,14 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
             <>
               {availableVars.length > 0 && selectedVariable ? (
                 <div className="flex-1 min-h-0 bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col">
-                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-4 ml-2">
-                    Динаміка зміни: <span className="text-purple-400">{selectedVariable}</span> (по проектах)
-                  </h3>
+                  <div className="flex items-center justify-between mb-4 ml-2 mr-2">
+                    <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                      Динаміка зміни: <span className="text-purple-400">{selectedVariable}</span> (по проектах)
+                    </h3>
+                    <span className="text-[10px] text-slate-400 bg-white/5 px-2 py-0.5 rounded border border-white/10 font-medium">
+                      Згруповано: <span className="text-purple-300 font-bold">{filteredData.length}</span> точок {bucketLabel ? `(крок: ${bucketLabel})` : ''}
+                    </span>
+                  </div>
                   
                   {filteredData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="90%">
@@ -251,9 +322,10 @@ export const GlobalStatisticsModal: React.FC<GlobalStatisticsModalProps> = ({ is
                             name={proj}
                             stroke={colors[i % colors.length]} 
                             strokeWidth={2}
-                            dot={{ r: 3, strokeWidth: 1 }}
+                            dot={filteredData.length <= 60 ? { r: 2.5, strokeWidth: 1 } : false}
                             activeDot={{ r: 5 }}
                             connectNulls={true}
+                            isAnimationActive={false}
                           />
                         ))}
                       </LineChart>

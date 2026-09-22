@@ -325,71 +325,164 @@ export const actionNodeHandler = async ({
       const rawTimeout = currentNode.data?.timeout;
       const timeout = typeof rawTimeout === 'number' && rawTimeout > 0 
         ? Number(rawTimeout) 
-        : (quick ? 100 : 1500);
+        : (quick ? 1000 : 3000);
 
       const shouldClickAll = Boolean(currentNode.data?.clickAll || currentNode.data?.clickAllCopies);
 
-      // Шукаємо локатор в основній сторінці та у фреймах
+      // Шукаємо локатор в основній сторінці та у фреймах з очікуванням появи (запобігає осічкам під час оновлення DOM у циклі)
+      const startTime = Date.now();
       let targetLoc: any = null;
-      for (const frame of activePage.frames()) {
-        try {
-          const loc = frame.locator(String(selector));
-          if (await loc.count() > 0) {
-            targetLoc = loc;
-            break;
-          }
-        } catch (e) {}
+      let targetFrame: any = null;
+      let count = 0;
+
+      while (Date.now() - startTime < timeout) {
+        for (const frame of activePage.frames()) {
+          try {
+            const loc = frame.locator(String(selector));
+            const c = await loc.count();
+            if (c > 0) {
+              targetLoc = loc;
+              targetFrame = frame;
+              count = c;
+              break;
+            }
+          } catch (e) {}
+        }
+        if (targetLoc && count > 0) break;
+        await activePage.waitForTimeout(100);
       }
+
       if (!targetLoc) {
         targetLoc = activePage.locator(String(selector));
+        count = await targetLoc.count();
       }
 
-      const count = await targetLoc.count();
       if (count > 0) {
-        const clickLimit = shouldClickAll ? count : 1;
         const clickLast = Boolean(currentNode.data?.clickLast);
-        
-        // Ітеруємося з кінця до початку, щоб при видаленні елементів з DOM індекси тих, що залишилися, не зсувалися
-        for (let i = clickLimit - 1; i >= 0; i--) {
-          const index = (clickLimit === 1 && clickLast) ? count - 1 : i;
-          const el = targetLoc.nth(index);
-          await el.waitFor({ state: 'attached', timeout }).catch(() => {});
-          
-          if (actionType === 'double_click') {
-            await el.dblclick({ force: true, timeout });
-          } else if (actionType === 'triple_click') {
-            await el.scrollIntoViewIfNeeded({ timeout }).catch(() => {});
-            const box = await el.boundingBox();
-            if (box) {
-              const cx = box.x + box.width / 2;
-              const cy = box.y + box.height / 2;
-              await activePage.mouse.click(cx, cy);
-              await activePage.waitForTimeout(200);
-              await activePage.mouse.click(cx, cy);
-              await activePage.waitForTimeout(200);
-              await activePage.mouse.click(cx, cy);
-            } else {
-              await el.click({ force: true, timeout });
-              await activePage.waitForTimeout(200);
-              await el.click({ force: true, timeout });
-              await activePage.waitForTimeout(200);
-              await el.click({ force: true, timeout });
-            }
-          } else if (actionType === 'hover') {
-            await el.hover({ timeout });
-          } else if (actionType === 'scroll') {
-            await el.scrollIntoViewIfNeeded({ timeout });
-          } else if (actionType === 'scroll_center') {
-            await el.evaluate((node: HTMLElement | SVGElement) => node.scrollIntoView({ block: 'center', inline: 'center' })).catch(() => {});
-          } else {
-            await el.click({ force: true, timeout });
-          }
+        const currentFrame = targetFrame || activePage;
+        const markerAttr = `data-sf-clicked-${Date.now()}`;
+        let executedClicks = 0;
 
-          if (shouldClickAll && i > 0) {
-             await activePage.waitForTimeout(400); // Затримка між кліками по копіях
+        try {
+          const maxSteps = shouldClickAll ? Math.min(count * 2, 100) : 1;
+
+          for (let step = 0; step < maxSteps; step++) {
+            const freshLoc = currentFrame.locator(String(selector));
+            const currentCount = await freshLoc.count();
+            if (currentCount === 0) {
+              if (executedClicks === 0) throw new Error('Елемент не знайдено');
+              break; // Усі копії успішно зклікано
+            }
+
+            let targetIndex = 0;
+            let el: any = null;
+
+            if (shouldClickAll) {
+              // Знаходимо перший або останній елемент, який ще не було клікнуто
+              let foundIndex = -1;
+              try {
+                foundIndex = await currentFrame.evaluate(({ sel, marker, isLast }: any) => {
+                  const all = Array.from(document.querySelectorAll(sel));
+                  if (isLast) {
+                    for (let i = all.length - 1; i >= 0; i--) {
+                      if (!all[i].hasAttribute(marker)) return i;
+                    }
+                  } else {
+                    for (let i = 0; i < all.length; i++) {
+                      if (!all[i].hasAttribute(marker)) return i;
+                    }
+                  }
+                  return -1;
+                }, { sel: String(selector), marker: markerAttr, isLast: clickLast });
+              } catch (_) {
+                foundIndex = -1;
+              }
+
+              if (foundIndex >= 0 && foundIndex < currentCount) {
+                targetIndex = foundIndex;
+                el = freshLoc.nth(targetIndex);
+              } else {
+                // Фолбек: перевірка через getAttribute Playwright для кожного елемента
+                for (let i = 0; i < currentCount; i++) {
+                  const idx = clickLast ? currentCount - 1 - i : i;
+                  const cand = freshLoc.nth(idx);
+                  const isMarked = await cand.getAttribute(markerAttr).catch(() => null);
+                  if (!isMarked) {
+                    targetIndex = idx;
+                    el = cand;
+                    break;
+                  }
+                }
+              }
+
+              // Якщо всі доступні копії вже позначені або оброблені — завершуємо
+              if (!el) {
+                break;
+              }
+            } else {
+              targetIndex = clickLast ? currentCount - 1 : 0;
+              el = freshLoc.nth(targetIndex);
+            }
+
+            // Чекаємо готовності конкретного елемента
+            await el.waitFor({ state: 'attached', timeout: Math.min(timeout, 500) }).catch(() => {});
+
+            if (actionType === 'double_click') {
+              await el.dblclick({ force: true, timeout: Math.max(timeout, 1000) });
+            } else if (actionType === 'triple_click') {
+              // Швидке позиціонування без зависань scrollIntoView
+              await el.evaluate((node: HTMLElement | SVGElement) => node.scrollIntoView({ block: 'nearest', inline: 'nearest' })).catch(() => {});
+              let box = await el.boundingBox();
+              if (!box) {
+                await el.scrollIntoViewIfNeeded({ timeout: 300 }).catch(() => {});
+                box = await el.boundingBox();
+              }
+              if (box) {
+                const cx = box.x + box.width / 2;
+                const cy = box.y + box.height / 2;
+                await activePage.mouse.click(cx, cy);
+                await activePage.waitForTimeout(120);
+                await activePage.mouse.click(cx, cy);
+                await activePage.waitForTimeout(120);
+                await activePage.mouse.click(cx, cy);
+              } else {
+                await el.click({ force: true, timeout: 1000 });
+                await activePage.waitForTimeout(120);
+                await el.click({ force: true, timeout: 1000 });
+                await activePage.waitForTimeout(120);
+                await el.click({ force: true, timeout: 1000 });
+              }
+            } else if (actionType === 'hover') {
+              await el.hover({ timeout: 1000 });
+            } else if (actionType === 'scroll') {
+              await el.scrollIntoViewIfNeeded({ timeout: 1000 });
+            } else if (actionType === 'scroll_center') {
+              await el.evaluate((node: HTMLElement | SVGElement) => node.scrollIntoView({ block: 'center', inline: 'center' })).catch(() => {});
+            } else {
+              await el.click({ force: true, timeout: Math.max(timeout, 1000) });
+            }
+
+            // Позначаємо цей елемент як опрацьований
+            if (shouldClickAll) {
+              await el.evaluate((node: HTMLElement | SVGElement, m: string) => {
+                node.setAttribute(m, '1');
+              }, markerAttr).catch(() => {});
+            }
+
+            executedClicks++;
+            if (!shouldClickAll) break;
+            await activePage.waitForTimeout(100); // пауза для стабілізації гри між кліками на різні об'єкти
+          }
+        } finally {
+          // Очищаємо тимчасові маркери
+          if (shouldClickAll) {
+            await currentFrame.evaluate((m: string) => {
+              document.querySelectorAll(`[${m}]`).forEach(e => e.removeAttribute(m));
+            }, markerAttr).catch(() => {});
           }
         }
-        logToClient(`✅ Дія ${actionType} виконана для ${clickLimit} елементів: ${String(selector)}`, 'success');
+
+        logToClient(`✅ Дія ${actionType} виконана для ${executedClicks} елементів: ${String(selector)}`, 'success');
         return { data: context, nextHandle: [null, undefined, 'success'] };
       }
       throw new Error('Елемент не знайдено');
@@ -471,13 +564,40 @@ export const actionNodeHandler = async ({
               var rect = el.getBoundingClientRect();
               var cx = rect.left + rect.width / 2;
               var cy = rect.top + rect.height / 2;
+
+              // Якщо елемент має pointer-events: none (наприклад, img у Sunflower Land),
+              // шукаємо реальний інтерактивний батьківський елемент або елемент по координатах
+              var clickTarget = el;
+              if (window.getComputedStyle(el).pointerEvents === 'none' || el.classList.contains('pointer-events-none')) {
+                var fromPoint = document.elementFromPoint(cx, cy);
+                var parentClickable = el.closest('.cursor-pointer, [role="button"], button, [onclick], [data-map-placement]');
+                clickTarget = fromPoint || parentClickable || el.parentElement || el;
+              }
+
               var eventInit = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 0, buttons: 1 };
-              el.dispatchEvent(new PointerEvent('pointerdown', Object.assign({}, eventInit, { pointerId: 1 })));
-              el.dispatchEvent(new MouseEvent('mousedown', eventInit));
-              el.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, eventInit, { pointerId: 1 })));
-              el.dispatchEvent(new MouseEvent('mouseup', eventInit));
-              el.dispatchEvent(new MouseEvent('click', eventInit));
-              try { el.click(); } catch(_) {}
+              clickTarget.dispatchEvent(new PointerEvent('pointerdown', Object.assign({}, eventInit, { pointerId: 1 })));
+              clickTarget.dispatchEvent(new MouseEvent('mousedown', eventInit));
+              clickTarget.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, eventInit, { pointerId: 1 })));
+              clickTarget.dispatchEvent(new MouseEvent('mouseup', eventInit));
+              clickTarget.dispatchEvent(new MouseEvent('click', eventInit));
+              try { clickTarget.click(); } catch(_) {}
+
+              if (action === 'double_click') {
+                clickTarget.dispatchEvent(new PointerEvent('pointerdown', Object.assign({}, eventInit, { pointerId: 1 })));
+                clickTarget.dispatchEvent(new MouseEvent('mousedown', eventInit));
+                clickTarget.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, eventInit, { pointerId: 1 })));
+                clickTarget.dispatchEvent(new MouseEvent('mouseup', eventInit));
+                clickTarget.dispatchEvent(new MouseEvent('click', eventInit));
+                clickTarget.dispatchEvent(new MouseEvent('dblclick', eventInit));
+              } else if (action === 'triple_click') {
+                for (var tc = 0; tc < 2; tc++) {
+                  clickTarget.dispatchEvent(new PointerEvent('pointerdown', Object.assign({}, eventInit, { pointerId: 1 })));
+                  clickTarget.dispatchEvent(new MouseEvent('mousedown', eventInit));
+                  clickTarget.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, eventInit, { pointerId: 1 })));
+                  clickTarget.dispatchEvent(new MouseEvent('mouseup', eventInit));
+                  clickTarget.dispatchEvent(new MouseEvent('click', eventInit));
+                }
+              }
             }
           }
           return { count: targets.length, error: null };
@@ -494,5 +614,5 @@ export const actionNodeHandler = async ({
     }
   }
 
-  return { data: context, nextHandle: [null, undefined, 'success'] };
+  return { data: context, nextHandle: ['success', 'out', 'next'] };
 };

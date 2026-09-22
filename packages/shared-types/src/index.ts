@@ -11,7 +11,7 @@
 export type WSResponse =
   | { type: 'BOT_RUNNING_STATE'; isRunning: boolean }
   | { type: 'BOT_FINISHED' }
-  | { type: 'NODE_EXECUTING'; nodeId: string; nodeTitle?: string }
+  | { type: 'NODE_EXECUTING'; nodeId: string; nodeTitle?: string; parentGroupId?: string }
   | { type: 'NODE_DATA_UPDATE'; nodeId: string; data: unknown }
   | { type: 'GLOBAL_VARIABLES_UPDATE'; variables: Record<string, unknown> }
   | { type: 'CONSOLE_LOG'; message: string; logType: 'info' | 'error' | 'success' | 'debug' }

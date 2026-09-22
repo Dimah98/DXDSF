@@ -262,7 +262,10 @@ const RunHistoryModal: React.FC<RunHistoryModalProps> = ({ isOpen, onClose, proj
         {/* Sidebar with runs */}
         <div className={`w-full md:w-80 md:border-r border-white/10 flex flex-col bg-slate-900/80 ${selectedRun ? 'hidden md:flex' : 'flex flex-1 md:flex-initial'}`}>
           <div className="flex items-center justify-between p-3 sm:p-4 border-b border-white/10 bg-black/20">
-            <h3 className="text-slate-200 font-bold text-xs sm:text-sm">Історія запусків ({projectName})</h3>
+            <div className="flex flex-col min-w-0 mr-2">
+              <h3 className="text-slate-200 font-bold text-xs sm:text-sm truncate">Історія запусків</h3>
+              <span className="text-[10px] text-slate-400 font-medium truncate">{projectName} (останні 10)</span>
+            </div>
             <div className="flex items-center gap-2">
               <button onClick={fetchRuns} className="p-1.5 hover:bg-indigo-500/20 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors" title="Оновити список">
                 <RefreshCw size={14} />

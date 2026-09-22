@@ -1,0 +1,75 @@
+name: sf_bot
+
+services:
+  backend:
+    image: sf_bot-backend:latest
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: sf_backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    environment:
+      - NODE_ENV=production
+      - HTTP_PORT=3001
+      - JWT_SECRET=${JWT_SECRET:-sf_secret_key_change_me_in_production_min_32_chars!}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-sf_encryption_key_32_characters_minimum!}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:80,http://localhost,https://dxd.pp.ua,http://dxd.pp.ua,http://192.168.0.107:5173,http://192.168.0.107}
+      - CAMOUFOX_PROFILES_DIR=/app/profiles
+      - CAMOUFOX_DEFAULT_PROFILE=${CAMOUFOX_DEFAULT_PROFILE:-default}
+      - CAMOUFOX_EXECUTABLE_PATH=${CAMOUFOX_EXECUTABLE_PATH:-/usr/local/bin/camoufox-bin}
+      - MAX_PARALLEL_BROWSERS=${MAX_PARALLEL_BROWSERS:-2}
+      - LOG_LEVEL=${LOG_LEVEL:-1}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_OWNER_ID=${TELEGRAM_OWNER_ID:-}
+    volumes:
+      # Дані (логи, запуски, proxies.txt)
+      - ./data:/app/data
+      # База даних SQLite (sf.db)
+      - ./backend/data:/app/backend/data
+      # Проєкти та сценарії ботів
+      - ./backend/projects:/app/backend/projects
+      # Профілі Camoufox (кукі, сесії) залишаються локально
+      - ./profiles:/app/profiles
+      # Можливість змінювати код без повної перезбірки образу
+      - ./backend/src:/app/backend/src
+    shm_size: '2gb' # Критично для стабільної роботи Firefox/Camoufox без вильотів пам'яті
+    networks:
+      - sf_network
+
+  frontend:
+    image: sf_bot-frontend:latest
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: sf_frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - sf_network
+
+  goaccess:
+    image: xavierh/goaccess-for-nginxproxymanager:latest
+    container_name: sf_goaccess
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Kyiv
+      - LOG_TYPE=NCSA_COMBINED
+    ports:
+      - "${GOACCESS_PORT:-7880}:7880"
+    volumes:
+      - ./logs/nginx:/opt/log:ro
+    networks:
+      - sf_network
+
+networks:
+  sf_network:
+    driver: bridge

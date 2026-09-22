@@ -5,7 +5,8 @@ import {
   recordRunStart,
   recordRunFinish,
   getRunsForProject,
-  insertLog,
+  pruneProjectRuns,
+  MAX_RUNS_HISTORY,
   getRunLogs as getDbRunLogs,
   db
 } from './db/schema';
@@ -68,9 +69,9 @@ export class RunLogger {
 
   static getRuns(projectName: string): RunRecord[] {
     try {
-      const dbRuns = getRunsForProject(projectName);
+      const dbRuns = getRunsForProject(projectName, MAX_RUNS_HISTORY);
       if (dbRuns && dbRuns.length > 0) {
-        return dbRuns;
+        return dbRuns.slice(0, MAX_RUNS_HISTORY);
       }
     } catch (dbErr) {
       console.warn(`[RunLogger] Failed to read runs from SQLite for ${projectName}, falling back to file`, dbErr);
@@ -79,7 +80,9 @@ export class RunLogger {
     const file = this.getHistoryFile(projectName);
     try {
       if (fs.existsSync(file)) {
-        return JSON.parse(fs.readFileSync(file, 'utf-8'));
+        const runs = JSON.parse(fs.readFileSync(file, 'utf-8')) as RunRecord[];
+        runs.sort((a, b) => b.startTime - a.startTime);
+        return runs.slice(0, MAX_RUNS_HISTORY);
       }
     } catch {
       return [];
@@ -89,9 +92,9 @@ export class RunLogger {
 
   static async getRunsAsync(projectName: string): Promise<RunRecord[]> {
     try {
-      const dbRuns = getRunsForProject(projectName);
+      const dbRuns = getRunsForProject(projectName, MAX_RUNS_HISTORY);
       if (dbRuns && dbRuns.length > 0) {
-        return dbRuns;
+        return dbRuns.slice(0, MAX_RUNS_HISTORY);
       }
     } catch (dbErr) {
       console.warn(`[RunLogger] Failed to read runs from SQLite for ${projectName}, falling back to file`, dbErr);
@@ -100,9 +103,104 @@ export class RunLogger {
     const file = this.getHistoryFile(projectName);
     try {
       const content = await fs.promises.readFile(file, 'utf-8');
-      return JSON.parse(content);
+      const runs = JSON.parse(content) as RunRecord[];
+      runs.sort((a, b) => b.startTime - a.startTime);
+      return runs.slice(0, MAX_RUNS_HISTORY);
     } catch {
       return [];
+    }
+  }
+
+  static async pruneRuns(projectName: string, keepCount: number = MAX_RUNS_HISTORY): Promise<void> {
+    // 1. Prune SQLite
+    try {
+      const deletedIds = pruneProjectRuns(projectName, keepCount);
+      for (const rId of deletedIds) {
+        fs.promises.unlink(this.getLogFile(projectName, rId)).catch(() => {});
+      }
+    } catch (err) {
+      console.warn(`[RunLogger] Failed to prune SQLite runs for ${projectName}`, err);
+    }
+
+    // 2. Prune fallback JSON file
+    const file = this.getHistoryFile(projectName);
+    try {
+      if (fs.existsSync(file)) {
+        const content = await fs.promises.readFile(file, 'utf-8');
+        let runs: RunRecord[] = [];
+        try { runs = JSON.parse(content); } catch { runs = []; }
+        runs.sort((a, b) => b.startTime - a.startTime);
+        if (runs.length > keepCount) {
+          const toDelete = runs.slice(keepCount);
+          const toKeep = runs.slice(0, keepCount);
+          for (const r of toDelete) {
+            fs.promises.unlink(this.getLogFile(projectName, r.runId)).catch(() => {});
+          }
+          await fs.promises.writeFile(file, JSON.stringify(toKeep, null, 2), 'utf-8');
+        }
+      }
+    } catch (err) {
+      console.warn(`[RunLogger] Failed to prune history file for ${projectName}`, err);
+    }
+  }
+
+  static pruneRunsSync(projectName: string, keepCount: number = MAX_RUNS_HISTORY): void {
+    // 1. Prune SQLite
+    try {
+      const deletedIds = pruneProjectRuns(projectName, keepCount);
+      for (const rId of deletedIds) {
+        const logFile = this.getLogFile(projectName, rId);
+        try { if (fs.existsSync(logFile)) fs.unlinkSync(logFile); } catch {}
+      }
+    } catch (err) {
+      console.warn(`[RunLogger] Failed to prune SQLite runs for ${projectName}`, err);
+    }
+
+    // 2. Prune fallback JSON file
+    const file = this.getHistoryFile(projectName);
+    try {
+      if (fs.existsSync(file)) {
+        const content = fs.readFileSync(file, 'utf-8');
+        let runs: RunRecord[] = [];
+        try { runs = JSON.parse(content); } catch { runs = []; }
+        runs.sort((a, b) => b.startTime - a.startTime);
+        if (runs.length > keepCount) {
+          const toDelete = runs.slice(keepCount);
+          const toKeep = runs.slice(0, keepCount);
+          for (const r of toDelete) {
+            const logFile = this.getLogFile(projectName, r.runId);
+            try { if (fs.existsSync(logFile)) fs.unlinkSync(logFile); } catch {}
+          }
+          fs.writeFileSync(file, JSON.stringify(toKeep, null, 2), 'utf-8');
+        }
+      }
+    } catch (err) {
+      console.warn(`[RunLogger] Failed to prune history file for ${projectName}`, err);
+    }
+  }
+
+  static async pruneAllProjects(keepCount: number = MAX_RUNS_HISTORY): Promise<void> {
+    const projects = new Set<string>();
+    try {
+      const rows = db.prepare('SELECT DISTINCT project_name FROM executions').all() as Array<{ project_name: string }>;
+      for (const r of rows) {
+        if (r.project_name) projects.add(r.project_name);
+      }
+    } catch {}
+
+    try {
+      if (fs.existsSync(RUNS_DIR)) {
+        const files = await fs.promises.readdir(RUNS_DIR);
+        for (const f of files) {
+          if (f.endsWith('.json')) {
+            projects.add(f.replace('.json', ''));
+          }
+        }
+      }
+    } catch {}
+
+    for (const p of projects) {
+      await this.pruneRuns(p, keepCount);
     }
   }
 
@@ -113,6 +211,7 @@ export class RunLogger {
     // 1. Save in SQLite
     try {
       recordRunStart(projectName, runId, startTime);
+      this.pruneRunsSync(projectName, MAX_RUNS_HISTORY);
     } catch (dbErr) {
       console.warn(`[RunLogger] Failed to record run start in SQLite`, dbErr);
     }
@@ -130,6 +229,14 @@ export class RunLogger {
       .catch(() => [] as RunRecord[])
       .then(runs => {
         runs.push({ runId, startTime, status: 'running' });
+        runs.sort((a, b) => b.startTime - a.startTime);
+        if (runs.length > MAX_RUNS_HISTORY) {
+          const toDelete = runs.slice(MAX_RUNS_HISTORY);
+          runs = runs.slice(0, MAX_RUNS_HISTORY);
+          for (const r of toDelete) {
+            fs.promises.unlink(this.getLogFile(projectName, r.runId)).catch(() => {});
+          }
+        }
         return fs.promises.writeFile(file, JSON.stringify(runs, null, 2), 'utf-8');
       })
       .catch(fileErr => {
@@ -158,6 +265,7 @@ export class RunLogger {
     // 1. Update in SQLite
     try {
       recordRunFinish(projectName, runId, status, error, endTime, snapshot);
+      this.pruneRuns(projectName, MAX_RUNS_HISTORY).catch(() => {});
     } catch (dbErr) {
       console.warn(`[RunLogger] Failed to update run in SQLite`, dbErr);
     }
@@ -166,15 +274,24 @@ export class RunLogger {
     const file = this.getHistoryFile(projectName);
     fs.promises.readFile(file, 'utf-8')
       .then(content => {
-        const runs = JSON.parse(content);
+        let runs: RunRecord[] = [];
+        try { runs = JSON.parse(content); } catch { runs = []; }
         const runIndex = runs.findIndex((r: RunRecord) => r.runId === runId);
         if (runIndex !== -1) {
           runs[runIndex].endTime = endTime;
           runs[runIndex].status = status;
           if (error) runs[runIndex].error = error;
-          return fs.promises.writeFile(file, JSON.stringify(runs, null, 2), 'utf-8');
         }
-        return null;
+        runs.sort((a, b) => b.startTime - a.startTime);
+        if (runs.length > MAX_RUNS_HISTORY) {
+          const toDelete = runs.slice(MAX_RUNS_HISTORY);
+          const toKeep = runs.slice(0, MAX_RUNS_HISTORY);
+          for (const r of toDelete) {
+            fs.promises.unlink(this.getLogFile(projectName, r.runId)).catch(() => {});
+          }
+          return fs.promises.writeFile(file, JSON.stringify(toKeep, null, 2), 'utf-8');
+        }
+        return fs.promises.writeFile(file, JSON.stringify(runs, null, 2), 'utf-8');
       })
       .catch(fileErr => {
         console.warn(`[RunLogger] Failed to update run history file`, fileErr);

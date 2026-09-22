@@ -23,8 +23,9 @@
   "Water Well": {
     "w": 2,
     "h": 2,
-    "mapImage": "water well.png",
-    "inventoryImage": "well"
+    "mapImage": "Water Well.png",
+    "inventoryImage": "Water Well.png",
+    "inventoryName": "Water Well"
   },
   "stones": {
     "w": 1,
@@ -51,21 +52,22 @@
     "w": 1,
     "h": 1,
     "mapImage": "Basic Scarecrow.png",
-    "inventoryImage": "Z6UAAAASdEVYdEVYSUY6T3JpZW50YXRpb24AMYRY7O8AAAAOZVhJZk1NACoAAAAIAAAAAAAAANJTkwAAAABJRU5ErkJggg",
+    "inventoryImage": "basic scarecrow.png",
     "inventoryName": "Basic Scarecrow"
   },
   "Scary Mike": {
     "w": 1,
     "h": 1,
     "mapImage": "Scary Mike.png",
-    "inventoryImage": "wnQlVKOwyTLcWhVHAYK8AvGLOkzwXUnjwAAABJ0RVh0RVhJRjpPcmllbnRhdGlvbgAxhFjs7wAAAA5lWElmTU0AKgAAAAgAAAAAAAAA0lOTAAAAAElFTkSuQmCC",
+    "inventoryImage": "scary mike.png",
     "inventoryName": "Scary Mike"
   },
   "Barn": {
     "w": 4,
     "h": 4,
     "mapImage": "Barn.png",
-    "inventoryName": "Barn"
+    "inventoryName": "Barn",
+    "inventoryImage": "barn.png"
   },
   "Big Orange": {
     "w": 2,
@@ -112,16 +114,16 @@
   "Squirrel": {
     "w": 2,
     "h": 1,
-    "mapImage": "",
-    "inventoryImage": "LadkNrDSx7QyqdKEPYbOxTVTMRNtqmMrblJpaXScZGm1FsUF3NzA8xJRhBJAg",
-    "inventoryName": ""
+    "mapImage": "Squirrel.png",
+    "inventoryImage": "squirrel.png",
+    "inventoryName": "Squirrel"
   },
   "Stone Beetle": {
     "w": 1,
     "h": 2,
-    "mapImage": "",
-    "inventoryImage": "wEA",
-    "inventoryName": ""
+    "mapImage": "Stone Beetle.png",
+    "inventoryImage": "stone beetle.png",
+    "inventoryName": "Stone Beetle"
   },
   "Tiki Totem": {
     "w": 1,
@@ -147,22 +149,22 @@
   "Kitchen": {
     "w": 4,
     "h": 3,
-    "mapImage": "kitchen.png",
-    "inventoryImage": "kitchen_icon",
-    "inventoryName": "kitchen"
+    "mapImage": "Kitchen.png",
+    "inventoryImage": "kitchen.png",
+    "inventoryName": "Kitchen"
   },
   "Turbo Composter": {
     "w": 2,
     "h": 2,
     "mapImage": "Turbo Composter.png",
-    "inventoryImage": "composter_advanced",
+    "inventoryImage": "turbo composter.png",
     "inventoryName": "Turbo Composter"
   },
   "Compost Bin": {
     "w": 2,
     "h": 2,
     "mapImage": "Compost Bin.png",
-    "inventoryImage": "composter_basic",
+    "inventoryImage": "compost bin.png",
     "inventoryName": "Compost Bin"
   },
   "Blossombeard": {
@@ -170,5 +172,131 @@
     "h": 1,
     "mapImage": "Blossombeard.png",
     "inventoryName": "Blossombeard"
+  },
+  "Hen House": {
+    "w": 4,
+    "h": 3,
+    "mapImage": "Hen House.png",
+    "inventoryImage": "hen house.png",
+    "inventoryName": "Hen House"
+  },
+  "Bakery": {
+    "w": 4,
+    "h": 3,
+    "mapImage": "Bakery.png",
+    "inventoryImage": "bakery.png",
+    "inventoryName": "Bakery"
+  },
+  "Deli": {
+    "w": 4,
+    "h": 3,
+    "mapImage": "Deli.png",
+    "inventoryImage": "deli.png",
+    "inventoryName": "Deli"
+  },
+  "Smoothie Shack": {
+    "w": 3,
+    "h": 2,
+    "mapImage": "Smoothie Shack.png",
+    "inventoryImage": "smoothie shack.png",
+    "inventoryName": "Smoothie Shack"
+  },
+  "Toolshed": {
+    "w": 3,
+    "h": 3,
+    "mapImage": "Toolshed.png",
+    "inventoryImage": "toolshed.png",
+    "inventoryName": "Toolshed"
+  },
+  "Warehouse": {
+    "w": 3,
+    "h": 3,
+    "mapImage": "Warehouse.png",
+    "inventoryImage": "warehouse.png",
+    "inventoryName": "Warehouse"
+  },
+  "Premium Composter": {
+    "w": 2,
+    "h": 2,
+    "mapImage": "Premium Composter.png",
+    "inventoryImage": "premium composter.png",
+    "inventoryName": "Premium Composter"
+  },
+  "Greenhouse": {
+    "w": 4,
+    "h": 3,
+    "mapImage": "Greenhouse.png",
+    "inventoryImage": "greenhouse.png",
+    "inventoryName": "Greenhouse"
+  },
+  "Crop Machine": {
+    "w": 4,
+    "h": 3,
+    "mapImage": "Crop Machine.png",
+    "inventoryImage": "crop machine.png",
+    "inventoryName": "Crop Machine"
+  },
+  "Crafting Box": {
+    "w": 3,
+    "h": 2,
+    "mapImage": "Crafting Box.png",
+    "inventoryImage": "crafting box.png",
+    "inventoryName": "Crafting Box"
+  },
+  "Laurie the Chuckle Crow": {
+    "w": 1,
+    "h": 1,
+    "mapImage": "Laurie the Chuckle Crow.png",
+    "inventoryImage": "laurie the chuckle crow.png",
+    "inventoryName": "Laurie the Chuckle Crow"
+  },
+  "Bale": {
+    "w": 2,
+    "h": 2,
+    "mapImage": "Bale.png",
+    "inventoryImage": "bale.png",
+    "inventoryName": "Bale"
+  },
+  "Immortal Pear": {
+    "w": 1,
+    "h": 1,
+    "mapImage": "Immortal Pear.png",
+    "inventoryImage": "immortal pear.png",
+    "inventoryName": "Immortal Pear"
+  },
+  "Iron Beetle": {
+    "w": 1,
+    "h": 2,
+    "mapImage": "Iron Beetle.png",
+    "inventoryImage": "iron beetle.png",
+    "inventoryName": "Iron Beetle"
+  },
+  "Gold Beetle": {
+    "w": 1,
+    "h": 2,
+    "mapImage": "Gold Beetle.png",
+    "inventoryImage": "gold beetle.png",
+    "inventoryName": "Gold Beetle"
+  },
+  "Fairy Circle": {
+    "w": 1,
+    "h": 1,
+    "mapImage": "Fairy Circle.png",
+    "inventoryImage": "fairy circle.png",
+    "inventoryName": "Fairy Circle"
+  },
+  "Macaw": {
+    "w": 1,
+    "h": 1,
+    "mapImage": "Macaw.png",
+    "inventoryImage": "macaw.png",
+    "inventoryName": "Macaw"
+  },
+  "Butterfly": {
+    "w": 1,
+    "h": 1,
+    "mapImage": "Butterfly.png",
+    "inventoryImage": "butterfly.png",
+    "inventoryName": "Butterfly"
   }
 }

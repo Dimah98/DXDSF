@@ -100,6 +100,10 @@ export function setupWebSocketServer(server: http.Server): WebSocketServer {
     logger.info(`WS: Client connected for project ${projectName}`, { userId: payload.userId, username: payload.username });
     
     const session = getOrCreateSession(projectName);
+    if (!session.activeSockets) {
+      session.activeSockets = new Set();
+    }
+    session.activeSockets.add(ws as unknown as ExtendedWebSocket);
     session.activeWs = ws as unknown as ExtendedWebSocket;
     
     const sessionId = `${projectName}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -119,8 +123,18 @@ export function setupWebSocketServer(server: http.Server): WebSocketServer {
       (ws as any)._msgCount = 0;
     }, 1000);
 
+    const cleanupSocketSession = () => {
+      if (session.activeSockets) {
+        session.activeSockets.delete(ws as unknown as ExtendedWebSocket);
+        if (session.activeWs === (ws as unknown as ExtendedWebSocket)) {
+          session.activeWs = session.activeSockets.values().next().value || null;
+        }
+      }
+    };
+
     ws.on('close', () => {
       try {
+        cleanupSocketSession();
         if ((ws as any)._streamTimer) clearTimeout((ws as any)._streamTimer);
         if ((ws as any)._msgResetTimer) clearInterval((ws as any)._msgResetTimer);
         if ((ws as any)._cdpScreencast) {
@@ -141,6 +155,7 @@ export function setupWebSocketServer(server: http.Server): WebSocketServer {
 
     ws.on('error', (_err) => {
       try {
+        cleanupSocketSession();
         if ((ws as any)._streamTimer) clearTimeout((ws as any)._streamTimer);
         if ((ws as any)._msgResetTimer) clearInterval((ws as any)._msgResetTimer);
         if ((ws as any)._cdpScreencast) {
@@ -160,12 +175,10 @@ export function setupWebSocketServer(server: http.Server): WebSocketServer {
     });
 
     ws.send(JSON.stringify({ type: 'GLOBAL_VARIABLES_UPDATE', variables: session.globalVariables }));
+    ws.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: Boolean(session.isBotRunning) }));
     
-    if (session.isBotRunning) {
-      ws.send(JSON.stringify({ type: 'BOT_RUNNING_STATE', isRunning: true }));
-      if (session.lastActiveNodeId) {
-        ws.send(JSON.stringify({ type: 'NODE_EXECUTING', nodeId: session.lastActiveNodeId }));
-      }
+    if (session.isBotRunning && session.lastActiveNodeId) {
+      ws.send(JSON.stringify({ type: 'NODE_EXECUTING', nodeId: session.lastActiveNodeId }));
     }
 
     ws.on('message', (message: string | Buffer) => {

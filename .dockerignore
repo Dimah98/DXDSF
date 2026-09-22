@@ -1,0 +1,42 @@
+# Version control and editor files
+.git
+.gitignore
+.vscode
+.agents
+graphify-out
+
+# Documentation and reports
+*.md
+*.json.bak
+.postman.json
+
+# Temporary and export directories
+1
+3333.mp4
+scratch/
+obsidian/
+.overlay/
+*Sunflower*
+*Discord*
+sl-bot-remote/
+im/
+mine/
+scripts/
+
+# Heavy legacy browser
+itbrowser/
+**/itbrowser/
+
+# Dependencies (will be installed cleanly inside containers)
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+
+# Runtime data (mounted as volumes via docker-compose)
+data/
+profiles/
+backend/projects/
+*.log

@@ -44,6 +44,9 @@ import ScreenshotNode from './ScreenshotNode';
 import MemoryGameNode from './MemoryGameNode';
 import WhackAMoleNode from './WhackAMoleNode';
 import SequenceMemoryNode from './SequenceMemoryNode';
+import FruitRunnerNode from './FruitRunnerNode';
+import ChickenRescueNode from './ChickenRescueNode';
+import CaptchaNode from './CaptchaNode';
 import SearchAndClickNode from './SearchAndClickNode';
 import ConfigNode from './ConfigNode';
 import IslandArrangerNode from './IslandArrangerNode';
@@ -52,6 +55,8 @@ import FlowerPlanterNode from './FlowerPlanterNode';
 import DeliveryNode from './DeliveryNode';
 import FoodNode from './FoodNode';
 import { RoninWalletNode } from './RoninWalletNode';
+import BrowserResizeNode from './BrowserResizeNode';
+import BuildingPlacerNode from './BuildingPlacerNode';
 
 // Всі доступні типи нод для sub-canvas (без GroupNode — без рекурсії)
 export const SUB_NODE_TYPES: Record<string, any> = {
@@ -59,6 +64,7 @@ export const SUB_NODE_TYPES: Record<string, any> = {
   coordOffsetNode: CoordOffsetNode,
   conditionNode: CompareNode, // зворотна сумісність
   browserNode: BrowserNode,
+  browserResizeNode: BrowserResizeNode,
   infoNode: InfoNode,
   displayNode: DisplayNode,
   imageSearchNode: ImageSearchNode,
@@ -98,12 +104,16 @@ export const SUB_NODE_TYPES: Record<string, any> = {
   memoryGameNode: MemoryGameNode,
   whackAMoleNode: WhackAMoleNode,
   sequenceMemoryNode: SequenceMemoryNode,
+  fruitRunnerNode: FruitRunnerNode,
+  chickenRescueNode: ChickenRescueNode,
+  captchaSolverNode: CaptchaNode,
   searchAndClickNode: SearchAndClickNode,
   configNode: ConfigNode,
   islandArrangerNode: IslandArrangerNode,
   textInputNode: TextInputNode,
   flowerPlanterNode: FlowerPlanterNode,
   deliveryNode: DeliveryNode,
+  buildingPlacerNode: BuildingPlacerNode,
   foodNode: FoodNode,
   roninWalletNode: RoninWalletNode,
 };

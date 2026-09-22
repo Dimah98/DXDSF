@@ -35,7 +35,7 @@
     "enabled": true,
     "id": "d700b2c4-2cfb-4ebc-8f04-ff8c9dfbbd5a",
     "createdAt": 1783289173168,
-    "updatedAt": 1787711963808,
+    "updatedAt": 1788897844760,
     "subConfigs": []
   },
   {
@@ -54,7 +54,7 @@
     "enabled": true,
     "id": "23af26eb-d973-410c-b4b7-70773bc7c265",
     "createdAt": 1783289235712,
-    "updatedAt": 1787793120573,
+    "updatedAt": 1788897847091,
     "subConfigs": []
   },
   {
@@ -289,7 +289,8 @@
     "enabled": false,
     "id": "8164a5ca-357e-407e-a880-e67d5acd0908",
     "createdAt": 1783290031231,
-    "updatedAt": 1787649113740
+    "updatedAt": 1789174574241,
+    "subConfigs": []
   },
   {
     "name": "досягнення",
@@ -307,7 +308,7 @@
     "enabled": false,
     "id": "bd9f5fd5-05ae-41c4-b095-9ac5e512d68a",
     "createdAt": 1783290062870,
-    "updatedAt": 1787649100624,
+    "updatedAt": 1789174579018,
     "subConfigs": []
   },
   {
@@ -344,7 +345,8 @@
     "enabled": true,
     "id": "4e8f57d3-0479-4f4f-96ef-cdf9075661e6",
     "createdAt": 1783290282248,
-    "updatedAt": 1787619610809
+    "updatedAt": 1788897862530,
+    "subConfigs": []
   },
   {
     "name": "скан інвентаря",
@@ -378,10 +380,11 @@
         "required": true
       }
     ],
-    "enabled": false,
+    "enabled": true,
     "id": "3dd7db28-1e00-401b-8d67-6c7ffeb94817",
     "createdAt": 1783290503954,
-    "updatedAt": 1785288594938
+    "updatedAt": 1788913577378,
+    "subConfigs": []
   },
   {
     "name": "фото",
@@ -501,7 +504,7 @@
     "enabled": true,
     "id": "f56888e0-f61f-40c2-af66-558697cf3c6e",
     "createdAt": 1783290940914,
-    "updatedAt": 1785309992011,
+    "updatedAt": 1788897876269,
     "subConfigs": []
   },
   {
@@ -820,7 +823,8 @@
     "enabled": false,
     "id": "76cd1852-baeb-481c-959f-6fe2d3f89e9b",
     "createdAt": 1785450387144,
-    "updatedAt": 1787824234451
+    "updatedAt": 1789328138544,
+    "subConfigs": []
   },
   {
     "name": "фрукти",
@@ -838,7 +842,8 @@
     "enabled": true,
     "id": "051b3fe9-6ef1-486d-8d2e-3c201bd2d462",
     "createdAt": 1785493483865,
-    "updatedAt": 1787095010124
+    "updatedAt": 1788897881836,
+    "subConfigs": []
   },
   {
     "name": "весна",
@@ -1693,7 +1698,7 @@
     ],
     "id": "52ae64c6-e540-4d37-a4d5-a1e878c20eaf",
     "createdAt": 1787163848159,
-    "updatedAt": 1787163848159
+    "updatedAt": 1788897892556
   },
   {
     "name": "Закупки",
@@ -2173,7 +2178,7 @@
     ],
     "id": "a47f2b08-9981-4e46-8d9e-bc9d67735f7c",
     "createdAt": 1787164753124,
-    "updatedAt": 1787164753124
+    "updatedAt": 1788897895259
   },
   {
     "name": "Tttttttt",

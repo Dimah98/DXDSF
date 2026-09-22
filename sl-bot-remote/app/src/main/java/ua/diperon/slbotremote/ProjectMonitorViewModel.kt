@@ -22,6 +22,7 @@ import ua.diperon.slbotremote.data.AppDatabase
 import ua.diperon.slbotremote.data.CachedDeliveryEntity
 import ua.diperon.slbotremote.data.CachedInventoryEntity
 import ua.diperon.slbotremote.data.CachedLogEntryEntity
+import ua.diperon.slbotremote.data.CachedNotificationEntity
 import ua.diperon.slbotremote.data.CachedProjectStatsEntity
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -230,6 +231,24 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
                         val statusText = if (message.error != null) " with error: ${message.error}" else " successfully."
                         addLog("Bot Script finished execution$statusText", if (message.status == "error") "error" else "success")
                         fetchRestStats()
+                    }
+                    is BotWsMessage.NotificationReceived -> {
+                        addLog("🔔 [Сповіщення]: ${message.message}", "info")
+                        message.notification?.let { notifItem ->
+                            NotificationSyncWorker.showSystemNotification(context, notifItem)
+                            viewModelScope.launch {
+                                dao.insertNotifications(listOf(
+                                    CachedNotificationEntity(
+                                        id = notifItem.id,
+                                        projectName = notifItem.projectName,
+                                        message = notifItem.message,
+                                        timestamp = notifItem.timestamp,
+                                        read = notifItem.read,
+                                        cachedAt = System.currentTimeMillis()
+                                    )
+                                ))
+                            }
+                        }
                     }
                 }
             }
@@ -672,8 +691,8 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
                         )
                     }
                     val updatedVariables = projectData.variables.toMutableMap()
-                    // Видаляємо застарілий масив __markedDeliveries
-                    updatedVariables.remove(MARKED_DELIVERIES_KEY)
+                    // Зберігаємо список відмічених доставок і в масив, і як окремі змінні
+                    updatedVariables[MARKED_DELIVERIES_KEY] = currentMarked.toList()
                     val keysToRemove = updatedVariables.keys.filter { it.startsWith("__markedItems_") }
                     keysToRemove.forEach { updatedVariables.remove(it) }
 

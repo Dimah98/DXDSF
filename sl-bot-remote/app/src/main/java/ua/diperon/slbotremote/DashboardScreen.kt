@@ -107,13 +107,22 @@ import ua.diperon.slbotremote.ui.theme.GlassSuccess
 import ua.diperon.slbotremote.ui.theme.GlassWarning
 import ua.diperon.slbotremote.ui.theme.GlassBalance
 import ua.diperon.slbotremote.ui.theme.GlassGem
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.material.icons.filled.EditCalendar
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import android.content.Context
+import java.util.concurrent.TimeUnit
 import java.util.Locale
 
 /**
  * Головний екран інформаційної панелі платформи.
  * Повністю переведений тільки на українську мову.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
@@ -159,7 +168,8 @@ fun DashboardScreen(
         onNavigateToAllDeliveries = onNavigateToAllDeliveries,
         onNavigateToConfigs = onNavigateToConfigs,
         onNavigateToMassScheduler = onNavigateToMassScheduler,
-        onNavigateToVideoWall = onNavigateToVideoWall
+        onNavigateToVideoWall = onNavigateToVideoWall,
+        onChangeNextRun = { proj, runAt -> viewModel.setNextRun(proj, runAt) }
     )
 }
 
@@ -167,7 +177,7 @@ fun DashboardScreen(
  * Вміст головного екрану інформаційної панелі.
  * Використовується для підтримки Previews та відокремлення логіки від UI.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DashboardScreenContent(
     projects: List<ProjectModel>,
@@ -188,7 +198,8 @@ fun DashboardScreenContent(
     onNavigateToAllDeliveries: () -> Unit = {},
     onNavigateToConfigs: () -> Unit = {},
     onNavigateToMassScheduler: () -> Unit = {},
-    onNavigateToVideoWall: () -> Unit = {}
+    onNavigateToVideoWall: () -> Unit = {},
+    onChangeNextRun: (String, Long?) -> Unit = { _, _ -> }
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
     val rotationAngle by infiniteTransition.animateFloat(
@@ -207,8 +218,12 @@ fun DashboardScreenContent(
         else -> Color(0xFF10B981)
     }
 
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
     var isSideButtonVisible by rememberSaveable { mutableStateOf(false) }
     var isFlowerGemFormulaMode by rememberSaveable { mutableStateOf(false) }
+    var flowerMultiplier by rememberSaveable { mutableFloatStateOf(prefs.getFloat("flower_multiplier", 10.0f)) }
+    var showMultiplierDialog by rememberSaveable { mutableStateOf(false) }
     var isQueueDialogOpen by rememberSaveable { mutableStateOf(false) }
 
     Box(
@@ -380,6 +395,7 @@ fun DashboardScreenContent(
                             ProjectItemCard(
                                 project = project,
                                 isFormulaMode = isFlowerGemFormulaMode,
+                                flowerMultiplier = flowerMultiplier,
                                 onCardClick = { onNavigateToProject(project.name) },
                                 onStartClick = { onStartProject(project.name) },
                                 onStopClick = { onStopProject(project.name) },
@@ -403,18 +419,24 @@ fun DashboardScreenContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.End
             ) {
-                // Кнопка 1: Формула (Flower * 10 + Gem)
+                // Кнопка 1: Формула (Flower * multiplier + Gem)
+                val multText = if (flowerMultiplier % 1.0f == 0f) flowerMultiplier.toInt().toString() else flowerMultiplier.toString()
                 Surface(
-                    onClick = {
-                        isFlowerGemFormulaMode = !isFlowerGemFormulaMode
-                    },
                     shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp, topEnd = 6.dp, bottomEnd = 6.dp),
                     color = if (isFlowerGemFormulaMode) Color(0xFF7C3AED) else Color(0xFF1E293B),
                     border = BorderStroke(
                         1.5.dp,
                         if (isFlowerGemFormulaMode) Color(0xFFC084FC) else Color.White.copy(alpha = 0.2f)
                     ),
-                    shadowElevation = 10.dp
+                    shadowElevation = 10.dp,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {
+                            isFlowerGemFormulaMode = !isFlowerGemFormulaMode
+                        },
+                        onLongClick = {
+                            showMultiplierDialog = true
+                        }
+                    )
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -423,12 +445,12 @@ fun DashboardScreenContent(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Calculate,
-                            contentDescription = "Flower * 10 + Gem",
+                            contentDescription = "Flower * $multText + Gem",
                             tint = if (isFlowerGemFormulaMode) Color.White else Color(0xFF94A3B8),
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = if (isFlowerGemFormulaMode) "F×10+G ON" else "F×10+G",
+                            text = if (isFlowerGemFormulaMode) "F×$multText+G ON" else "F×$multText+G",
                             color = if (isFlowerGemFormulaMode) Color.White else Color(0xFFCBD5E1),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
@@ -472,13 +494,26 @@ fun DashboardScreenContent(
         }
     }
 
+    if (showMultiplierDialog) {
+        MultiplierDialog(
+            initialMultiplier = flowerMultiplier,
+            onDismiss = { showMultiplierDialog = false },
+            onConfirm = { newMult ->
+                flowerMultiplier = newMult
+                prefs.edit().putFloat("flower_multiplier", newMult).apply()
+                showMultiplierDialog = false
+            }
+        )
+    }
+
     if (isQueueDialogOpen) {
         QueueProjectsDialog(
             projects = projects,
             activeQueue = activeQueue,
             onDismiss = { isQueueDialogOpen = false },
             onStartProject = onStartProject,
-            onNavigateToProject = onNavigateToProject
+            onNavigateToProject = onNavigateToProject,
+            onChangeNextRun = onChangeNextRun
         )
     }
 }
@@ -542,6 +577,7 @@ fun DashboardNavButton(
 fun ProjectItemCard(
     project: ProjectModel,
     isFormulaMode: Boolean = false,
+    flowerMultiplier: Float = 10f,
     onCardClick: () -> Unit,
     onStartClick: () -> Unit,
     onStopClick: () -> Unit,
@@ -616,12 +652,64 @@ fun ProjectItemCard(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.weight(1f, fill = false)
                         ) {
-                            Text(
-                                text = project.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(1.dp)
+                            ) {
+                                // Час з оновлення сейву проекту (напр. 1:23)
+                                project.lastSaveUpdate?.let { updateTime ->
+                                    if (updateTime > 0) {
+                                        val elapsedMs = maxOf(0L, currentTime - updateTime)
+                                        val totalMinutes = elapsedMs / (60 * 1000L)
+                                        val hours = totalMinutes / 60
+                                        val minutes = totalMinutes % 60
+                                        val timeAgoText = String.format(Locale.US, "%d:%02d", hours, minutes)
+                                        Text(
+                                            text = timeAgoText,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color(0xFF94A3B8),
+                                            lineHeight = 10.sp
+                                        )
+                                    }
+                                }
+
+                                Text(
+                                    text = project.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+
+                                // Зірочки виконаних доставок проекту
+                                if (project.completedDeliveryTypes.isNotEmpty()) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(1.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        project.completedDeliveryTypes.forEach { type ->
+                                            val starColor = when (type.lowercase()) {
+                                                "coins", "money", "gold" -> Color(0xFFFFD700)
+                                                "flower", "sfl" -> Color(0xFFC084FC)
+                                                else -> Color(0xFF94A3B8)
+                                            }
+                                            Text(
+                                                text = "★",
+                                                fontSize = 10.sp,
+                                                color = starColor,
+                                                lineHeight = 11.sp
+                                            )
+                                        }
+                                    }
+                                } else if (project.completedDeliveries > 0) {
+                                    Text(
+                                        text = "★".repeat(project.completedDeliveries),
+                                        fontSize = 10.sp,
+                                        color = Color(0xFFFFD700),
+                                        lineHeight = 11.sp,
+                                        letterSpacing = 1.sp
+                                    )
+                                }
+                            }
 
                             // Рівень (зелений)
                             project.level?.let { lvl ->
@@ -644,10 +732,10 @@ fun ProjectItemCard(
                             }
 
                             if (isFormulaMode) {
-                                // Об'єднане число за формулою ("Flower" * 10 + "Gem")
+                                // Об'єднане число за формулою ("Flower" * multiplier + "Gem")
                                 val flw = project.balance ?: 0.0
                                 val gm = project.gem ?: 0.0
-                                val combined = (flw * 10.0) + gm
+                                val combined = (flw * flowerMultiplier.toDouble()) + gm
                                 val combinedText = if (combined % 1.0 == 0.0) String.format(Locale.US, "%.0f", combined) else String.format(Locale.US, "%.1f", combined)
                                 Text(
                                     text = combinedText,
@@ -846,6 +934,278 @@ fun ProjectStatusIndicator(
 }
 
 /**
+ * Діалог налаштування множника формули Flower * multiplier + Gem
+ */
+@Composable
+fun MultiplierDialog(
+    initialMultiplier: Float,
+    onDismiss: () -> Unit,
+    onConfirm: (Float) -> Unit
+) {
+    var textValue by remember { mutableStateOf(if (initialMultiplier % 1.0f == 0f) initialMultiplier.toInt().toString() else initialMultiplier.toString()) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(16.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            border = BorderStroke(1.dp, Color(0xFF7C3AED).copy(alpha = 0.5f))
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Зміна множника F×X+G",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = Color.Gray)
+                    }
+                }
+
+                Text(
+                    text = "Оберіть або введіть множник для підрахунку квітів (Flower):",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF94A3B8)
+                )
+
+                // Швидкі кнопки
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(5f, 10f, 15f, 20f).forEach { mult ->
+                        val label = mult.toInt().toString()
+                        val isSelected = textValue == label
+                        Surface(
+                            onClick = { textValue = label },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) Color(0xFF7C3AED) else Color(0xFF334155),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "×$label",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = textValue,
+                    onValueChange = { textValue = it },
+                    label = { Text("Власний множник") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF7C3AED),
+                        unfocusedBorderColor = Color(0xFF475569)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155))
+                    ) {
+                        Text("Скасувати", color = Color.White)
+                    }
+                    Button(
+                        onClick = {
+                            val parsed = textValue.replace(',', '.').toFloatOrNull() ?: 10f
+                            onConfirm(parsed)
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED))
+                    ) {
+                        Text("Зберегти", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Діалог швидкої зміни або встановлення часу наступного запуску проекту.
+ */
+@Composable
+fun ChangeNextRunDialog(
+    projectName: String,
+    currentNextRun: Long?,
+    onDismiss: () -> Unit,
+    onConfirm: (Long?) -> Unit
+) {
+    val now = System.currentTimeMillis()
+    var customMinutesText by remember { mutableStateOf("") }
+
+    val currentFormatted = if (currentNextRun != null && currentNextRun > 0) {
+        val df = java.text.SimpleDateFormat("dd.MM HH:mm", Locale.getDefault())
+        df.format(java.util.Date(currentNextRun))
+    } else {
+        "Не встановлено"
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .padding(16.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.4f))
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Час запуску: $projectName",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Поточний: $currentFormatted",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF38BDF8)
+                        )
+                    }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = Color.Gray)
+                    }
+                }
+
+                Text(
+                    text = "Швидке відкладення / запуск:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color(0xFF94A3B8)
+                )
+
+                // Кнопки швидкого вибору
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        Pair("+15 хв", 15L),
+                        Pair("+30 хв", 30L),
+                        Pair("+1 год", 60L),
+                        Pair("+2 год", 120L)
+                    ).forEach { (label, mins) ->
+                        Surface(
+                            onClick = {
+                                onConfirm(now + mins * 60 * 1000L)
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF334155),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = customMinutesText,
+                        onValueChange = { customMinutesText = it },
+                        label = { Text("Через N хв") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF38BDF8),
+                            unfocusedBorderColor = Color(0xFF475569)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = {
+                            val mins = customMinutesText.toLongOrNull()
+                            if (mins != null && mins > 0) {
+                                onConfirm(now + mins * 60 * 1000L)
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.CenterVertically),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                    ) {
+                        Text("ОК", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { onConfirm(now) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                    ) {
+                        Text("Зараз", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = { onConfirm(null) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444).copy(alpha = 0.8f))
+                    ) {
+                        Text("Скинути", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Діалогове вікно з переліком проєктів у черзі очікування та запланованих запусків.
  */
 @Composable
@@ -854,9 +1214,12 @@ fun QueueProjectsDialog(
     activeQueue: List<String>,
     onDismiss: () -> Unit,
     onStartProject: (String) -> Unit,
-    onNavigateToProject: (String) -> Unit
+    onNavigateToProject: (String) -> Unit,
+    onChangeNextRun: (String, Long?) -> Unit = { _, _ -> }
 ) {
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    var projectToChangeNextRun by remember { mutableStateOf<ProjectModel?>(null) }
+
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(1000L)
@@ -864,16 +1227,29 @@ fun QueueProjectsDialog(
         }
     }
 
-    val scheduledProjects = remember(projects, currentTime) {
-        projects.filter { !it.isRunning && !it.name.endsWith("_inventory") && (it.nextRun != null || it.plannedNodeRun != null) }
-            .mapNotNull { p ->
-                val upcomingRuns = listOfNotNull(p.nextRun, p.plannedNodeRun).filter { it > currentTime }
-                val targetRun = if (upcomingRuns.isNotEmpty()) upcomingRuns.minOrNull() else listOfNotNull(p.nextRun, p.plannedNodeRun).minOrNull()
-                if (targetRun != null && targetRun > currentTime) {
-                    Pair(p, targetRun)
-                } else null
-            }
-            .sortedBy { it.second }
+    // 1. Проєкти, які очікують завершення інших проєктів (в активній черзі або час запуску вже настав/минув)
+    val waitingProjects = remember(projects, activeQueue, currentTime) {
+        val nonInventory = projects.filter { !it.isRunning && !it.name.endsWith("_inventory") }
+        val inActiveQueueNames = activeQueue.toSet()
+
+        nonInventory.filter { p ->
+            val targetRun = p.plannedNodeRun ?: p.nextRun
+            val isDue = targetRun != null && targetRun <= currentTime
+            inActiveQueueNames.contains(p.name) || isDue
+        }.sortedBy { it.plannedNodeRun ?: it.nextRun ?: 0L }
+    }
+
+    // 2. Проєкти за розкладом на майбутнє (targetRun > currentTime) і не у waitingProjects
+    val scheduledProjects = remember(projects, waitingProjects, currentTime) {
+        val waitingNames = waitingProjects.map { it.name }.toSet()
+        projects.filter { p ->
+            if (p.isRunning || p.name.endsWith("_inventory") || waitingNames.contains(p.name)) return@filter false
+            val upcomingRuns = listOfNotNull(p.nextRun, p.plannedNodeRun).filter { it > currentTime }
+            upcomingRuns.isNotEmpty()
+        }.map { p ->
+            val upcoming = listOfNotNull(p.nextRun, p.plannedNodeRun).filter { it > currentTime }.minOrNull()!!
+            Pair(p, upcoming)
+        }.sortedBy { it.second }
     }
 
     Dialog(
@@ -943,7 +1319,7 @@ fun QueueProjectsDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Список проєктів
-                if (activeQueue.isEmpty() && scheduledProjects.isEmpty()) {
+                if (waitingProjects.isEmpty() && scheduledProjects.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -980,11 +1356,11 @@ fun QueueProjectsDialog(
                             .fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Якщо є активні проекти у черзі (очікують слот)
-                        if (activeQueue.isNotEmpty()) {
+                        // 1. Якщо є проекти, що очікують вільний слот / завершення інших
+                        if (waitingProjects.isNotEmpty()) {
                             item {
                                 Text(
-                                    text = "🚦 В активній черзі (${activeQueue.size})",
+                                    text = "🚦 Очікують запуск / завершення (${waitingProjects.size})",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFFF59E0B),
@@ -992,13 +1368,18 @@ fun QueueProjectsDialog(
                                 )
                             }
 
-                            items(activeQueue) { qProjectName ->
+                            items(waitingProjects, key = { it.name }) { project ->
+                                val targetRun = project.plannedNodeRun ?: project.nextRun
+                                val targetTimeText = if (targetRun != null && targetRun > 0) {
+                                    " (було заплановано о " + java.text.SimpleDateFormat("HH:mm", Locale.getDefault()).format(java.util.Date(targetRun)) + ")"
+                                } else ""
+
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable { 
                                             onDismiss()
-                                            onNavigateToProject(qProjectName) 
+                                            onNavigateToProject(project.name) 
                                         },
                                     shape = RoundedCornerShape(14.dp),
                                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
@@ -1013,7 +1394,8 @@ fun QueueProjectsDialog(
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                            modifier = Modifier.weight(1f)
                                         ) {
                                             Box(
                                                 modifier = Modifier
@@ -1022,25 +1404,61 @@ fun QueueProjectsDialog(
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
-                                                    text = "#${activeQueue.indexOf(qProjectName) + 1}",
+                                                    text = "#${waitingProjects.indexOf(project) + 1}",
                                                     color = Color(0xFFF59E0B),
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold
                                                 )
                                             }
-                                            Text(
-                                                text = qProjectName,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
-                                            )
+                                            Column {
+                                                Text(
+                                                    text = project.name,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White
+                                                )
+                                                Text(
+                                                    text = "Очікує вільний слот$targetTimeText",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = Color(0xFFF59E0B)
+                                                )
+                                            }
                                         }
 
-                                        Text(
-                                            text = "Очікує вільний слот",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color(0xFFF59E0B)
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            // Кнопка редагування часу
+                                            IconButton(
+                                                onClick = { projectToChangeNextRun = project },
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .background(Color(0xFF38BDF8).copy(alpha = 0.15f), CircleShape)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.EditCalendar,
+                                                    contentDescription = "Змінити час",
+                                                    tint = Color(0xFF38BDF8),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+
+                                            // Кнопка примусового запуску
+                                            IconButton(
+                                                onClick = { onStartProject(project.name) },
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .background(Color(0xFF10B981).copy(alpha = 0.15f), CircleShape)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.PlayArrow,
+                                                    contentDescription = "Запустити зараз",
+                                                    tint = Color(0xFF10B981),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1050,7 +1468,7 @@ fun QueueProjectsDialog(
                             }
                         }
 
-                        // Заплановані запуски за розкладом
+                        // 2. Заплановані запуски за розкладом
                         if (scheduledProjects.isNotEmpty()) {
                             item {
                                 Text(
@@ -1115,15 +1533,32 @@ fun QueueProjectsDialog(
 
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
                                             Text(
                                                 text = timeRemainingText,
                                                 style = MaterialTheme.typography.titleSmall,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF38BDF8)
+                                                color = Color(0xFF38BDF8),
+                                                modifier = Modifier.padding(end = 4.dp)
                                             )
 
+                                            // Кнопка редагування часу
+                                            IconButton(
+                                                onClick = { projectToChangeNextRun = project },
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .background(Color(0xFF38BDF8).copy(alpha = 0.15f), CircleShape)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.EditCalendar,
+                                                    contentDescription = "Змінити час",
+                                                    tint = Color(0xFF38BDF8),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+
+                                            // Кнопка запуску зараз
                                             IconButton(
                                                 onClick = { onStartProject(project.name) },
                                                 modifier = Modifier
@@ -1162,6 +1597,21 @@ fun QueueProjectsDialog(
                 }
             }
         }
+    }
+
+    // Діалог редагування часу для вибраного проєкту
+    if (projectToChangeNextRun != null) {
+        val p = projectToChangeNextRun!!
+        ChangeNextRunDialog(
+            projectName = p.name,
+            currentNextRun = p.plannedNodeRun ?: p.nextRun,
+            onDismiss = { projectToChangeNextRun = null },
+            onConfirm = { newRunAt ->
+                val targetName = p.name
+                projectToChangeNextRun = null
+                onChangeNextRun(targetName, newRunAt)
+            }
+        )
     }
 }
 

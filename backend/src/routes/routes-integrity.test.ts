@@ -8,6 +8,7 @@ import * as inventoryController from '../controllers/inventoryController';
 import * as configsController from '../controllers/configsController';
 import * as massLaunchesController from '../controllers/massLaunchesController';
 import * as projectDataController from '../controllers/projectDataController';
+import * as notificationsController from '../controllers/notificationsController';
 import * as browserController from '../controllers/browserController';
 import * as mediaController from '../controllers/mediaController';
 import * as projectRunner from '../runner/ProjectRunner';
@@ -84,6 +85,15 @@ describe('Decomposed Routes & Controllers Integrity', () => {
     expect(typeof projectDataController.saveProjectMap).toBe('function');
     expect(typeof projectDataController.deleteProjectMap).toBe('function');
     expect(typeof projectDataController.getProjectDeliveries).toBe('function');
+  });
+
+  it('should export all notifications controller handlers', () => {
+    expect(typeof notificationsController.getNotifications).toBe('function');
+    expect(typeof notificationsController.createNotification).toBe('function');
+    expect(typeof notificationsController.markNotificationRead).toBe('function');
+    expect(typeof notificationsController.markAllNotificationsRead).toBe('function');
+    expect(typeof notificationsController.deleteNotification).toBe('function');
+    expect(typeof notificationsController.deleteAllNotifications).toBe('function');
   });
 
   it('should export all browser controller handlers', () => {

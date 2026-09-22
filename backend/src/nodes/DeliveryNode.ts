@@ -21,13 +21,30 @@ export const deliveryNodeHandler = async ({
   };
 
   try {
+    // Допоміжна нормалізація імен та зображень
+    const norm = (s: string) => (s || '').toLowerCase().replace(/['"_\-\s.]+/g, '').replace(/(png|webp|jpg|jpeg)$/, '');
+
     // Читаємо відмічені доставки з globalVariables проекту
     const markedDeliveries = new Set<string>();
     const MARKED_KEY = '__markedDeliveries';
 
-    const legacyList = globalVariables?.[MARKED_KEY];
-    if (Array.isArray(legacyList)) {
-      legacyList.forEach((item: string) => markedDeliveries.add(item));
+    if (globalVariables) {
+      const legacyList = globalVariables[MARKED_KEY];
+      if (Array.isArray(legacyList)) {
+        legacyList.forEach((item: string) => {
+          if (typeof item === 'string' && item.trim()) markedDeliveries.add(item.trim());
+        });
+      }
+      for (const [k, v] of Object.entries(globalVariables)) {
+        if (k === MARKED_KEY) continue;
+        if (v === 1 || v === '1' || v === true) {
+          if (k.startsWith('__markedItems_')) {
+            markedDeliveries.add(k.replace('__markedItems_', ''));
+          } else if (!k.startsWith('__') && !k.startsWith('lastRun') && !k.startsWith('system_')) {
+            markedDeliveries.add(k);
+          }
+        }
+      }
     }
 
     if (markedDeliveries.size === 0) {
@@ -42,16 +59,14 @@ export const deliveryNodeHandler = async ({
 
     // Функція перевірки чи відмічена конкретна доставка
     const isMarked = (d: DeliveryConfig): boolean => {
-      const nameKey = d.name?.trim().toLowerCase();
-      const imageKey = d.image?.trim().toLowerCase();
-      const imageWithoutExt = imageKey ? imageKey.replace(/\.[^/.]+$/, "") : "";
+      const nName = norm(d.name || '');
+      const nImage = norm(d.image || '');
 
       for (const marked of markedDeliveries) {
-        const lowerMarked = marked.toLowerCase();
-        if (nameKey && lowerMarked === nameKey) return true;
-        if (imageKey && lowerMarked === imageKey) return true;
-        if (imageWithoutExt && lowerMarked === imageWithoutExt) return true;
-        if (nameKey && lowerMarked === nameKey + '.png') return true;
+        const nMarked = norm(marked);
+        if (!nMarked) continue;
+        if (nName && (nMarked === nName || nMarked.includes(nName) || nName.includes(nMarked))) return true;
+        if (nImage && (nMarked === nImage || nMarked.includes(nImage) || nImage.includes(nMarked))) return true;
       }
       return false;
     };
@@ -129,34 +144,25 @@ export const deliveryNodeHandler = async ({
 
         if (globalVariables && step3Selector && step3Clicked) {
           // Крок 4: зняти мітку
-            const legacyArr = globalVariables[MARKED_KEY];
-            if (Array.isArray(legacyArr)) {
-              const lowerName = deliveryName.trim().toLowerCase();
-              const lowerImage = deliveryImage.trim().toLowerCase();
-              const lowerImageNoExt = lowerImage.replace(/\.[^/.]+$/, "");
-              globalVariables[MARKED_KEY] = legacyArr.filter((item: string) => {
-                const lowerItem = item.trim().toLowerCase();
-                return lowerItem !== lowerName && 
-                       lowerItem !== lowerImage && 
-                       lowerItem !== lowerImageNoExt &&
-                       lowerItem !== `${lowerName}.png`;
-              });
+          const legacyArr = globalVariables[MARKED_KEY];
+          const nDeliveryName = norm(deliveryName);
+          const nDeliveryImage = norm(deliveryImage);
+
+          if (Array.isArray(legacyArr)) {
+            globalVariables[MARKED_KEY] = legacyArr.filter((item: string) => {
+              const nItem = norm(item);
+              return nItem !== nDeliveryName && nItem !== nDeliveryImage;
+            });
+          }
+
+          // Очищаємо всі змінні (і legacy, і __markedItems_, і окремі), які відповідають цій доставці
+          for (const k of Object.keys(globalVariables)) {
+            if (k === MARKED_KEY) continue;
+            const cleanedK = k.startsWith('__markedItems_') ? k.replace('__markedItems_', '') : k;
+            const nK = norm(cleanedK);
+            if (nK && (nK === nDeliveryName || nK === nDeliveryImage)) {
+              delete globalVariables[k];
             }
-
-          // Очищаємо всі можливі сигнатури
-          const varsToRemove = [
-            `__markedItems_${deliveryName}`,
-            `__markedItems_${deliveryImage}`,
-            `__markedItems_${deliveryName.toLowerCase()}`,
-            `__markedItems_${deliveryImage.toLowerCase()}`,
-            `__markedItems_${deliveryName}.png`,
-            `__markedItems_${deliveryName.toLowerCase()}.png`,
-            `__markedItems_${deliveryImage}.png`,
-            `__markedItems_${deliveryImage.toLowerCase()}.png`
-          ];
-
-          for (const v of varsToRemove) {
-            delete globalVariables[v];
           }
 
           broadcastVariables?.();

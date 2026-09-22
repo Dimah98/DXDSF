@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
+import { writeJsonAtomic } from '../utils/fileUtils';
 import { Logger } from '../logger';
 import { PROJECTS_DIR, SAVE_PATH } from '../constants';
 import { inputValidator } from '../validation/InputValidator';
@@ -36,16 +37,40 @@ const XP_TABLE_MAP: Record<number, number> = {
 
 const logger = new Logger('ProjectsController');
 
+interface CachedFileData {
+  mtimeMs: number;
+  data: any;
+}
+
+const fileJsonCache = new Map<string, CachedFileData>();
+
+async function getCachedJson(filePath: string): Promise<{ data: any; mtimeMs: number } | null> {
+  try {
+    const stat = await fs.promises.stat(filePath);
+    const cached = fileJsonCache.get(filePath);
+    if (cached && cached.mtimeMs === stat.mtimeMs) {
+      return { data: cached.data, mtimeMs: stat.mtimeMs };
+    }
+    const raw = await fs.promises.readFile(filePath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    fileJsonCache.set(filePath, { mtimeMs: stat.mtimeMs, data: parsed });
+    return { data: parsed, mtimeMs: stat.mtimeMs };
+  } catch {
+    fileJsonCache.delete(filePath);
+    return null;
+  }
+}
+
 export async function getProjects(_req: Request, res: Response): Promise<void> {
   try {
     const files = await fs.promises.readdir(PROJECTS_DIR);
     const projectFiles = files.filter(f => {
       if (!f.endsWith('.json')) return false;
       const name = f.replace('.json', '');
-      if (name === 'categories' || name === 'global_building_types') return false;
+      if (name === 'categories' || name === 'global_building_types' || name === 'buildings_catalog_settings') return false;
       if (name.endsWith('_layout') || name.endsWith('_save')) return false;
       if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
-      if (name.includes('schedule') || name.includes('notifications')) return false;
+      if (name.includes('schedule') || name.includes('notifications') || name.includes('buildings_catalog_settings')) return false;
       return true;
     });
     const projectNames = projectFiles.map(f => f.replace('.json', ''));
@@ -124,6 +149,7 @@ export function getProjectsStatus(_req: Request, res: Response): void {
   try {
     const statusMap: Record<string, { isRunning: boolean; activeNodeTitle: string | null; isBrowserOpen: boolean }> = {};
     sessions.forEach((session, projectName) => {
+      if (projectName === 'buildings_catalog_settings' || projectName.includes('buildings_catalog_settings')) return;
       statusMap[projectName] = {
         isRunning: session.isBotRunning,
         activeNodeTitle: session.lastActiveNodeTitle,
@@ -147,7 +173,7 @@ export async function getProjectRuns(req: Request, res: Response): Promise<void>
     }
     const runs = RunLogger.getRuns(name);
     runs.sort((a, b) => b.startTime - a.startTime);
-    res.json({ success: true, runs });
+    res.json({ success: true, runs: runs.slice(0, 10) });
   } catch (err: any) {
     logger.error(`Failed to get runs for project ${req.params.name}`, err instanceof Error ? err : new Error(String(err)));
     res.status(500).json({ success: false, error: 'Failed to retrieve project runs' });
@@ -295,7 +321,8 @@ export async function saveProject(req: Request, res: Response): Promise<void> {
     };
     
     try {
-      await fs.promises.writeFile(filePath, JSON.stringify(projectData, null, 2), 'utf-8');
+      await writeJsonAtomic(filePath, projectData);
+      fileJsonCache.delete(filePath);
       logger.info(`Project saved successfully`, { projectName: name, variableCount: Object.keys(vars).length });
     } catch (writeErr) {
       logger.error('Failed to write project file', writeErr instanceof Error ? writeErr : new Error(String(writeErr)), { path: filePath });
@@ -311,7 +338,7 @@ export async function saveProject(req: Request, res: Response): Promise<void> {
     
     if (name === 'default') {
       try {
-        await fs.promises.writeFile(SAVE_PATH, JSON.stringify(projectData, null, 2), 'utf-8');
+        await writeJsonAtomic(SAVE_PATH, projectData);
       } catch (backupErr) {
         logger.warn('Failed to write backup file', { path: SAVE_PATH, error: String(backupErr) });
       }
@@ -353,6 +380,8 @@ export async function deleteProjectHandler(req: Request, res: Response): Promise
     
     try {
       await fs.promises.unlink(filePath);
+      fileJsonCache.delete(filePath);
+      fileJsonCache.delete(path.join(PROJECTS_DIR, `${name}_save.json`));
       logger.info('Project file deleted', { projectName: name });
     } catch (deleteErr) {
       logger.error('Failed to delete project file', deleteErr instanceof Error ? deleteErr : new Error(String(deleteErr)), { path: filePath });
@@ -459,6 +488,25 @@ export async function stopMultipleProjects(req: Request, res: Response): Promise
   }
 }
 
+function cleanNodeForTarget(node: any): any {
+  if (!node || typeof node !== 'object') return node;
+  const { data, ...rest } = node;
+  const cleanData = { ...(data || {}) };
+
+  // Видаляємо просочені глобальні змінні та прив'язані ключі гаманця вихідного проекту
+  delete cleanData.globalVariables;
+  delete cleanData.walletPrivateKey;
+  if (node.type === 'roninWalletNode') {
+    delete cleanData.privateKey;
+    delete cleanData.walletPrivateKey;
+  }
+
+  if (Array.isArray(cleanData.subNodes)) {
+    cleanData.subNodes = cleanData.subNodes.map((sub: any) => cleanNodeForTarget(sub));
+  }
+  return { ...rest, data: cleanData };
+}
+
 export async function copyNodes(req: Request, res: Response): Promise<void> {
   try {
     const { sourceProject, targetProjects } = req.body;
@@ -479,8 +527,11 @@ export async function copyNodes(req: Request, res: Response): Promise<void> {
 
     const sourceContent = await fs.promises.readFile(sourcePath, 'utf-8');
     const sourceData = JSON.parse(sourceContent);
-    const nodes = sourceData.nodes || [];
+    const rawNodes = sourceData.nodes || [];
     const edges = sourceData.edges || [];
+
+    // Очищуємо ноди від чужих змінних та ключів гаманця вихідного проекту
+    const nodes = rawNodes.map((node: any) => cleanNodeForTarget(node));
 
     let updated = 0;
     const errors: string[] = [];
@@ -499,7 +550,7 @@ export async function copyNodes(req: Request, res: Response): Promise<void> {
         targetData.edges = edges;
         targetData.updatedAt = new Date().toISOString();
 
-        await fs.promises.writeFile(targetPath, JSON.stringify(targetData, null, 2), 'utf-8');
+        await writeJsonAtomic(targetPath, targetData);
         updated++;
         logger.info(`Successfully copied nodes from ${sourceProject} to ${target}`);
       } catch (err: any) {
@@ -574,7 +625,7 @@ export async function getProjectsOverview(_req: Request, res: Response): Promise
 
     let schedulesMap: Record<string, any> = {};
     try {
-      const schedules = schedulerService.getFullSchedule(PROJECTS_DIR);
+      const schedules = await schedulerService.getFullSchedule(PROJECTS_DIR);
       if (Array.isArray(schedules)) {
         schedules.forEach((s: any) => {
           if (s && s.projectName) {
@@ -627,23 +678,26 @@ export async function getProjectsOverview(_req: Request, res: Response): Promise
 
         let saveData: any = null;
         let projData: any = null;
+        let lastSaveUpdate: number | null = null;
         const savePath = path.join(PROJECTS_DIR, `${name}_save.json`);
         const projPath = path.join(PROJECTS_DIR, `${name}.json`);
 
-        try {
-          if (fs.existsSync(savePath)) {
-            const raw = await fs.promises.readFile(savePath, 'utf-8');
-            saveData = JSON.parse(raw);
-          }
-        } catch (_) {}
+        const cachedSave = await getCachedJson(savePath);
+        if (cachedSave) {
+          saveData = cachedSave.data;
+          lastSaveUpdate = Math.floor(cachedSave.mtimeMs);
+        }
 
-        try {
-          if (fs.existsSync(projPath)) {
-            const raw = await fs.promises.readFile(projPath, 'utf-8');
-            projData = JSON.parse(raw);
-            if (!saveData) saveData = projData;
+        const cachedProj = await getCachedJson(projPath);
+        if (cachedProj) {
+          projData = cachedProj.data;
+          if (!lastSaveUpdate) {
+            lastSaveUpdate = Math.floor(cachedProj.mtimeMs);
           }
-        } catch (_) {}
+          if (!saveData) {
+            saveData = projData;
+          }
+        }
 
         let vFarm = extractVFarm(saveData) || saveData?.visitedFarmState || saveData || {};
         if (projData) {
@@ -724,12 +778,27 @@ export async function getProjectsOverview(_req: Request, res: Response): Promise
         if (hasShipmentRestockedToday) {
           miniImages.push(['ppopow.png', null]);
         }
+        let completedDeliveries = 0;
+        const completedDeliveryTypes: string[] = [];
         const orders = vFarm.delivery?.orders;
         if (Array.isArray(orders)) {
           let count = 0;
           for (const order of orders) {
-            if (order && isToday(order.completedAt)) count++;
+            if (order && (order.completedAt != null || isToday(order.completedAt))) {
+              count++;
+              let rewardType = 'none';
+              const r = order.reward;
+              if (r) {
+                if ((r.coins && Number(r.coins) > 0) || (r.items && Number(r.items.coins) > 0)) {
+                  rewardType = 'coins';
+                } else if ((r.sfl && Number(r.sfl) > 0) || (r.items && (Number(r.items.Flower) > 0 || Number(r.items.FLOWER) > 0))) {
+                  rewardType = 'flower';
+                }
+              }
+              completedDeliveryTypes.push(rewardType);
+            }
           }
+          completedDeliveries = count;
           if (count > 0) miniImages.push(['mmisi.png', count]);
         }
         const minigames = vFarm.minigames?.games;
@@ -776,7 +845,10 @@ export async function getProjectsOverview(_req: Request, res: Response): Promise
           hasChestCollectedToday,
           hasShipmentRestockedToday,
           hasPetalPuzzleSolvedToday,
-          miniImages
+          miniImages,
+          completedDeliveries,
+          completedDeliveryTypes,
+          lastSaveUpdate
         };
       })
     );

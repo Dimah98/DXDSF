@@ -5,13 +5,31 @@ import { PROJECTS_DIR } from '../constants';
 import { schedulerService } from '../services';
 import { authMiddleware } from '../auth/AuthMiddleware';
 import { csrfMiddleware } from '../auth/CSRFMiddleware';
+import { projectQueueManager, getQueueConfig, getRunningProjectsCount } from '../runner/ProjectRunner';
+
+import { writeJsonAtomic, readJsonSafe } from '../utils/fileUtils';
 
 const router = Router();
 
-// GET /api/schedule — повний розклад всіх проектів
-router.get('/api/schedule', authMiddleware, (_req: Request, res: Response) => {
+// GET /api/queue — черга запуску проектів
+router.get('/api/queue', authMiddleware, (_req: Request, res: Response) => {
   try {
-    const schedule = schedulerService.getFullSchedule(PROJECTS_DIR);
+    const { maxParallel, queueMode } = getQueueConfig();
+    res.json({
+      queue: projectQueueManager.getQueuedProjects(),
+      maxParallel,
+      activeRunning: getRunningProjectsCount(),
+      queueMode
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get queue' });
+  }
+});
+
+// GET /api/schedule — повний розклад всіх проектів
+router.get('/api/schedule', authMiddleware, async (_req: Request, res: Response) => {
+  try {
+    const schedule = await schedulerService.getFullSchedule(PROJECTS_DIR);
     res.json(schedule);
   } catch (err) {
     res.status(500).json({ error: 'Failed to get schedule' });
@@ -19,7 +37,7 @@ router.get('/api/schedule', authMiddleware, (_req: Request, res: Response) => {
 });
 
 // PUT /api/schedule/:projectName — оновити launchSettings проекту
-router.put('/api/schedule/:projectName', authMiddleware, csrfMiddleware, (req: Request, res: Response) => {
+router.put('/api/schedule/:projectName', authMiddleware, csrfMiddleware, async (req: Request, res: Response) => {
   const { projectName } = req.params;
   const { mode, intervalValue, intervalUnit, randomOffsetMinutes, scheduleTime, scheduleDays } = req.body;
 
@@ -30,7 +48,11 @@ router.put('/api/schedule/:projectName', authMiddleware, csrfMiddleware, (req: R
   }
 
   try {
-    const projectData = JSON.parse(fs.readFileSync(projectPath, 'utf-8'));
+    const projectData = await readJsonSafe<any>(projectPath, null);
+    if (!projectData) {
+      res.status(500).json({ error: 'Failed to read project file' });
+      return;
+    }
     projectData.launchSettings = {
       mode: mode || 'none',
       intervalValue: Number(intervalValue) || 0,
@@ -39,7 +61,7 @@ router.put('/api/schedule/:projectName', authMiddleware, csrfMiddleware, (req: R
       scheduleTime: scheduleTime || '09:00',
       scheduleDays: scheduleDays || [],
     };
-    fs.writeFileSync(projectPath, JSON.stringify(projectData, null, 2), 'utf-8');
+    await writeJsonAtomic(projectPath, projectData);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update schedule' });
@@ -51,6 +73,27 @@ router.delete('/api/schedule/:projectName/node', authMiddleware, csrfMiddleware,
   const { projectName } = req.params;
   schedulerService.removeScheduledRun(projectName, 'node');
   res.json({ success: true });
+});
+
+// POST /api/schedule/:projectName/next-run — встановити або змінити час наступного запуску
+router.post('/api/schedule/:projectName/next-run', authMiddleware, csrfMiddleware, (req: Request, res: Response) => {
+  const { projectName } = req.params;
+  const { runAt, delayMinutes } = req.body;
+
+  let targetRunAt: number | null = null;
+  if (typeof runAt === 'number') {
+    targetRunAt = runAt;
+  } else if (typeof delayMinutes === 'number') {
+    targetRunAt = Date.now() + delayMinutes * 60 * 1000;
+  }
+
+  if (targetRunAt !== null) {
+    schedulerService.addScheduledRun(projectName, targetRunAt, 'node');
+    res.json({ success: true, nextRun: targetRunAt });
+  } else {
+    schedulerService.removeScheduledRun(projectName, 'node');
+    res.json({ success: true, nextRun: null });
+  }
 });
 
 export default router;

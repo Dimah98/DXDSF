@@ -12,14 +12,14 @@ export interface Notification {
 export class NotificationService {
   private notifications: Notification[] = [];
   // Приватне поле для збереження функції зворотного виклику при додаванні сповіщення
-  private onNotificationAdded?: (projectName: string, message: string) => void;
+  private onNotificationAdded?: (projectName: string, message: string, notification: Notification) => void;
   // Шлях до файлу збереження сповіщень
   private filePath: string;
   // Максимальна кількість збережених сповіщень у системі
   private maxNotifications = 500;
 
   // Конструктор класу з підтримкою необов'язкового зворотного виклику
-  constructor(projectsDir: string, onNotificationAdded?: (projectName: string, message: string) => void) {
+  constructor(projectsDir: string, onNotificationAdded?: (projectName: string, message: string, notification: Notification) => void) {
     // Встановлюємо шлях до файлу notifications.json
     this.filePath = path.join(projectsDir, 'notifications.json');
     // Зберігаємо функцію зворотного виклику в приватне поле класу
@@ -72,7 +72,7 @@ export class NotificationService {
     this.save();
     
     if (this.onNotificationAdded) {
-      this.onNotificationAdded(projectName, message);
+      this.onNotificationAdded(projectName, message, notification);
     }
 
     return notification;

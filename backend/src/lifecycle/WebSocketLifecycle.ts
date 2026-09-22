@@ -81,10 +81,17 @@ export class WebSocketLifecycle {
   registerConnection(ws: ExtendedWebSocket, projectName: string): void {
     // Ensure lastActivity is set so inactivity tracking works from the start
     ws.lastActivity = ws.lastActivity || Date.now();
-    ws.projectName = projectName;
-
     this.connections.add(ws);
     logger.debug('WebSocket connection registered', { projectName, totalConnections: this.connections.size });
+
+    const session = this.sessionLookup(projectName);
+    if (session) {
+      if (!session.activeSockets) {
+        session.activeSockets = new Set();
+      }
+      session.activeSockets.add(ws);
+      session.activeWs = ws;
+    }
 
     // Requirement 8.1: Register close event handler
     const onClose = (code: number, reason: Buffer) => {
@@ -139,10 +146,35 @@ export class WebSocketLifecycle {
     try {
       // Requirement 8.2: Remove WebSocket reference from the associated session
       const session = this.sessionLookup(ws.projectName);
-      if (session && session.activeWs === ws) {
-        session.activeWs = null;
+      if (session) {
+        if (session.activeSockets) {
+          session.activeSockets.delete(ws);
+          if (session.activeWs === ws) {
+            session.activeWs = session.activeSockets.values().next().value || null;
+          }
+        } else if (session.activeWs === ws) {
+          session.activeWs = null;
+        }
         logger.debug('Cleared activeWs from session', { projectName: ws.projectName });
       }
+
+      // Clean up internal timers and CDP screencast
+      if ((ws as any)._streamTimer) {
+        try { clearTimeout((ws as any)._streamTimer); } catch (_) {}
+        delete (ws as any)._streamTimer;
+      }
+      if ((ws as any)._msgResetTimer) {
+        try { clearInterval((ws as any)._msgResetTimer); } catch (_) {}
+        delete (ws as any)._msgResetTimer;
+      }
+      if ((ws as any)._cdpScreencast) {
+        try {
+          (ws as any)._cdpScreencast.send('Page.stopScreencast').catch(() => {});
+          (ws as any)._cdpScreencast.detach().catch(() => {});
+        } catch (_) {}
+        delete (ws as any)._cdpScreencast;
+      }
+      (ws as any).isStreaming = false;
 
       // Requirement 8.3 / 28.3: Remove all event listeners
       ws.removeAllListeners();
@@ -330,4 +362,22 @@ export class WebSocketLifecycle {
   updateActivity(ws: ExtendedWebSocket): void {
     ws.lastActivity = Date.now();
   }
+
+  /**
+   * Broadcast a message to all active WebSocket connections,
+   * optionally filtered by project name.
+   */
+  broadcast(msg: string | object, projectNameFilter?: string): void {
+    const payload = typeof msg === 'string' ? msg : JSON.stringify(msg);
+    for (const ws of this.connections) {
+      if (ws.readyState === WebSocket.OPEN) {
+        if (!projectNameFilter || ws.projectName === projectNameFilter || ws.projectName === 'default') {
+          try {
+            ws.send(payload);
+          } catch (_) {}
+        }
+      }
+    }
+  }
 }
+

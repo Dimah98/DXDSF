@@ -18,22 +18,8 @@ import { useCanvasActions } from '../../hooks/useCanvasActions';
 import { useClipboard } from '../../hooks/useClipboard';
 import { attachEdgeCallbacks } from '../../utils/flowUtils';
 import { useExecutionStore } from '../../store/useExecutionStore';
+import { GroupSettingsModal } from './GroupSettingsModal';
 import '@xyflow/react/dist/style.css';
-
-// API base URL
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-
-// Fetch configs list
-async function fetchConfigs(): Promise<{ id: string; name: string }[]> {
-  try {
-    const res = await fetch(`${API_BASE}/api/configs`, { credentials: 'include' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.configs?.map((c: any) => ({ id: c.id, name: c.name })) || [];
-  } catch (e) {
-    return [];
-  }
-}
 
 // Лічильник ID для нових суб-нод
 let subIdCounter = Date.now();
@@ -153,7 +139,8 @@ const SubCanvas = ({
     onCopyRaw,
     getPasteData: getPasteData as any,
     attachCallbacks: attachCallbacks as any,
-    protectedIds: PROTECTED_IDS
+    protectedIds: PROTECTED_IDS,
+    filterPasteNodes: (node) => !['startNode', 'groupNode', 'subEntryNode', 'subExitNode'].includes(node.type || '')
   });
 
   // Підключаємо колбеки до під-нод та оновлюємо змінні всередині контейнера
@@ -264,13 +251,6 @@ const SubCanvas = ({
     setMenu(null);
   }, []);
 
-  // Перетворює координати вікна у відносні до модалки
-  const toRelativeCoords = useCallback((clientX: number, clientY: number) => {
-    const rect = modalRef.current?.getBoundingClientRect();
-    if (!rect) return { x: clientX, y: clientY };
-    return { x: clientX - rect.left, y: clientY - rect.top };
-  }, []);
-
   const onNodeContextMenu = useCallback((event: any, node: RFNode) => {
     const target = event.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
@@ -278,23 +258,49 @@ const SubCanvas = ({
     }
     event.preventDefault();
     event.stopPropagation();
-    const { x, y } = toRelativeCoords(event.clientX, event.clientY);
-    setMenu({ x, y, type: 'node', nodeId: node.id });
-  }, [toRelativeCoords]);
+
+    // Виділяємо ноду при кліку ПКМ, якщо вона ще не виділена
+    if (!node.selected) {
+      setNodes(nds => nds.map(n => ({
+        ...n,
+        selected: n.id === node.id
+      })));
+      setSelectedInnerNodes([node]);
+    }
+
+    setMenu({ 
+      x: event.clientX, 
+      y: event.clientY, 
+      type: 'node', 
+      nodeId: node.id,
+      nodeType: node.type,
+      hasSelection: true 
+    });
+  }, [setNodes]);
 
   const onPaneContextMenu = useCallback((event: any) => {
     event.preventDefault();
     event.stopPropagation();
-    const { x, y } = toRelativeCoords(event.clientX, event.clientY);
-    setMenu({ x, y, type: 'pane' });
-  }, [toRelativeCoords]);
+    const hasSelection = subNodesRef.current.some(n => n.selected && !PROTECTED_IDS.includes(n.id));
+    setMenu({ 
+      x: event.clientX, 
+      y: event.clientY, 
+      type: 'pane',
+      hasSelection 
+    });
+  }, []);
 
   const onSelectionContextMenu = useCallback((event: any) => {
     event.preventDefault();
     event.stopPropagation();
-    const { x, y } = toRelativeCoords(event.clientX, event.clientY);
-    setMenu({ x, y, type: 'pane' });
-  }, [toRelativeCoords]);
+    const hasSelection = subNodesRef.current.some(n => n.selected && !PROTECTED_IDS.includes(n.id));
+    setMenu({ 
+      x: event.clientX, 
+      y: event.clientY, 
+      type: 'pane',
+      hasSelection 
+    });
+  }, []);
 
   // Drag-and-drop нових нод із міні-сайдбару
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -323,19 +329,36 @@ const SubCanvas = ({
     setNodes(nds => attachCallbacks([...nds, newNode]));
   }, [reactFlowInstance, attachCallbacks, setNodes]);
 
-  // Клавіатурні скорочення (Ctrl+C / Ctrl+V) для sub-canvas
+  // Клавіатурні скорочення (Ctrl+C / Ctrl+V / Delete) для sub-canvas з підтримкою української розкладки
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Якщо фокус у полі вводу — дозволяємо стандартну поведінку
       const activeEl = document.activeElement;
-      if (activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA') return;
+      if (activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA' || (activeEl as HTMLElement)?.isContentEditable) return;
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') { onCopy(); e.preventDefault(); }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') { onPaste(); e.preventDefault(); }
-      if (e.key === 'Delete' || e.key === 'Backspace') { onDeleteSelected(); }
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+      const keyLower = e.key?.toLowerCase();
+      const isC = e.code === 'KeyC' || keyLower === 'c' || keyLower === 'с'; // en 'c' or ukr 'с'
+      const isV = e.code === 'KeyV' || keyLower === 'v' || keyLower === 'м'; // en 'v' or ukr 'м'
+
+      if (isCtrlOrMeta && isC) { 
+        e.preventDefault(); 
+        e.stopPropagation();
+        onCopy(); 
+      }
+      if (isCtrlOrMeta && isV) { 
+        e.preventDefault(); 
+        e.stopPropagation();
+        onPaste(); 
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') { 
+        e.preventDefault();
+        e.stopPropagation();
+        onDeleteSelected(); 
+      }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, [onCopy, onPaste, onDeleteSelected]);
 
   // Захист від видалення subEntry/subExit
@@ -633,31 +656,67 @@ const GroupNode = memo(({ id, data }: any) => {
     return data.getEdges?.() ?? [];
   }, [data]);
 
-  const [configs, setConfigs] = useState<{ id: string; name: string }[]>([]);
-  const [configOpen, setConfigOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Завантаження списку конфігурацій
+  // Слухаємо подію відкриття налаштувань контейнера з ПКМ меню
   useEffect(() => {
-    fetchConfigs().then(setConfigs);
-  }, []);
+    const handler = (e: any) => {
+      if (e.detail?.nodeId === id) {
+        setIsSettingsOpen(true);
+      }
+    };
+    window.addEventListener('sfl-open-group-settings', handler);
+    return () => window.removeEventListener('sfl-open-group-settings', handler);
+  }, [id]);
 
-  const handleConfigChange = useCallback((configId: string | null) => {
-    data.onDataChange?.(id, { configId });
-  }, [id, data]);
+  // Відстежуємо стан виконання контейнера або його внутрішніх нод
+  const isBotRunning = useExecutionStore((s) => s.isBotRunning);
+  const activeExecutingNodeId = useExecutionStore((s) => s.activeExecutingNodeId);
+  const [isExecutingLocally, setIsExecutingLocally] = useState(false);
 
-  const innerCount = subNodes.filter(n => !['subEntryNode', 'subExitNode'].includes(n.type)).length;
-  const selectedConfig = configs.find(c => c.id === data.configId);
+  useEffect(() => {
+    const handleExec = (e: any) => {
+      const execNodeId = e.detail?.nodeId;
+      const parentGroupId = e.detail?.parentGroupId;
+      if (execNodeId === id || parentGroupId === id) {
+        setIsExecutingLocally(true);
+      } else if (execNodeId && !subNodes.some((n: any) => n.id === execNodeId)) {
+        setIsExecutingLocally(false);
+      }
+    };
+    const handleFinished = () => {
+      setIsExecutingLocally(false);
+    };
+    window.addEventListener('sfl-node-executing', handleExec);
+    window.addEventListener('sfl-bot-finished', handleFinished);
+    return () => {
+      window.removeEventListener('sfl-node-executing', handleExec);
+      window.removeEventListener('sfl-bot-finished', handleFinished);
+    };
+  }, [id, subNodes]);
+
+  // Контейнер світиться ТІЛЬКИ коли бот/проект реально запущений
+  const isExecuting =
+    Boolean(isBotRunning) &&
+    (isExecutingLocally ||
+      activeExecutingNodeId === id ||
+      (Boolean(activeExecutingNodeId) && subNodes.some((n: any) => n.id === activeExecutingNodeId)));
 
   return (
     <>
-      {/* ── Зовнішній вигляд ── */}
+      {/* ── Зовнішній вигляд (ширина зменшена на 15%: 270 -> 230) ── */}
       <div
-        className="relative rounded-xl border-2 shadow-xl overflow-visible transition-colors duration-300"
+        className={`relative rounded-xl border-2 shadow-xl overflow-visible transition-all duration-300 ${
+          isExecuting ? 'ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900' : ''
+        }`}
         style={{
-          width: 260,
-          minHeight: 120,
+          width: 230,
           background: `linear-gradient(145deg, #0f1e40, ${nodeColor})`,
-          borderColor: data.configId ? '#f59e0b' : nodeColor,
+          borderColor: isExecuting ? '#3b82f6' : nodeColor,
+          boxShadow: isExecuting
+            ? '0 0 25px rgba(59, 130, 246, 0.85), 0 0 10px rgba(59, 130, 246, 0.5)'
+            : '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+          outline: isExecuting ? '2px solid #3b82f6' : 'none',
           backdropFilter: 'blur(8px)',
         }}
       >
@@ -676,113 +735,50 @@ const GroupNode = memo(({ id, data }: any) => {
           className="!right-[-8px] !w-4 !h-4"
         />
 
-        {/* Заголовок */}
+        {/* Заголовок: іконка, назва контейнера, кнопка пуск і кнопка відкрити */}
         <div
-          className="drag-handle flex items-center justify-between px-3 py-2 cursor-grab"
-          style={{ background: 'rgba(0,0,0,0.4)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+          className="drag-handle flex items-center justify-between px-2.5 py-2 cursor-grab rounded-[10px]"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          onDoubleClick={() => setIsSettingsOpen(true)}
+          title="Подвійний клік або ПКМ для налаштувань"
         >
-          <div className="flex items-center gap-1.5 flex-1 min-w-0 mr-2">
+          <div className="flex items-center gap-1.5 flex-1 min-w-0 mr-1.5">
             <Package size={14} className="text-white drop-shadow shrink-0" />
+            {isExecuting && (
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+              </span>
+            )}
             <input
               type="text"
               value={data.label || 'Контейнер'}
               onChange={(e) => data.onDataChange?.(id, { label: e.target.value })}
-              className="text-[11px] font-bold text-white bg-transparent outline-none w-full border-b border-transparent hover:border-white/30 focus:border-white/70 transition-colors"
+              className="text-[11px] font-bold text-white bg-transparent outline-none w-full border-b border-transparent hover:border-white/30 focus:border-white/70 transition-colors truncate"
               placeholder="Назва контейнера"
             />
           </div>
           
           <div className="flex items-center gap-1 shrink-0">
-            {/* Вибір кольору */}
-            <input
-              type="color"
-              value={nodeColor}
-              onChange={(e) => data.onDataChange?.(id, { color: e.target.value })}
-              className="w-4 h-4 p-0 border-0 rounded cursor-pointer bg-transparent"
-              title="Змінити колір контейнера"
-            />
-            <button
-              onMouseDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); setConfigOpen(!configOpen); }}
-              className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold transition-colors border ${
-                data.configId 
-                  ? 'text-amber-300 bg-amber-500/20 hover:bg-amber-500/40 border-amber-500/40' 
-                  : 'text-white/50 bg-white/10 hover:bg-white/25 border-white/20'
-              }`}
-              title={selectedConfig ? `Конфіг: ${selectedConfig.name}` : 'Вибрати конфігурацію'}
-            >
-              <Settings size={10} />
-              {selectedConfig ? '⚙️' : '⚙'}
-            </button>
+            {/* Кнопка: Пуск */}
             <button
               onMouseDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); data.onRunGroup?.(id, subNodes, subEdges); }}
-              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-green-300 bg-green-500/20 hover:bg-green-500/40 transition-colors border border-green-500/40"
+              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-green-300 bg-green-500/20 hover:bg-green-500/40 transition-colors border border-green-500/40 cursor-pointer"
               title="Запустити тільки ноди всередині контейнера"
             >
               <Play size={10} />
               Пуск
             </button>
+            {/* Кнопка: Відкрити */}
             <button
               onMouseDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); setIsOpen(true); }}
-              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-white/10 hover:bg-white/25 transition-colors border border-white/20"
+              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold text-white bg-white/10 hover:bg-white/25 transition-colors border border-white/20 cursor-pointer"
             >
               <ChevronRight size={10} />
               Відкрити
             </button>
-          </div>
-        </div>
-
-        {/* Вибір конфігурації */}
-        {configOpen && (
-          <div className="px-3 py-2 border-b border-white/10" style={{ background: 'rgba(0,0,0,0.3)' }}>
-            <div className="text-[9px] text-white/50 mb-1">Конфігурація для перевірки:</div>
-            <select
-              value={data.configId || ''}
-              onChange={(e) => handleConfigChange(e.target.value || null)}
-              className="w-full text-[10px] bg-black/40 text-white border border-white/20 rounded px-2 py-1 outline-none focus:border-amber-500/50"
-            >
-              <option value="">— Не вибрано (завжди запускати) —</option>
-              {configs.map(cfg => (
-                <option key={cfg.id} value={cfg.id}>{cfg.name}</option>
-              ))}
-            </select>
-            {data.configId && (
-              <div className="mt-1 text-[8px] text-amber-400/70">
-                Контейнер запуститься тільки якщо конфіг = TRUE
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Вікно статусу */}
-        <div className="p-3">
-          <div
-            className="rounded-lg px-3 py-2 flex items-center gap-2 min-h-[40px]"
-            style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}
-          >
-            {activeLabel ? (
-              <>
-                {ActiveIcon ? (
-                  <span className="text-yellow-300">
-                    <ActiveIcon size={14} />
-                  </span>
-                ) : (
-                  <span className="text-sm">💡</span>
-                )}
-                <span className="text-[10px] font-semibold text-white/90 truncate">{activeLabel}</span>
-              </>
-            ) : (
-              <span className="text-[9px] text-white/25 italic">
-                {data.configId 
-                  ? `Перевірка: ${selectedConfig?.name || '...'}` 
-                  : 'Підпрограма не виконується...'}
-              </span>
-            )}
-          </div>
-          <div className="mt-1.5 text-[8px] text-white/50 text-right font-medium">
-            {innerCount} нод всередині
           </div>
         </div>
       </div>
@@ -801,6 +797,17 @@ const GroupNode = memo(({ id, data }: any) => {
           onExportData={handleExportData}
         />
       )}
+
+      {/* ── Модалка налаштувань контейнера (ПКМ / дабл-клік / бейджі) ── */}
+      <GroupSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        data={data}
+        nodeData={data}
+        onSave={(updatedData) => {
+          data.onDataChange?.(id, updatedData);
+        }}
+      />
     </>
   );
 });

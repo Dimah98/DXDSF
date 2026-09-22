@@ -46,7 +46,10 @@ data class ProjectModel(
     val season: String? = null,
     val hasChestCollectedToday: Boolean = false,
     val hasShipmentRestockedToday: Boolean = false,
-    val hasPetalPuzzleSolvedToday: Boolean = false
+    val hasPetalPuzzleSolvedToday: Boolean = false,
+    val completedDeliveries: Int = 0,
+    val completedDeliveryTypes: List<String> = emptyList(),
+    val lastSaveUpdate: Long? = null
 )
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
@@ -146,7 +149,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             season = e.season,
                             hasChestCollectedToday = e.hasChestCollectedToday,
                             hasShipmentRestockedToday = e.hasShipmentRestockedToday,
-                            hasPetalPuzzleSolvedToday = e.hasPetalPuzzleSolvedToday
+                            hasPetalPuzzleSolvedToday = e.hasPetalPuzzleSolvedToday,
+                            completedDeliveries = e.completedDeliveries,
+                            completedDeliveryTypes = e.completedDeliveryTypes.split(",").filter { it.isNotBlank() },
+                            lastSaveUpdate = e.lastSaveUpdate
                         )
                     }
                 }
@@ -244,7 +250,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             season = item.season,
                             hasChestCollectedToday = item.hasChestCollectedToday,
                             hasShipmentRestockedToday = item.hasShipmentRestockedToday,
-                            hasPetalPuzzleSolvedToday = item.hasPetalPuzzleSolvedToday
+                            hasPetalPuzzleSolvedToday = item.hasPetalPuzzleSolvedToday,
+                            completedDeliveries = item.completedDeliveries,
+                            completedDeliveryTypes = item.completedDeliveryTypes,
+                            lastSaveUpdate = item.lastSaveUpdate
                         )
                     }
                 } catch (overviewErr: Exception) {
@@ -305,6 +314,36 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                 val hasShipmentRestockedToday = isToday(shipmentRestockedAt)
                                 val hasPetalPuzzleSolvedToday = isToday(petalSolvedAt)
 
+                                val lastSaveUpdate = (projectSaveData?.get("lastSaveUpdate") as? Number)?.toLong()
+                                val ordersList = (vFarm?.get("delivery") as? Map<*, *>)?.get("orders") as? List<*>
+                                val completedDeliveryTypes = mutableListOf<String>()
+                                var completedDeliveries = 0
+                                ordersList?.forEach { order ->
+                                    val orderMap = order as? Map<*, *>
+                                    if (orderMap != null && (orderMap["completedAt"] != null || isToday(orderMap["completedAt"]))) {
+                                        completedDeliveries++
+                                        var rewardType = "none"
+                                        val reward = orderMap["reward"] as? Map<*, *>
+                                        if (reward != null) {
+                                            val coins = (reward["coins"] as? Number)?.toDouble() ?: 0.0
+                                            val sfl = (reward["sfl"] as? Number)?.toDouble() ?: 0.0
+                                            val items = reward["items"] as? Map<*, *>
+                                            val itemsCoins = (items?.get("coins") as? Number)?.toDouble() ?: 0.0
+                                            val hasFlowerItem = items?.keys?.any { k ->
+                                                val str = k.toString().lowercase()
+                                                str == "flower" && ((items[k] as? Number)?.toDouble() ?: 0.0) > 0
+                                            } == true
+
+                                            if (coins > 0 || itemsCoins > 0) {
+                                                rewardType = "coins"
+                                            } else if (sfl > 0 || hasFlowerItem) {
+                                                rewardType = "flower"
+                                            }
+                                        }
+                                        completedDeliveryTypes.add(rewardType)
+                                    }
+                                }
+
                                 ProjectModel(
                                     name = name,
                                     isRunning = statusInfo?.isRunning ?: false,
@@ -321,7 +360,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                     season = season,
                                     hasChestCollectedToday = hasChestCollectedToday,
                                     hasShipmentRestockedToday = hasShipmentRestockedToday,
-                                    hasPetalPuzzleSolvedToday = hasPetalPuzzleSolvedToday
+                                    hasPetalPuzzleSolvedToday = hasPetalPuzzleSolvedToday,
+                                    completedDeliveries = completedDeliveries,
+                                    completedDeliveryTypes = completedDeliveryTypes,
+                                    lastSaveUpdate = lastSaveUpdate
                                 )
                             }
                         }.awaitAll()
@@ -357,6 +399,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         hasChestCollectedToday = it.hasChestCollectedToday,
                         hasShipmentRestockedToday = it.hasShipmentRestockedToday,
                         hasPetalPuzzleSolvedToday = it.hasPetalPuzzleSolvedToday,
+                        completedDeliveries = it.completedDeliveries,
+                        completedDeliveryTypes = it.completedDeliveryTypes.joinToString(","),
+                        lastSaveUpdate = it.lastSaveUpdate,
                         cachedAt = System.currentTimeMillis()
                     )
                 })
@@ -437,6 +482,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 val response = apiService.getNotifications()
                 _notificationCount.value = response.unreadCount
+                NotificationSyncWorker.checkAndShowNewNotifications(context, response.notifications)
                 dao.insertNotifications(response.notifications.map {
                     CachedNotificationEntity(
                         id = it.id,
@@ -677,6 +723,19 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             } catch (e: Exception) {
                 Log.e(TAG, "Error closing all browsers: ${e.message}")
                 _errorEvents.emit("❌ Помилка закриття браузерів: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun setNextRun(projectName: String, runAt: Long?) {
+        viewModelScope.launch {
+            try {
+                apiService.setNextRun(projectName, NextRunRequest(runAt = runAt))
+                _errorEvents.emit("⏰ Час наступного запуску для $projectName змінено")
+                refreshData()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error setting next run: ${e.message}")
+                _errorEvents.emit("❌ Не вдалося змінити час запуску: ${e.localizedMessage}")
             }
         }
     }

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Globe, Map as MapIcon, Package, Camera, Truck, CalendarClock, LayoutGrid,
-  ChevronRight, ChevronLeft, Square, Play, Boxes, Images, SlidersHorizontal
+  ChevronRight, ChevronLeft, Square, Play, Boxes, Images, SlidersHorizontal, Eye, Hammer
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -63,6 +63,9 @@ import ScreenshotNode from './CustomNodes/ScreenshotNode';
 import MemoryGameNode from './CustomNodes/MemoryGameNode'; // Нода Гра Пам'ять
 import WhackAMoleNode from './CustomNodes/WhackAMoleNode'; // Нода Вдарь Крота
 import SequenceMemoryNode from './CustomNodes/SequenceMemoryNode'; // Нода Гра Послідовність
+import FruitRunnerNode from './CustomNodes/FruitRunnerNode'; // Нода Фруктовий Ранер
+import ChickenRescueNode from './CustomNodes/ChickenRescueNode'; // Нода Порятунок Кур
+import CaptchaNode from './CustomNodes/CaptchaNode'; // Нода Капча
 // Імпортуємо новий компонент для введення тексту та кліку
 import SearchAndClickNode from './CustomNodes/SearchAndClickNode';
 import ConfigNode from './CustomNodes/ConfigNode';
@@ -70,8 +73,10 @@ import IslandArrangerNode from './CustomNodes/IslandArrangerNode';
 import TextInputNode from './CustomNodes/TextInputNode';
 import FlowerPlanterNode from './CustomNodes/FlowerPlanterNode';
 import DeliveryNode from './CustomNodes/DeliveryNode';
+import BuildingPlacerNode from './CustomNodes/BuildingPlacerNode';
 import FoodNode from './CustomNodes/FoodNode';
 import { RoninWalletNode } from './CustomNodes/RoninWalletNode';
+import BrowserResizeNode from './CustomNodes/BrowserResizeNode';
 import DelayEdge from './DelayEdge';
 import GlobalSettings from './GlobalSettings';
 import Sidebar from './Sidebar';
@@ -81,6 +86,7 @@ import { PortTooltipManager } from './PortTooltipManager';
 import { NODE_CONFIG } from '../nodeConfig';
 import { useUIStore } from '../store/useUIStore';
 import { useGlobalSettingsStore } from '../store/useGlobalSettingsStore';
+import { useExecutionStore } from '../store/useExecutionStore';
 import { ConsolePane } from './ConsolePane';
 import { NodeContextMenu } from './ui/NodeContextMenu';
 import ProjectManagerModal from './ProjectManagerModal'; // Менеджер проектів
@@ -91,6 +97,7 @@ import { AllDeliveriesModal } from './Modals/AllDeliveriesModal';
 import { AllScreenshotsModal } from './Modals/AllScreenshotsModal';
 import { AllInventoriesModal } from './Modals/AllInventoriesModal';
 import { InventoryModal } from './InventoryModal'; // Модалка інвентаря
+import { PurchasableBuildingsModal } from './PurchasableBuildingsModal';
 import ScreenshotSidebar from './ScreenshotSidebar'; // Панель скріншотів
 
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -106,6 +113,7 @@ const nodeTypes = {
   coordOffsetNode: CoordOffsetNode,
   conditionNode: CompareNode,
   browserNode: BrowserNode,
+  browserResizeNode: BrowserResizeNode,
   infoNode: InfoNode,
   displayNode: DisplayNode,
   imageSearchNode: ImageSearchNode,
@@ -146,12 +154,16 @@ const nodeTypes = {
   memoryGameNode: MemoryGameNode,  // Гра Пам'ять
   whackAMoleNode: WhackAMoleNode,  // Гра Вдарь Крота
   sequenceMemoryNode: SequenceMemoryNode,  // Гра Послідовність (Simon Says)
+  fruitRunnerNode: FruitRunnerNode,  // Фруктовий Ранер (Dodge & Collect)
+  chickenRescueNode: ChickenRescueNode,  // Порятунок Кур (Chicken Rescue)
+  captchaSolverNode: CaptchaNode,  // Капча (Quick Check)
   searchAndClickNode: SearchAndClickNode,
   configNode: ConfigNode,
   islandArrangerNode: IslandArrangerNode,
   textInputNode: TextInputNode,
   flowerPlanterNode: FlowerPlanterNode,
   deliveryNode: DeliveryNode,
+  buildingPlacerNode: BuildingPlacerNode,
   foodNode: FoodNode,
   roninWalletNode: RoninWalletNode,
 };
@@ -281,6 +293,8 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
   // Стан відображення модалки інвентаря
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [buildingToPlaceOnMap, setBuildingToPlaceOnMap] = useState<string | null>(null);
+  const [isPurchasableBuildingsOpen, setIsPurchasableBuildingsOpen] = useState(false);
   const [isDeliveriesOpen, setIsDeliveriesOpen] = useState(false);
   const [isAllDeliveriesOpen, setIsAllDeliveriesOpen] = useState(false);
   const [isAllScreenshotsOpen, setIsAllScreenshotsOpen] = useState(false);
@@ -493,6 +507,7 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
         settings
       }));
       setIsBotRunning(true);
+      useExecutionStore.getState().setIsBotRunning(true);
       addLog('Запуск контейнера...', 'success');
     }
   }, [addLog]);
@@ -733,6 +748,7 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'STOP_BOT' }));
       setIsBotRunning(false);
+      useExecutionStore.getState().notifyBotFinished();
       addLog('Бот зупинений користувачем', 'info');
     }
   }, [addLog]);
@@ -786,7 +802,7 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
     event.preventDefault();
     if (!node.selected) setNodes(nds => nds.map(n => ({ ...n, selected: n.id === node.id })));
     // Примусово вважаємо що є виділення, бо ми щойно клікнули по ноді (і виділили її)
-    setMenu({ x: event.clientX, y: event.clientY, type: 'node', nodeId: node.id, hasSelection: true });
+    setMenu({ x: event.clientX, y: event.clientY, type: 'node', nodeId: node.id, nodeType: node.type, hasSelection: true });
   }, [setNodes]);
 
   const onSelectionContextMenu = useCallback((event: any) => {
@@ -820,9 +836,30 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
         settings
       }));
       setIsBotRunning(true);
+      useExecutionStore.getState().setIsBotRunning(true);
       addLog('Запуск сценарію...', 'success');
     }
   }, [addLog]);
+
+  const handleOpenVisibleBrowser = useCallback(async () => {
+    if (!currentProject) return;
+    addLog(`🌐 Запуск браузера проекту [${currentProject}] у видимому режимі...`, 'info');
+    try {
+      const res = await fetch(`/api/browser/open/${encodeURIComponent(currentProject)}?forceHeaded=true`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceHeaded: true })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addLog(`✅ Браузер проекту [${currentProject}] успішно відкрито у видимому режимі!`, 'success');
+      } else {
+        addLog(`❌ Помилка запуску браузера: ${data.message || data.error}`, 'error');
+      }
+    } catch (err: any) {
+      addLog(`❌ Помилка мережі при запуску браузера: ${err.message || String(err)}`, 'error');
+    }
+  }, [currentProject, addLog]);
 
 
   const onSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
@@ -864,6 +901,14 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
                       title={currentProject ? 'Карта Острова' : 'Завантажте проект'}
                     >
                       <MapIcon size={16} className="md:w-[18px] md:h-[18px]" />
+                    </button>
+                    <button
+                      onClick={() => setIsPurchasableBuildingsOpen(true)}
+                      disabled={!currentProject}
+                      className={`p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 shadow-amber-500/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
+                      title={currentProject ? 'Купівля Будівель' : 'Завантажте проект'}
+                    >
+                      <Hammer size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
                     <button
                       onClick={() => setIsInventoryOpen(true)}
@@ -912,6 +957,14 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
                       title="Конфігурації (Config Manager)"
                     >
                       <SlidersHorizontal size={16} className="md:w-[18px] md:h-[18px]" />
+                    </button>
+                    <button
+                      onClick={handleOpenVisibleBrowser}
+                      disabled={!currentProject}
+                      className={`p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${currentProject ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30 shadow-emerald-500/20' : 'bg-gray-500/10 text-gray-600 border-gray-500/20 cursor-not-allowed'}`}
+                      title={currentProject ? 'Запустити браузер проекту у видимому режимі (навіть якщо увімкнено Headless)' : 'Завантажте проект'}
+                    >
+                      <Eye size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
                   </div>
                 )}
@@ -997,6 +1050,7 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
                 logs={logs}
                 setLogs={setLogs}
                 debugImages={debugImages}
+                setDebugImages={setDebugImages}
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 currentProject={currentProject}
@@ -1016,6 +1070,22 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
               onOpenBrowser={(projName) => {
                 const wsUrl = projName && projName !== currentProject ? getWsHost(projName) : undefined;
                 setPickerConfig({ nodeId: 'remote_browser', pickType: 'default', wsUrl });
+                setIsManagerOpen(false);
+              }}
+              onOpenVisibleBrowser={(projName) => {
+                if (!projName) return;
+                addLog(`🌐 Запуск браузера проекту [${projName}] у видимому режимі...`, 'info');
+                fetch(`/api/browser/open/${encodeURIComponent(projName)}?forceHeaded=true`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ forceHeaded: true })
+                })
+                  .then(r => r.json())
+                  .then(d => {
+                    if (d.success) addLog(`✅ Браузер [${projName}] успішно відкрито у видимому режимі!`, 'success');
+                    else addLog(`❌ Помилка запуску [${projName}]: ${d.message || d.error}`, 'error');
+                  })
+                  .catch(e => addLog(`❌ Помилка: ${e.message}`, 'error'));
                 setIsManagerOpen(false);
               }}
             />
@@ -1040,8 +1110,24 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
             {/* Модалка Карти Острова */}
             <IslandMapModal
               isOpen={isMapOpen}
-              onClose={() => setIsMapOpen(false)}
+              onClose={() => {
+                setIsMapOpen(false);
+                setBuildingToPlaceOnMap(null);
+              }}
               projectName={currentProject || ''}
+              buildingToPlace={buildingToPlaceOnMap}
+            />
+
+            {/* Модалка покупки будівель */}
+            <PurchasableBuildingsModal
+              isOpen={isPurchasableBuildingsOpen}
+              onClose={() => setIsPurchasableBuildingsOpen(false)}
+              projectName={currentProject || ''}
+              onOpenMap={(bName) => {
+                setIsPurchasableBuildingsOpen(false);
+                setBuildingToPlaceOnMap(bName || null);
+                setIsMapOpen(true);
+              }}
             />
 
             {/* Панель скріншотів */}
@@ -1108,6 +1194,13 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
                 }}
                 onDeleteSelected={onDeleteSelected}
                 onSetCustomIcon={handleSetCustomIcon}
+                onOpenGroupSettings={(nodeId) => {
+                  window.dispatchEvent(new CustomEvent('sfl-open-group-settings', { detail: { nodeId } }));
+                }}
+                onSetGroupColor={(nodeId, color) => {
+                  handleDataChange(nodeId, { color });
+                  takeSnapshot();
+                }}
                 onClickOutside={() => setMenu(null)}
               />
             </ReactFlow>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 // Імпортуємо іконки для UI компонента (Copy та Key — для відображення даних гаманця)
 import { X, Sparkles, Wifi, User, AlertCircle, CheckCircle2, Loader2, Globe, RefreshCw, Copy, Key } from 'lucide-react';
+import { copyToClipboard } from '../utils/clipboard';
+
 
 // Інтерфейс пропсів компонента AutoCreateModal
 interface AutoCreateModalProps {
@@ -533,11 +535,12 @@ const AutoCreateModal: React.FC<AutoCreateModalProps> = ({
                     </span>
                     {/* Кнопка копіювання адреси */}
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(walletResult.walletAddress);
-                        setCopiedAddr(true);
-                        // Скидаємо стан через 2 секунди
-                        setTimeout(() => setCopiedAddr(false), 2000);
+                      onClick={async () => {
+                        const ok = await copyToClipboard(walletResult.walletAddress);
+                        if (ok) {
+                          setCopiedAddr(true);
+                          setTimeout(() => setCopiedAddr(false), 2000);
+                        }
                       }}
                       className="shrink-0 p-1.5 hover:bg-amber-500/20 rounded-lg transition-colors"
                       title="Копіювати адресу"
@@ -560,11 +563,12 @@ const AutoCreateModal: React.FC<AutoCreateModalProps> = ({
                     </span>
                     {/* Кнопка копіювання сід-фрази */}
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(walletResult.seedPhrase);
-                        setCopiedSeed(true);
-                        // Скидаємо стан через 2 секунди
-                        setTimeout(() => setCopiedSeed(false), 2000);
+                      onClick={async () => {
+                        const ok = await copyToClipboard(walletResult.seedPhrase);
+                        if (ok) {
+                          setCopiedSeed(true);
+                          setTimeout(() => setCopiedSeed(false), 2000);
+                        }
                       }}
                       className="shrink-0 p-1.5 hover:bg-rose-500/20 rounded-lg transition-colors"
                       title="Копіювати сід-фразу"

@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings // Іконка налаштувань для керування категоріями
 import androidx.compose.material.icons.filled.Delete // Іконка видалення для категорій
@@ -35,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
@@ -45,6 +48,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import java.util.Locale
+
+/**
+ * Форматує число для компактного відображення в таблиці інвентарів
+ */
+fun formatCompactNumber(num: Double): String {
+    return when {
+        num <= 0.0 -> "0"
+        num >= 1000 -> "${(num / 1000).toInt()}K"
+        num % 1.0 == 0.0 -> num.toInt().toString()
+        else -> String.format(Locale.ROOT, "%.1f", num)
+    }
+}
 
 /**
  * Екран перегляду всіх інвентарів
@@ -57,11 +73,12 @@ fun AllInventoriesScreen(
     onBackClick: () -> Unit
 ) {
     var allInventories by remember { mutableStateOf<Map<String, List<InventoryItem>>>(emptyMap()) }
+    var allStock by remember { mutableStateOf<Map<String, List<InventoryItem>>>(emptyMap()) }
     var allResources by remember { mutableStateOf<List<String>>(emptyList()) }
     var categories by remember { mutableStateOf<List<String>>(emptyList()) } // Стейт для збереження категорій
     var itemToCategories by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) } // Стейт зв'язків предметів
     var selectedCategory by remember { mutableStateOf<String?>(null) } // Вибрана категорія для фільтрації колонок
-    var dataSource by remember { mutableStateOf("inventory") } // Стейт джерела ("inventory" або "stock")
+    var dataSource by remember { mutableStateOf("inventory") } // Стейт джерела ("inventory", "stock", "both")
     
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -90,34 +107,73 @@ fun AllInventoriesScreen(
                 // Отримуємо список всіх проектів
                 val projectNames = apiService.getProjects()
 
-                // Паралельно завантажуємо інвентарі або склади для всіх проектів
-                val results: List<Pair<String, List<InventoryItem>>?> = coroutineScope {
-                    projectNames.map { projectName ->
-                        async {
-                            try {
-                                val inventory = apiService.getInventory(projectName, dataSource)
-                                if (inventory.data.isNotEmpty()) Pair(projectName, inventory.data) else null
-                            } catch (e: Exception) {
-                                android.util.Log.d("AllInventoriesScreen", "No data for $projectName")
-                                null
+                if (dataSource == "both") {
+                    // Завантажуємо інвентар та склад для всіх проектів
+                    val results: List<Triple<String, List<InventoryItem>, List<InventoryItem>>?> = coroutineScope {
+                        projectNames.map { projectName ->
+                            async {
+                                try {
+                                    val invDef = async { try { apiService.getInventory(projectName, "inventory") } catch (e: Exception) { null } }
+                                    val stockDef = async { try { apiService.getInventory(projectName, "stock") } catch (e: Exception) { null } }
+                                    val invData = invDef.await()?.data ?: emptyList()
+                                    val stockData = stockDef.await()?.data ?: emptyList()
+                                    if (invData.isNotEmpty() || stockData.isNotEmpty()) {
+                                        Triple(projectName, invData, stockData)
+                                    } else null
+                                } catch (e: Exception) {
+                                    android.util.Log.d("AllInventoriesScreen", "No data for $projectName")
+                                    null
+                                }
                             }
-                        }
-                    }.awaitAll()
-                }
-
-                val inventories = mutableMapOf<String, List<InventoryItem>>()
-                val resourcesSet = mutableSetOf<String>()
-
-                results.filterNotNull().forEach { (name, data) ->
-                    inventories[name] = data
-                    data.forEach { item ->
-                        resourcesSet.add(item.image)
+                        }.awaitAll()
                     }
-                }
 
-                allInventories = inventories
-                allResources = resourcesSet.toList().sorted()
-                isLoading = false
+                    val inventories = mutableMapOf<String, List<InventoryItem>>()
+                    val stockMap = mutableMapOf<String, List<InventoryItem>>()
+                    val resourcesSet = mutableSetOf<String>()
+
+                    results.filterNotNull().forEach { (name, invList, stockList) ->
+                        inventories[name] = invList
+                        stockMap[name] = stockList
+                        invList.forEach { resourcesSet.add(it.image) }
+                        stockList.forEach { resourcesSet.add(it.image) }
+                    }
+
+                    allInventories = inventories
+                    allStock = stockMap
+                    allResources = resourcesSet.toList().sorted()
+                    isLoading = false
+                } else {
+                    // Паралельно завантажуємо інвентарі або склади для всіх проектів
+                    val results: List<Pair<String, List<InventoryItem>>?> = coroutineScope {
+                        projectNames.map { projectName ->
+                            async {
+                                try {
+                                    val inventory = apiService.getInventory(projectName, dataSource)
+                                    if (inventory.data.isNotEmpty()) Pair(projectName, inventory.data) else null
+                                } catch (e: Exception) {
+                                    android.util.Log.d("AllInventoriesScreen", "No data for $projectName")
+                                    null
+                                }
+                            }
+                        }.awaitAll()
+                    }
+
+                    val inventories = mutableMapOf<String, List<InventoryItem>>()
+                    val resourcesSet = mutableSetOf<String>()
+
+                    results.filterNotNull().forEach { (name, data) ->
+                        inventories[name] = data
+                        data.forEach { item ->
+                            resourcesSet.add(item.image)
+                        }
+                    }
+
+                    allInventories = inventories
+                    allStock = if (dataSource == "stock") inventories else emptyMap()
+                    allResources = resourcesSet.toList().sorted()
+                    isLoading = false
+                }
 
             } catch (e: Exception) {
                 errorMessage = "Помилка завантаження: ${e.message}"
@@ -134,6 +190,7 @@ fun AllInventoriesScreen(
 
     AllInventoriesContent(
         allInventories = allInventories,
+        allStock = allStock,
         allResources = allResources,
         categories = categories,
         itemToCategories = itemToCategories,
@@ -167,6 +224,7 @@ fun AllInventoriesScreen(
 @Composable
 fun AllInventoriesContent(
     allInventories: Map<String, List<InventoryItem>>,
+    allStock: Map<String, List<InventoryItem>> = emptyMap(),
     allResources: List<String>,
     categories: List<String>,
     itemToCategories: Map<String, List<String>>,
@@ -182,14 +240,20 @@ fun AllInventoriesContent(
     onSaveCategories: (List<String>, Map<String, List<String>>) -> Unit
 ) {
     var isManageDialogOpen by remember { mutableStateOf(false) } // Чи відкритий діалог налаштування категорій
-    var editingResourcePath by remember { mutableStateOf<String?>(null) } // Стейт для ресурсу, який наразі редагується (категорії)
-    var fullscreenImageIndex by remember { mutableStateOf<Int?>(null) } // Стейт для індексу повноекранного зображення
+    var categoryDialogResourceIndex by remember { mutableStateOf<Int?>(null) } // Індекс вибраного ресурсу для діалогу категорій
     val context = LocalContext.current
 
     // Фільтруємо ресурси (колонки) відповідно до обраної категорії
     val filteredResources = remember(allResources, selectedCategory, itemToCategories) {
         if (selectedCategory == null) {
             allResources // Якщо категорія не вибрана — показуємо всі ресурси
+        } else if (isUncategorizedCategory(selectedCategory)) {
+            // Категорія "без категорій" відображає предмети які не мають категорії
+            allResources.filter { resource ->
+                val itemName = resource.substringAfterLast("/").substringBeforeLast(".")
+                val cats = itemToCategories[itemName]
+                cats.isNullOrEmpty() || cats.all { isUncategorizedCategory(it) }
+            }
         } else {
             allResources.filter { resource ->
                 val itemName = resource.substringAfterLast("/").substringBeforeLast(".") // Назва ресурсу
@@ -206,7 +270,11 @@ fun AllInventoriesContent(
                 title = {
                     Column {
                         Text(
-                            text = if (dataSource == "inventory") "Всі Інвентарі" else "Всі Склади (Stock)",
+                            text = when (dataSource) {
+                                "inventory" -> "Всі Інвентарі"
+                                "stock" -> "Всі Склади (Stock)"
+                                else -> "Всі Інвентарі та Склади"
+                            },
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -338,7 +406,7 @@ fun AllInventoriesContent(
                 // Таблиця інвентарів / складів
                 else -> {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Перемикач джерела даних (📦 Інвентар / 🏬 Склад)
+                        // Перемикач джерела даних (📦 Інвентар / 🏬 Склад / 📦/🏬 Інвентар/Склад)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -360,6 +428,17 @@ fun AllInventoriesContent(
                                 selected = (dataSource == "stock"),
                                 onClick = { onDataSourceChange("stock") },
                                 label = { Text("🏬 Склад", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = GlassIndigo,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color.White.copy(alpha = 0.06f),
+                                    labelColor = GlassOnSurfaceVariant
+                                )
+                            )
+                            FilterChip(
+                                selected = (dataSource == "both"),
+                                onClick = { onDataSourceChange("both") },
+                                label = { Text("📦/🏬 Інвентар/Склад", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = GlassIndigo,
                                     selectedLabelColor = Color.White,
@@ -460,9 +539,11 @@ fun AllInventoriesContent(
                             Box(modifier = Modifier.weight(1f)) {
                                 InventoryMatrix( // Рендеримо матрицю інвентарів
                                     inventories = allInventories, // Дані інвентарів
+                                    stockInventories = allStock, // Дані складів
                                     resources = filteredResources, // Передаємо тільки відфільтровані стовпці ресурсів
+                                    dataSource = dataSource, // Джерело даних
                                     baseUrl = baseUrl, // Базовий URL
-                                    onResourceClick = { fullscreenImageIndex = it } // Обробник кліку на заголовок ресурсу для повноекранного перегляду
+                                    onResourceClick = { categoryDialogResourceIndex = it } // Відкриваємо вибір категорій для обраного предмета
                                 ) // Кінець InventoryMatrix
                             }
                         }
@@ -595,194 +676,184 @@ fun AllInventoriesContent(
         ) // Кінець AlertDialog
     } // Кінець перевірки isManageDialogOpen
 
-    // Діалог для керування категоріями конкретного предмета
-    if (editingResourcePath != null) { // Перевіряємо чи вибрано ресурс
-        val resourcePath = editingResourcePath!! // Отримуємо шлях до картинки
-        val itemName = remember(resourcePath) { resourcePath.substringAfterLast("/").substringBeforeLast(".") } // Отримуємо чисте ім'я
-        val itemCats = itemToCategories[itemName] ?: emptyList() // Отримуємо поточні категорії предмета
+    // Діалог для керування категоріями конкретного предмета з можливістю гортання
+    if (categoryDialogResourceIndex != null && filteredResources.isNotEmpty()) {
+        val safeIndex = categoryDialogResourceIndex!!.coerceIn(0, filteredResources.lastIndex)
+        val resourcePath = filteredResources[safeIndex]
+        val itemName = remember(resourcePath) { resourcePath.substringAfterLast("/").substringBeforeLast(".") }
+        val itemCats = itemToCategories[itemName] ?: emptyList()
+        val availableCats = categories.filter { !isUncategorizedCategory(it) }
 
-        AlertDialog( // Відображаємо діалог налаштування категорій
-            onDismissRequest = { editingResourcePath = null }, // Закриваємо діалог при кліці поза ним
-            title = { // Заголовок діалогу
-                Row(verticalAlignment = Alignment.CenterVertically) { // Вирівнюємо іконку та текст по центру
-                    val imageUrl = remember(resourcePath, baseUrl) { // Формуємо повний URL для зображення
-                        when { // Перевіряємо формат шляху зображення
-                            resourcePath.startsWith("data:") -> resourcePath // Залишаємо data URL як є
-                            resourcePath.startsWith("http://") || resourcePath.startsWith("https://") -> resourcePath // HTTP URL
-                            else -> {
-                                val path = if (resourcePath.startsWith("/")) resourcePath else "/$resourcePath"
-                                "$baseUrl$path"
+        AlertDialog(
+            onDismissRequest = { categoryDialogResourceIndex = null },
+            title = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = {
+                                if (safeIndex > 0) {
+                                    categoryDialogResourceIndex = safeIndex - 1
+                                }
+                            },
+                            enabled = safeIndex > 0
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ChevronLeft,
+                                contentDescription = "Попередній предмет",
+                                tint = if (safeIndex > 0) Color.White else Color.White.copy(alpha = 0.2f)
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            val imageUrl = remember(resourcePath, baseUrl) {
+                                when {
+                                    resourcePath.startsWith("data:") -> resourcePath
+                                    resourcePath.startsWith("http://") || resourcePath.startsWith("https://") -> resourcePath
+                                    else -> {
+                                        val path = if (resourcePath.startsWith("/")) resourcePath else "/$resourcePath"
+                                        "$baseUrl$path"
+                                    }
+                                }
                             }
-                        } // Кінець перевірки
-                    } // Кінець формування URL
-                    AsyncImage( // Завантажуємо зображення
-                        model = ImageRequest.Builder(context) // Будуємо запит
-                            .data(imageUrl) // Встановлюємо URL
-                            .crossfade(true) // Включаємо плавний перехід
-                            .allowHardware(false) // Вимикаємо апаратне декодування для стабільності
-                            .build(), // Будуємо запит
-                        contentDescription = itemName, // Опис зображення
-                        contentScale = ContentScale.Fit, // Масштабуємо за пропорціями
-                        modifier = Modifier.size(24.dp) // Встановлюємо розмір 24dp
-                    ) // Кінець AsyncImage
-                    Spacer(modifier = Modifier.width(8.dp)) // Відступ
-                    Text( // Заголовок діалогу
-                        text = "Категорії для $itemName", // Текст заголовка
-                        fontSize = 18.sp, // Розмір тексту 18sp
-                        fontWeight = FontWeight.Bold, // Жирне накреслення
-                        color = Color.White // Білий колір
-                    ) // Кінець Text
-                } // Кінець Row
-            }, // Кінець title
-            text = { // Тіло діалогу
-                Column( // Стовпець для списку категорій
-                    modifier = Modifier // Модифікатор
-                        .fillMaxWidth() // На всю ширину
-                        .padding(vertical = 8.dp) // Вертикальний відступ
-                ) { // Початок Column
-                    if (categories.isEmpty()) { // Якщо немає створених категорій
-                        Text( // Показуємо повідомлення
-                            text = "Немає доступних категорій. Додайте їх за допомогою кнопки ⚙️.", // Текст
-                            color = GlassOnSurfaceVariant, // Сірий колір
-                            fontSize = 14.sp // Розмір тексту 14sp
-                        ) // Кінець Text
-                    } else { // Якщо категорії існують
-                        categories.forEach { category -> // Проходимося по всіх категоріях
-                            val isChecked = itemCats.contains(category) // Перевіряємо чи додано предмет
-                            Row( // Рядок для однієї категорії
-                                modifier = Modifier // Модифікатор
-                                    .fillMaxWidth() // На всю ширину
-                                    .clickable { // Обробка кліку на весь рядок
-                                        val updatedList = if (isChecked) { // Якщо вже вибрано
-                                            itemCats.filter { it != category } // Видаляємо
-                                        } else { // Якщо не вибрано
-                                            itemCats + category // Додаємо
-                                        } // Кінець перевірки
-                                        val newMapping = itemToCategories.toMutableMap() // Створюємо копію мапи
-                                        newMapping[itemName] = updatedList // Оновлюємо список категорій предмета
-                                        onSaveCategories(categories, newMapping)
-                                    } // Кінець clickable
-                                    .padding(vertical = 8.dp), // Відступ 8dp
-                                verticalAlignment = Alignment.CenterVertically // Вирівнюємо по вертикалі
-                            ) { // Вміст рядка категорії
-                                Checkbox( // Чекбокс вибору
-                                    checked = isChecked, // Стан
-                                    onCheckedChange = { checked -> // Обробка зміни стану
-                                        val updatedList = if (checked) { // Якщо вибрано
-                                            itemCats + category // Додаємо
-                                        } else { // Якщо знято
-                                            itemCats.filter { it != category } // Видаляємо
-                                        } // Кінець перевірки
-                                        val newMapping = itemToCategories.toMutableMap() // Створюємо копію мапи
-                                        newMapping[itemName] = updatedList // Оновлюємо список
-                                        onSaveCategories(categories, newMapping)
-                                    }, // Кінець onCheckedChange
-                                    colors = CheckboxDefaults.colors( // Налаштовуємо кольори
-                                        checkedColor = GlassIndigo, // Фіолетовий якщо вибрано
-                                        uncheckedColor = Color.White.copy(alpha = 0.12f) // Сірий якщо не вибрано
-                                    ) // Кінець colors
-                                ) // Кінець Checkbox
-                                Spacer(modifier = Modifier.width(8.dp)) // Відступ
-                                Text( // Текст назви категорії
-                                    text = category, // Назва
-                                    color = Color.White, // Колір тексту
-                                    fontSize = 14.sp // Розмір тексту 14sp
-                                ) // Кінець Text
-                            } // Кінець Row
-                        } // Кінець forEach
-                    } // Кінець if
-                } // Кінець Column
-            }, // Кінець text
-            confirmButton = { // Кнопка підтвердження
-                TextButton(onClick = { editingResourcePath = null }) { // Закриваємо діалог
-                    Text( // Текст кнопки
-                        text = "Готово", // Готово
-                        color = GlassIndigoLight, // Світло-фіолетовий
-                        fontWeight = FontWeight.Bold // Жирний
-                    ) // Кінець Text
-                } // Кінець TextButton
-            }, // Кінець confirmButton
-            containerColor = Color(0xFF0A0E1A).copy(alpha = 0.95f),
-            shape = RoundedCornerShape(24.dp)
-        ) // Кінець AlertDialog
-    }
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(imageUrl)
+                                    .crossfade(true)
+                                    .allowHardware(false)
+                                    .build(),
+                                contentDescription = itemName,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = itemName,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
-    // Повноекранний переглядач зображень ресурсів
-    if (fullscreenImageIndex != null) {
-        val pagerState = rememberPagerState(
-            initialPage = fullscreenImageIndex!!,
-            pageCount = { filteredResources.size }
-        )
-
-        Dialog(onDismissRequest = { fullscreenImageIndex = null }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center
-            ) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize()
-                ) { index ->
-                    val resource = filteredResources[index]
-                    val imageUrl = remember(resource, baseUrl) {
-                        when {
-                            resource.startsWith("data:") -> resource
-                            resource.startsWith("http://") || resource.startsWith("https://") -> resource
-                            else -> {
-                                val path = if (resource.startsWith("/")) resource else "/$resource"
-                                "$baseUrl$path"
-                            }
+                        IconButton(
+                            onClick = {
+                                if (safeIndex < filteredResources.lastIndex) {
+                                    categoryDialogResourceIndex = safeIndex + 1
+                                }
+                            },
+                            enabled = safeIndex < filteredResources.lastIndex
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = "Наступний предмет",
+                                tint = if (safeIndex < filteredResources.lastIndex) Color.White else Color.White.copy(alpha = 0.2f)
+                            )
                         }
                     }
 
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(imageUrl)
-                            .crossfade(true)
-                            .allowHardware(false)
-                            .build(),
-                        contentDescription = "Resource image",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${safeIndex + 1} з ${filteredResources.size}",
+                            fontSize = 11.sp,
+                            color = GlassOnSurfaceVariant
+                        )
+                        val isUncat = itemCats.isEmpty() || itemCats.all { isUncategorizedCategory(it) }
+                        Text(
+                            text = if (isUncat) "📌 Без категорії" else "Категорій: ${itemCats.size}",
+                            fontSize = 11.sp,
+                            color = if (isUncat) Color(0xFFFBBF24) else GlassSuccess
+                        )
+                    }
                 }
-
-                // Кнопка закриття
-                IconButton(
-                    onClick = { fullscreenImageIndex = null },
+            },
+            text = {
+                Column(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp)
-                        .size(48.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .fillMaxWidth()
+                        .heightIn(max = 350.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Закрити",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    if (availableCats.isEmpty()) {
+                        Text(
+                            text = "Немає доступних категорій. Створіть їх за допомогою кнопки ⚙️.",
+                            color = GlassOnSurfaceVariant,
+                            fontSize = 14.sp
+                        )
+                    } else {
+                        availableCats.forEach { category ->
+                            val isChecked = itemCats.contains(category)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val updatedList = if (isChecked) {
+                                            itemCats.filter { it != category }
+                                        } else {
+                                            itemCats + category
+                                        }
+                                        val newMapping = itemToCategories.toMutableMap()
+                                        newMapping[itemName] = updatedList
+                                        onSaveCategories(categories, newMapping)
+                                    }
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = { checked ->
+                                        val updatedList = if (checked) {
+                                            itemCats + category
+                                        } else {
+                                            itemCats.filter { it != category }
+                                        }
+                                        val newMapping = itemToCategories.toMutableMap()
+                                        newMapping[itemName] = updatedList
+                                        onSaveCategories(categories, newMapping)
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = GlassIndigo,
+                                        uncheckedColor = Color.White.copy(alpha = 0.12f)
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = category,
+                                    color = Color.White,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
                 }
-
-                // Лічильник зображень
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
+            },
+            confirmButton = {
+                TextButton(onClick = { categoryDialogResourceIndex = null }) {
                     Text(
-                        text = "${pagerState.currentPage + 1} / ${filteredResources.size}",
-                        color = Color.White,
-                        fontSize = 14.sp,
+                        text = "Готово",
+                        color = GlassIndigoLight,
                         fontWeight = FontWeight.Bold
                     )
                 }
-            }
-        }
+            },
+            containerColor = Color(0xFF0A0E1A).copy(alpha = 0.95f),
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 }
 
@@ -792,13 +863,22 @@ fun AllInventoriesContent(
 @Composable
 fun InventoryMatrix(
     inventories: Map<String, List<InventoryItem>>,
+    stockInventories: Map<String, List<InventoryItem>> = emptyMap(),
     resources: List<String>,
+    dataSource: String = "inventory",
     baseUrl: String,
     onResourceClick: (Int) -> Unit // Передаємо індекс ресурсу при кліку
 ) {
     val context = LocalContext.current
     val horizontalScrollState = rememberScrollState()
     val verticalScrollState = rememberScrollState()
+
+    val cellWidth = if (dataSource == "both") 48.dp else 28.dp
+
+    // Всі проекти (унікальні назви проектів)
+    val projectNames = remember(inventories, stockInventories) {
+        (inventories.keys + stockInventories.keys).distinct().sorted()
+    }
 
     Column(
         modifier = Modifier
@@ -831,9 +911,16 @@ fun InventoryMatrix(
             }
 
             // Заголовки ресурсів з зображеннями
-            resources.forEachIndexed { index, resource -> // Цикл по ресурсах з індексом
-                ResourceHeaderCell(resource, index, baseUrl, context, onResourceClick = { onResourceClick(it) }) // Рендер комірки заголовка з обробником кліку
-            } // Кінець циклу
+            resources.forEachIndexed { index, resource ->
+                ResourceHeaderCell(
+                    resource = resource,
+                    index = index,
+                    baseUrl = baseUrl,
+                    context = context,
+                    width = cellWidth,
+                    onResourceClick = { onResourceClick(it) }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(1.dp))
@@ -844,7 +931,10 @@ fun InventoryMatrix(
                 .fillMaxSize()
                 .verticalScroll(verticalScrollState)
         ) {
-            inventories.forEach { (projectName, items) ->
+            projectNames.forEach { projectName ->
+                val invItems = inventories[projectName] ?: emptyList()
+                val stockItems = stockInventories[projectName] ?: emptyList()
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -871,9 +961,24 @@ fun InventoryMatrix(
                     }
 
                     // Комірки з кількістю
-                    resources.forEach { resource ->
-                        val item = items.find { it.image == resource }
-                        InventoryCell(item)
+                    resources.forEachIndexed { resIndex, resource ->
+                        val invItem = invItems.find { it.image == resource }
+                        val stockItem = stockItems.find { it.image == resource }
+
+                        if (dataSource == "both") {
+                            CombinedInventoryCell(
+                                invItem = invItem,
+                                stockItem = stockItem,
+                                width = cellWidth,
+                                onClick = { onResourceClick(resIndex) }
+                            )
+                        } else {
+                            InventoryCell(
+                                item = invItem,
+                                width = cellWidth,
+                                onClick = { onResourceClick(resIndex) }
+                            )
+                        }
                     }
                 }
             }
@@ -890,7 +995,8 @@ fun ResourceHeaderCell(
     index: Int,
     baseUrl: String,
     context: android.content.Context,
-    onResourceClick: (Int) -> Unit // Отримуємо обробник події кліку з індексом
+    width: Dp = 28.dp,
+    onResourceClick: (Int) -> Unit
 ) {
     // Формуємо повний URL для зображення
     val imageUrl = remember(resource, baseUrl) {
@@ -906,11 +1012,11 @@ fun ResourceHeaderCell(
 
     Box(
         modifier = Modifier
-            .width(28.dp)
+            .width(width)
             .height(36.dp)
             .background(Color.White.copy(alpha = 0.06f))
             .border(1.dp, Color.White.copy(alpha = 0.12f))
-            .clickable { onResourceClick(index) } // Обробка події кліку по заголовку ресурсу
+            .clickable { onResourceClick(index) }
             .padding(2.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -928,31 +1034,32 @@ fun ResourceHeaderCell(
 }
 
 /**
- * Комірка з кількістю ресурсу
+ * Комірка з кількістю ресурсу для одного джерела
  */
 @Composable
-fun InventoryCell(item: InventoryItem?) {
+fun InventoryCell(
+    item: InventoryItem?,
+    width: Dp = 28.dp,
+    onClick: (() -> Unit)? = null
+) {
     Box(
         modifier = Modifier
-            .width(28.dp)
+            .width(width)
             .height(28.dp)
             .background(
-                if (item != null) Color.White.copy(alpha = 0.06f) else GlassBg
+                if (item != null && item.number > 0) Color.White.copy(alpha = 0.06f) else GlassBg
             )
             .border(
                 width = 1.dp,
-                color = if (item != null) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.06f)
+                color = if (item != null && item.number > 0) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.06f)
             )
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(1.dp),
         contentAlignment = Alignment.Center
     ) {
-        if (item != null) {
+        if (item != null && item.number > 0) {
             Text(
-                text = when {
-                    item.number >= 1000 -> "${(item.number / 1000).toInt()}K"
-                    item.number % 1 == 0.0 -> item.number.toInt().toString()
-                    else -> String.format("%.1f", item.number)
-                },
+                text = formatCompactNumber(item.number),
                 color = when {
                     item.number >= 100 -> GlassSuccess  // Зелений
                     item.number >= 10 -> Color(0xFFFBBF24)   // Жовтий
@@ -960,7 +1067,62 @@ fun InventoryCell(item: InventoryItem?) {
                 },
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+        } else {
+            Text(
+                text = "-",
+                color = Color.White.copy(alpha = 0.12f),
+                fontSize = 8.sp
+            )
+        }
+    }
+}
+
+/**
+ * Комірка з поєднаною кількістю: інвентар / склад
+ */
+@Composable
+fun CombinedInventoryCell(
+    invItem: InventoryItem?,
+    stockItem: InventoryItem?,
+    width: Dp = 48.dp,
+    onClick: (() -> Unit)? = null
+) {
+    val invNum = invItem?.number ?: 0.0
+    val stockNum = stockItem?.number ?: 0.0
+    val hasContent = (invItem != null && invNum > 0) || (stockItem != null && stockNum > 0)
+    val total = invNum + stockNum
+
+    Box(
+        modifier = Modifier
+            .width(width)
+            .height(28.dp)
+            .background(
+                if (hasContent) Color.White.copy(alpha = 0.06f) else GlassBg
+            )
+            .border(
+                width = 1.dp,
+                color = if (hasContent) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.06f)
+            )
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 2.dp, vertical = 1.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (hasContent) {
+            Text(
+                text = "${formatCompactNumber(invNum)}/${formatCompactNumber(stockNum)}",
+                color = when {
+                    total >= 100 -> GlassSuccess
+                    total >= 10 -> Color(0xFFFBBF24)
+                    else -> GlassError
+                },
+                fontSize = 7.5.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                softWrap = false
             )
         } else {
             Text(
@@ -1000,11 +1162,14 @@ fun AllInventoriesScreenPreview() {
     MyApplicationTheme {
         AllInventoriesContent(
             allInventories = sampleInventories,
+            allStock = emptyMap(),
             allResources = sampleResources,
             categories = sampleCategories,
             itemToCategories = sampleItemToCategories,
             selectedCategory = null,
             onSelectedCategoryChange = {},
+            dataSource = "inventory",
+            onDataSourceChange = {},
             isLoading = false,
             errorMessage = null,
             baseUrl = "https://sunflower-land.com",
@@ -1014,3 +1179,4 @@ fun AllInventoriesScreenPreview() {
         )
     }
 }
+

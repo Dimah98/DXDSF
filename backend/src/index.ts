@@ -40,10 +40,69 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+function createSmartImMiddleware(dir: string) {
+  const fileCache = new Map<string, string>();
+
+  const refreshCache = () => {
+    try {
+      if (fs.existsSync(dir)) {
+        const files = fs.readdirSync(dir);
+        fileCache.clear();
+        for (const file of files) {
+          const lowerFile = file.toLowerCase();
+          const nameWithoutExt = file.replace(/\.[^/.]+$/, '');
+          const lowerNameNoExt = nameWithoutExt.toLowerCase();
+          const norm = lowerNameNoExt.replace(/['"_\s-]/g, '');
+
+          if (!fileCache.has(lowerFile)) fileCache.set(lowerFile, file);
+          if (!fileCache.has(lowerNameNoExt)) fileCache.set(lowerNameNoExt, file);
+          if (!fileCache.has(norm)) fileCache.set(norm, file);
+        }
+      }
+    } catch (e) {
+      logger.warn('Failed to index im directory', { error: String(e) });
+    }
+  };
+
+  refreshCache();
+
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const rawName = decodeURIComponent(req.path.replace(/^\//, '')).trim();
+    if (!rawName) return next();
+
+    const exactPath = path.join(dir, rawName);
+    if (fs.existsSync(exactPath)) {
+      return res.sendFile(exactPath);
+    }
+
+    const lowerRaw = rawName.toLowerCase();
+    const nameWithoutExt = rawName.replace(/\.[^/.]+$/, '');
+    const lowerNameNoExt = nameWithoutExt.toLowerCase();
+    const norm = lowerNameNoExt.replace(/['"_\s-]/g, '');
+
+    const matched = fileCache.get(lowerRaw) || 
+                    fileCache.get(lowerNameNoExt) || 
+                    fileCache.get(norm);
+
+    if (matched) {
+      const matchPath = path.join(dir, matched);
+      if (fs.existsSync(matchPath)) {
+        return res.sendFile(matchPath);
+      }
+    }
+
+    next();
+  };
+}
+
+const smartImMiddleware = createSmartImMiddleware(path.resolve(__dirname, '../../im'));
+
 // Статичні маршрути для медіа та зображень гри
 app.use('/api/images', express.static(path.join(__dirname, '../images')));
-app.use('/api/im', express.static(path.resolve(__dirname, '../../im')));
-app.use('/im', express.static(path.resolve(__dirname, '../../im')));
+app.use('/api/extensions', express.static(path.join(__dirname, '../data')));
+app.use('/api/extensions', express.static(path.join(__dirname, '../extensions')));
+app.use('/api/im', smartImMiddleware, express.static(path.resolve(__dirname, '../../im')));
+app.use('/im', smartImMiddleware, express.static(path.resolve(__dirname, '../../im')));
 app.use('/api/screenshots', express.static(PROJECTS_DIR));
 
 // Застосовуємо rate limiting для всіх /api/* ендпоінтів

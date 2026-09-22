@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 // Імпортуємо іконки з бібліотеки lucide-react для нашого UI інтерфейсу
 // Імпортуємо іконки з бібліотеки lucide-react для нашого UI інтерфейсу (Copy — для копіювання нод)
-import { Save, FilePlus, ScrollText, Settings, X, Search, Trash2, Play, Clock, CalendarClock, Monitor, Wifi, User, ChevronRight, TrendingUp, Copy, Sparkles, ChevronDown } from 'lucide-react';
+import { Save, FilePlus, ScrollText, Settings, X, Search, Trash2, Play, Clock, CalendarClock, Monitor, Wifi, User, ChevronRight, TrendingUp, Copy, Sparkles, ChevronDown, Eye } from 'lucide-react';
 import { useLaunchSettings } from '../hooks/useLaunchSettings';
 import { StatisticsModal } from './StatisticsModal';
 // Імпортуємо компонент для автоматичного створення проекту з профілем ITBrowser
@@ -19,6 +19,7 @@ interface ProjectManagerModalProps {
   onSettingsToggle: () => void;      // Відкрити GlobalSettings
   onGlobalStatsToggle?: () => void;  // Відкрити загальну статистику
   onOpenBrowser?: (name: string) => void; // Відкрити браузер проекту
+  onOpenVisibleBrowser?: (name: string) => void; // Відкрити видимий браузер проекту
 }
 
 // Дні тижня для розкладу
@@ -27,12 +28,12 @@ const DAYS = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 // Рядок одного проекту в лівому блоці
 const ProjectRow = ({
   name, isCurrent, isSelected, isChecked, isRunning, activeNodeTitle, isBrowserOpen,
-  onSelect, onLoad, onOpenSettings, onToggleCheck, onOpenBrowser
+  onSelect, onLoad, onOpenSettings, onToggleCheck, onOpenBrowser, onOpenVisibleBrowser
 }: {
   name: string; isCurrent: boolean; isSelected: boolean; isChecked: boolean;
   isRunning: boolean; activeNodeTitle: string | null; isBrowserOpen?: boolean;
   onSelect: () => void; onLoad: () => void; onOpenSettings: (type: 'settings' | 'stats' | 'runs') => void;
-  onToggleCheck: () => void; onOpenBrowser?: () => void;
+  onToggleCheck: () => void; onOpenBrowser?: () => void; onOpenVisibleBrowser?: () => void;
 }) => (
   <div
     className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer group ${
@@ -113,6 +114,18 @@ const ProjectRow = ({
       <Settings size={12} />
     </button>
 
+    {/* Кнопка відкриття браузера проекту у видимому режимі (Headed) */}
+    <button
+      onClick={e => {
+        e.stopPropagation();
+        onOpenVisibleBrowser?.();
+      }}
+      className="p-1.5 bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-400 rounded-lg transition-colors shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100"
+      title="Запустити браузер у видимому режимі (навіть якщо увімкнено Headless)"
+    >
+      <Eye size={12} />
+    </button>
+
     {/* Кнопка відкриття браузера проекту (смарагдова, світиться якщо запущений) */}
     <button
       onClick={e => {
@@ -141,7 +154,7 @@ const ProjectRow = ({
 );
 
 const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
-  isOpen, onClose, currentProject, onNew, onSave, onLoad, onSettingsToggle, onGlobalStatsToggle, onOpenBrowser
+  isOpen, onClose, currentProject, onNew, onSave, onLoad, onSettingsToggle, onGlobalStatsToggle, onOpenBrowser, onOpenVisibleBrowser
 }) => {
   const [projects, setProjects] = useState<string[]>([]);
   // Який проект вибрано у списку (для правої панелі)
@@ -413,6 +426,8 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
       const filtered = Array.isArray(data) ? data.filter((name: string) => 
         name !== 'categories' &&
         name !== 'global_building_types' &&
+        name !== 'buildings_catalog_settings' &&
+        !name.includes('buildings_catalog_settings') &&
         name !== 'schedule' &&
         name !== 'notifications' &&
         !name.endsWith('_layout') &&
@@ -728,6 +743,18 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                       onOpenBrowser?.(p);
                       onClose();
                     }}
+                    onOpenVisibleBrowser={() => {
+                      if (onOpenVisibleBrowser) {
+                        onOpenVisibleBrowser(p);
+                      } else {
+                        fetch(`/api/browser/open/${encodeURIComponent(p)}?forceHeaded=true`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ forceHeaded: true })
+                        }).catch(() => {});
+                      }
+                      onClose();
+                    }}
                     // Передаємо колбек перемикання прапорця виділення
                     onToggleCheck={() => handleToggleCheck(p)}
                   />
@@ -1008,8 +1035,26 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
 
               </div>
 
-              {/* Кнопка "Потім" знизу */}
-              <div className="p-4 border-t border-white/10 shrink-0">
+              {/* Кнопка "Потім" знизу та Запустити видимий браузер */}
+              <div className="p-4 border-t border-white/10 shrink-0 space-y-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!selectedProject) return;
+                    try {
+                      await fetch(`/api/browser/open/${encodeURIComponent(selectedProject)}?forceHeaded=true`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ forceHeaded: true })
+                      });
+                    } catch (_) {}
+                  }}
+                  className="w-full py-2.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer"
+                  title="Запустити браузер проекту у видимому вікні (навіть якщо увімкнено Headless)"
+                >
+                  <Eye size={14} />
+                  <span>Запустити видимий браузер (Headed)</span>
+                </button>
                 <button
                   onClick={() => setRightPanelOpen(false)}
                   className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-[12px] font-black uppercase rounded-xl transition-all active:scale-95 shadow-lg shadow-purple-900/40 tracking-widest"

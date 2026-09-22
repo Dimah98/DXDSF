@@ -1,21 +1,41 @@
-import path from "path" // Імпортуємо модуль path для роботи зі шляхами до файлів та папок
-import { defineConfig } from 'vite' // Імпортуємо функцію defineConfig для створення типізованої конфігурації Vite
-import react from '@vitejs/plugin-react' // Імпортуємо офіційний плагін React для збірки JSX та швидкого перезавантаження
-import PinyVite from '@pinegrow/piny-vite' // Імпортуємо плагін PinyVite для підтримки візуального вибору та редагування елементів у режимі реального часу
+import { fileURLToPath, URL } from 'node:url'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import PinyVite from '@pinegrow/piny-vite'
 
 // Read port configuration from environment variables with defaults
 const BACKEND_PORT = process.env.VITE_BACKEND_PORT || '3001'
 const CDP_PORT = process.env.VITE_CDP_PORT || '9222'
 
+// Обробник помилок для WebSocket proxy, який пригнічує шумні та очікувані розриви зв'язку клієнта (F5, закриття вкладки)
+const handleWsProxy = (proxy: any) => {
+  proxy.on('error', (err: any) => {
+    if (['ECONNABORTED', 'ECONNRESET', 'EPIPE', 'ETIMEDOUT'].includes(err?.code)) return;
+    console.warn('[vite ws proxy warning]', err.message || err);
+  });
+  proxy.on('proxyReqWs', (_proxyReq: any, _req: any, socket: any) => {
+    socket.on('error', (err: any) => {
+      if (['ECONNABORTED', 'ECONNRESET', 'EPIPE', 'ETIMEDOUT'].includes(err?.code)) return;
+      console.warn('[vite ws client socket warning]', err.message || err);
+    });
+  });
+  proxy.on('open', (proxySocket: any) => {
+    proxySocket.on('error', (err: any) => {
+      if (['ECONNABORTED', 'ECONNRESET', 'EPIPE', 'ETIMEDOUT'].includes(err?.code)) return;
+      console.warn('[vite ws target socket warning]', err.message || err);
+    });
+  });
+}
+
 // Посилання на офіційну документацію конфігурації Vite
-export default defineConfig({ // Визначаємо та експортуємо конфігурацію нашого проекту Vite
-  plugins: [ // Масив плагінів, що використовуються у процесі збірки проекту
-    react(), // Підключаємо плагін React для транспіляції та оптимізації React компонентів
-    PinyVite() // Додаємо плагін PinyVite для інтеграції з інструментом візуального редагування
-  ], // Кінець масиву плагінів
+export default defineConfig({
+  plugins: [
+    react(),
+    PinyVite()
+  ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   server: {
@@ -26,10 +46,17 @@ export default defineConfig({ // Визначаємо та експортуєм�
       '/api': {
         target: `http://localhost:${BACKEND_PORT}`,
         changeOrigin: true,
+        configure: (proxy: any) => {
+          proxy.on('error', (err: any) => {
+            if (['ECONNABORTED', 'ECONNRESET', 'EPIPE'].includes(err?.code)) return;
+            console.warn('[vite api proxy warning]', err.message || err);
+          });
+        },
       },
       '/ws': {
         target: `http://localhost:${BACKEND_PORT}`,
         ws: true,
+        configure: handleWsProxy,
       },
       '/json': {
         target: `http://localhost:${CDP_PORT}`,
@@ -39,6 +66,7 @@ export default defineConfig({ // Визначаємо та експортуєм�
         target: `http://localhost:${CDP_PORT}`,
         changeOrigin: true,
         ws: true,
+        configure: handleWsProxy,
       },
     },
   },

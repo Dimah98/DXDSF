@@ -86,7 +86,8 @@ data class InventoryBuildingAndroid(
 fun IslandMapScreen(
     projectName: String,
     apiService: BotApiService,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    buildingToPlace: String? = null
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -253,6 +254,26 @@ fun IslandMapScreen(
             val typedParsed = parsed.map { item ->
                 val cfg = savedBuildingTypes[item.name]
                 if (cfg != null) item.copy(w = cfg.w, h = cfg.h) else item
+            }.toMutableList()
+
+            // Якщо передано buildingToPlace і його ще немає на карті — додаємо у центр (0, 0)
+            if (!buildingToPlace.isNullOrBlank()) {
+                val exists = typedParsed.any { it.name == buildingToPlace }
+                if (!exists) {
+                    val size = getDefaultSize(buildingToPlace)
+                    val cfg = savedBuildingTypes[buildingToPlace]
+                    val newItem = MapItem(
+                        id = "buildings_${buildingToPlace}_new_${System.currentTimeMillis()}",
+                        name = buildingToPlace,
+                        type = "building",
+                        x = 0,
+                        y = 0,
+                        w = cfg?.w ?: size.first,
+                        h = cfg?.h ?: size.second,
+                        image = IMAGE_MAPPING[buildingToPlace] ?: "$buildingToPlace.png"
+                    )
+                    typedParsed.add(newItem)
+                }
             }
 
             buildingTypes = savedBuildingTypes
@@ -271,6 +292,9 @@ fun IslandMapScreen(
                 val mapNames = mutableSetOf<String>()
                 mapNames.addAll(placedTypes.keys)
                 mapNames.addAll(savedBuildingTypes.keys)
+                if (!buildingToPlace.isNullOrBlank()) {
+                    mapNames.add(buildingToPlace)
+                }
 
                 val usedInventoryNames = mutableSetOf<String>()
                 savedBuildingTypes.values.forEach { cfg ->
@@ -287,7 +311,8 @@ fun IslandMapScreen(
                 mapNames.forEach { mapName ->
                     val cfg = savedBuildingTypes[mapName]
                     val invName = cfg?.inventoryName ?: mapName
-                    val count = inventory[invName]?.toString()?.toDoubleOrNull()?.toInt() ?: 0
+                    val rawCount = inventory[invName]?.toString()?.toDoubleOrNull()?.toInt()
+                    val count = rawCount ?: (if (mapName == buildingToPlace) 1 else 0)
                     val placed = placedCounts[mapName] ?: 0
 
                     if (count > 0 || placed > 0) {

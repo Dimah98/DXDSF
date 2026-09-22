@@ -251,6 +251,383 @@ export function isRegionLit(
   return { lit, diffL, relL, colorDist };
 }
 
+// ─── Phaser Hook для гри Послідовність (Simon Says / Chaac's Temple) ────────
+
+export interface PhaserSequenceSolveResult {
+  success: boolean;
+  score: number;
+  lives: number;
+  totalPressed: number;
+  error?: string;
+}
+
+/**
+ * Знаходить фрейм з активним екземпляром Phaser гри Chaac's Temple (Гра Послідовність)
+ */
+export async function findSequencePhaserFrame(page: Page): Promise<{ targetFrame: any } | null> {
+  const pages = (typeof (page as any).context === 'function' && page.context()) ? page.context().pages() : [page];
+
+  for (const p of pages) {
+    const frames = typeof p.frames === 'function' ? p.frames() : [p];
+    const sorted = [...frames].sort((a, b) => {
+      const aUrl = typeof a.url === 'function' ? a.url() : '';
+      const bUrl = typeof b.url === 'function' ? b.url() : '';
+      return (bUrl.includes('chaacs-temple') || bUrl.includes('sequence') || bUrl.includes('temple') ? 1 : 0) -
+             (aUrl.includes('chaacs-temple') || aUrl.includes('sequence') || aUrl.includes('temple') ? 1 : 0);
+    });
+
+    for (const f of sorted) {
+      try {
+        const hasPhaser = await Promise.resolve(
+          f.evaluate(`(() => {
+            const win = window;
+            let game = win.__PHASER_GAME__;
+            if (!game && win.Phaser && Array.isArray(win.Phaser.GAMES) && win.Phaser.GAMES.length > 0) game = win.Phaser.GAMES[0];
+            if (!game && win.game && win.game.scene) game = win.game;
+            if (!game) {
+              try {
+                const rootEl = document.getElementById('root') || document.body.firstElementChild;
+                if (rootEl) {
+                  const fiberKey = Object.keys(rootEl).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactContainer'));
+                  if (fiberKey) {
+                    const queue = [{ fiber: rootEl[fiberKey], depth: 0 }];
+                    while (queue.length > 0) {
+                      const item = queue.shift();
+                      if (!item || item.depth > 30) continue;
+                      const curr = item.fiber;
+                      let s = curr.memoizedState;
+                      while (s) {
+                        if (s.memoizedState && s.memoizedState.current && s.memoizedState.current.scene) { game = s.memoizedState.current; break; }
+                        if (s.memoizedState && s.memoizedState.scene) { game = s.memoizedState; break; }
+                        s = s.next;
+                      }
+                      if (game) break;
+                      if (curr.child) queue.push({ fiber: curr.child, depth: item.depth + 1 });
+                      if (curr.sibling) queue.push({ fiber: curr.sibling, depth: item.depth });
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+            if (game) {
+              win.__PHASER_GAME__ = game;
+              let sc = null;
+              if (game.scene && typeof game.scene.getScene === 'function') {
+                sc = game.scene.getScene('chaacs-temple') || game.scene.getScene('sequence-game');
+              }
+              if (!sc && game.scene && Array.isArray(game.scene.scenes)) {
+                for (let i = 0; i < game.scene.scenes.length; i++) {
+                  const s = game.scene.scenes[i];
+                  if (s && (s.sceneId === 'chaacs-temple' || s.sys?.settings?.key === 'chaacs-temple' || (s.gameBoard && Array.isArray(s.gameBoard.pieces) && s.gameBoard.pieces.length === 9))) {
+                    sc = s;
+                    break;
+                  }
+                }
+              }
+              if (sc && sc.gameBoard && Array.isArray(sc.gameBoard.pieces) && sc.gameBoard.pieces.length === 9) return true;
+            }
+            return false;
+          })()`)
+        ).catch(() => false);
+
+        if (hasPhaser) return { targetFrame: f };
+      } catch (_) {}
+    }
+  }
+  return null;
+}
+
+/**
+ * Автоматичне проходження гри Послідовність через Phaser Hook безпосередньо у фреймі гри.
+ * Точно відтворює послідовність рун з пам'яті рушія гри без помилок.
+ */
+export async function solveSequenceWithPhaserHook(
+  targetFrame: any,
+  logToClient: (msg: string, level?: 'info' | 'error' | 'success' | 'debug') => void,
+  smartSleep: (ms: number, ws?: any) => Promise<void>,
+  checkRunning: () => boolean,
+  ws: any,
+  targetScore = 5,
+  reactionDelay = 450,
+  pressDuration = 90,
+  stepDelay = 350,
+  maxDuration = 120000,
+  autoStart = true
+): Promise<PhaserSequenceSolveResult> {
+  const startTime = Date.now();
+
+  logToClient(`⏳ Очікування завантаження сцени гри «Послідовність» у Phaser...`, 'debug');
+
+  // 1. Очікуємо готовності 9 рун
+  let isReady = false;
+  while (Date.now() - startTime < Math.min(maxDuration, 15000)) {
+    if (!checkRunning()) {
+      return { success: false, score: 0, lives: 0, totalPressed: 0, error: 'зупинено користувачем' };
+    }
+
+    const readyCheck: any = await Promise.resolve(
+      targetFrame.evaluate(`(() => {
+        const win = window;
+        const game = win.__PHASER_GAME__;
+        let sc = null;
+        if (game && game.scene && typeof game.scene.getScene === 'function') {
+          sc = game.scene.getScene('chaacs-temple') || game.scene.getScene('sequence-game');
+        }
+        if (!sc && game && game.scene && Array.isArray(game.scene.scenes)) {
+          for (let i = 0; i < game.scene.scenes.length; i++) {
+            const s = game.scene.scenes[i];
+            if (s && (s.sceneId === 'chaacs-temple' || s.sys?.settings?.key === 'chaacs-temple' || (s.gameBoard && Array.isArray(s.gameBoard.pieces) && s.gameBoard.pieces.length === 9))) {
+              sc = s;
+              break;
+            }
+          }
+        }
+        if (!sc || !sc.gameBoard) return { status: 'no_board' };
+        if (!Array.isArray(sc.gameBoard.pieces) || sc.gameBoard.pieces.length !== 9) return { status: 'waiting_pieces' };
+        return { status: 'ready', portalState: sc.portalService?.state?.value };
+      })()`)
+    ).catch(() => ({ status: 'error' }));
+
+    if (readyCheck?.status === 'ready') {
+      isReady = true;
+      break;
+    }
+    await smartSleep(300, ws);
+  }
+
+  if (!isReady) {
+    return { success: false, score: 0, lives: 0, totalPressed: 0, error: 'дошка або 9 рун не знайдені в Phaser' };
+  }
+
+  if (!checkRunning()) {
+    return { success: false, score: 0, lives: 0, totalPressed: 0, error: 'зупинено користувачем' };
+  }
+
+  // 2. Якщо гра ще в стані "introduction" або після поразки ("loser" / "winner" / "gameOver"), запускаємо гру
+  if (autoStart) {
+    const started = await Promise.resolve(
+      targetFrame.evaluate(`(() => {
+        const win = window;
+        const game = win.__PHASER_GAME__;
+        let sc = null;
+        if (game && game.scene && typeof game.scene.getScene === 'function') {
+          sc = game.scene.getScene('chaacs-temple') || game.scene.getScene('sequence-game');
+        }
+        if (!sc && game && game.scene && Array.isArray(game.scene.scenes)) {
+          for (let i = 0; i < game.scene.scenes.length; i++) {
+            const s = game.scene.scenes[i];
+            if (s && (s.sceneId === 'chaacs-temple' || s.sys?.settings?.key === 'chaacs-temple' || (s.gameBoard && Array.isArray(s.gameBoard.pieces) && s.gameBoard.pieces.length === 9))) {
+              sc = s;
+              break;
+            }
+          }
+        }
+        const ps = sc?.portalService;
+        const pVal = ps?.state?.value;
+
+        if (pVal === 'introduction') {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim().toLowerCase() === 'start');
+          if (btn) {
+            btn.click();
+            return 'button_clicked';
+          }
+          try {
+            ps.send('START', { duration: 6e4 });
+            return 'event_sent';
+          } catch (_) {}
+        } else if (pVal === 'loser' || pVal === 'winner' || pVal === 'gameOver') {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.innerText.trim().toLowerCase().includes('play again'));
+          if (btn) {
+            btn.click();
+            return 'retry_clicked';
+          }
+          try {
+            if (ps && ps.state && ps.state.nextEvents && ps.state.nextEvents.includes('RETRY')) {
+              ps.send('RETRY');
+              return 'retry_event_sent';
+            }
+          } catch (_) {}
+        }
+        return 'already_started: ' + pVal;
+      })()`)
+    ).catch(() => 'error');
+
+    if (started === 'button_clicked' || started === 'event_sent' || started === 'retry_clicked' || started === 'retry_event_sent') {
+      const isRetry = String(started).includes('retry');
+      logToClient(`▶️ Натиснуто кнопку запуску гри ("${isRetry ? 'Play Again' : 'Start'}"), очікую початку гри...`, 'info');
+      await smartSleep(1000, ws);
+    }
+  }
+
+  logToClient(
+    `🧠 Phaser Hook: Запуск автопілоту Послідовності (Ціль: ${targetScore > 0 ? targetScore : 'до завершення'}, затримка: ${reactionDelay}мс, ліміт: ${Math.round(maxDuration / 1000)}с)...`,
+    'success'
+  );
+
+  let lastScoreLogged = -1;
+  let totalPressed = 0;
+  let finalScore = 0;
+  let finalLives = 3;
+
+  while (Date.now() - startTime < maxDuration && checkRunning()) {
+    if (!checkRunning()) {
+      return { success: false, score: finalScore, lives: finalLives, totalPressed, error: 'зупинено користувачем' };
+    }
+
+    const pollRes: any = await Promise.resolve(
+      targetFrame.evaluate(`(() => {
+        const win = window;
+        const game = win.__PHASER_GAME__;
+        let sc = null;
+        if (game && game.scene && typeof game.scene.getScene === 'function') {
+          sc = game.scene.getScene('chaacs-temple') || game.scene.getScene('sequence-game');
+        }
+        if (!sc && game && game.scene && Array.isArray(game.scene.scenes)) {
+          for (let i = 0; i < game.scene.scenes.length; i++) {
+            const s = game.scene.scenes[i];
+            if (s && (s.sceneId === 'chaacs-temple' || s.sys?.settings?.key === 'chaacs-temple' || (s.gameBoard && Array.isArray(s.gameBoard.pieces) && s.gameBoard.pieces.length === 9))) {
+              sc = s;
+              break;
+            }
+          }
+        }
+        if (!sc || !sc.gameBoard) return null;
+        const gb = sc.gameBoard;
+        const ps = sc.portalService;
+        const pVal = ps?.state?.value;
+
+        return {
+          locked: Boolean(sc.locked),
+          score: Number(sc.score) || 0,
+          lives: Number(sc.lives) ?? 3,
+          currLength: Number(gb.currLength) || 0,
+          targetScore: Number(gb.targetScore) || 5,
+          nextTarget: Array.isArray(gb.currentSequence) && gb.currentSequence.length > 0 ? gb.currentSequence[0] : null,
+          remainingInRound: Array.isArray(gb.currentSequence) ? gb.currentSequence.length : 0,
+          portalState: pVal
+        };
+      })()`)
+    ).catch(() => null);
+
+    if (!pollRes) {
+      await smartSleep(300, ws);
+      continue;
+    }
+
+    finalScore = pollRes.score;
+    finalLives = pollRes.lives;
+
+    // Перевірка поразки
+    if (pollRes.portalState === 'gameOver' || pollRes.portalState === 'loser' || pollRes.lives <= 0) {
+      logToClient(`💀 Гру завершено (поразка / життя вичерпано)`, 'error');
+      return { success: false, score: finalScore, lives: finalLives, totalPressed, error: 'поразка' };
+    }
+
+    // Перевірка перемоги
+    if (pollRes.portalState === 'complete' || pollRes.portalState === 'winner') {
+      logToClient(`🏆 Портал зафіксував перемогу! Підсумковий рахунок: ${finalScore}`, 'success');
+      return { success: true, score: finalScore, lives: finalLives, totalPressed };
+    }
+
+    // Перевірка досягнення цільового рахунку
+    if (targetScore > 0 && finalScore >= targetScore) {
+      logToClient(`🎯 Цільовий рахунок ${targetScore} досягнуто! Поточний: ${finalScore}`, 'success');
+      return { success: true, score: finalScore, lives: finalLives, totalPressed };
+    }
+
+    // Логуємо зміну раунду
+    if (finalScore !== lastScoreLogged) {
+      lastScoreLogged = finalScore;
+      logToClient(`⭐ Раунд ${finalScore + 1} (Очки: ${finalScore}/${targetScore || pollRes.targetScore}, життів: ${finalLives})`, 'info');
+    }
+
+    // Якщо сцена заблокована (демонстрація спалахів / blinkSequence) або черга пуста
+    if (pollRes.locked || pollRes.nextTarget === null) {
+      await smartSleep(200, ws);
+      continue;
+    }
+
+    // Перевіряємо чи це перший клік у новому раунді (після завершення показу послідовності)
+    const isFirstInRound = pollRes.remainingInRound === pollRes.currLength;
+    if (isFirstInRound) {
+      // Людина осмислює побачену послідовність перед першим натисканням (з джитером)
+      const humanInitialDelay = reactionDelay > 0
+        ? Math.max(150, reactionDelay + Math.floor(Math.random() * 80 - 40))
+        : 0;
+      if (humanInitialDelay > 0) {
+        await smartSleep(humanInitialDelay, ws);
+      }
+    }
+
+    // Відтворюємо наступну руну
+    const targetIdx = pollRes.nextTarget;
+    logToClient(`👆 [Хід] Натискання руни #${targetIdx + 1} (залишилось у раунді: ${pollRes.remainingInRound})...`, 'debug');
+
+    // Реалістичний людський час натискання руни (з джитером)
+    const humanPressDuration = pressDuration > 0
+      ? Math.max(30, pressDuration + Math.floor(Math.random() * 20 - 10))
+      : 60;
+
+    const pressRes: any = await Promise.resolve(
+      targetFrame.evaluate(`(async () => {
+        const win = window;
+        const game = win.__PHASER_GAME__;
+        let sc = null;
+        if (game && game.scene && typeof game.scene.getScene === 'function') {
+          sc = game.scene.getScene('chaacs-temple') || game.scene.getScene('sequence-game');
+        }
+        if (!sc && game && game.scene && Array.isArray(game.scene.scenes)) {
+          for (let i = 0; i < game.scene.scenes.length; i++) {
+            const s = game.scene.scenes[i];
+            if (s && (s.sceneId === 'chaacs-temple' || s.sys?.settings?.key === 'chaacs-temple' || (s.gameBoard && Array.isArray(s.gameBoard.pieces) && s.gameBoard.pieces.length === 9))) {
+              sc = s;
+              break;
+            }
+          }
+        }
+        if (!sc || !sc.gameBoard) return { error: 'no_board' };
+        if (sc.locked) return { locked: true };
+        const gb = sc.gameBoard;
+        const target = ${targetIdx};
+        const piece = gb.pieces && gb.pieces[target];
+        if (!piece) return { error: 'no_piece' };
+
+        await gb.handlePointerDown(piece);
+        await new Promise(r => setTimeout(r, ${humanPressDuration}));
+        await gb.handlePointerUp(piece);
+
+        return {
+          ok: true,
+          score: sc.score,
+          lives: sc.lives
+        };
+      })()`)
+    ).catch((e: any) => ({ error: e?.message }));
+
+    if (pressRes?.ok) {
+      totalPressed++;
+      if (stepDelay > 0) {
+        // Звичайна пауза між натисканнями рун людиною (з джитером)
+        const humanStepDelay = Math.max(60, stepDelay + Math.floor(Math.random() * 60 - 30));
+        await smartSleep(humanStepDelay, ws);
+      }
+    } else if (pressRes?.locked) {
+      await smartSleep(200, ws);
+    } else {
+      await smartSleep(150, ws);
+    }
+  }
+
+  logToClient(`🎉 Підсумок: ${finalScore} раундів пройдено, ${totalPressed} рун натиснуто!`, 'success');
+
+  return {
+    success: finalScore >= (targetScore > 0 ? targetScore : 1),
+    score: finalScore,
+    lives: finalLives,
+    totalPressed
+  };
+}
+
 // ─── Головний обробник ноди ──────────────────────────────────────────────────
 
 export const sequenceMemoryNodeHandler = async ({
@@ -265,6 +642,12 @@ export const sequenceMemoryNodeHandler = async ({
 
   const nodeData = currentNode.data as Record<string, unknown>;
   const {
+    engineMode = 'auto',          // 'auto' | 'phaser' | 'vision'
+    targetScore = 5,              // Цільовий рахунок / кількість раундів
+    reactionDelay = 450,          // Затримка перед ходом після показу (мс)
+    pressDuration = 90,           // Тривалість утримання руни (мс)
+    stepDelay = 350,              // Затримка між кроками послідовності (мс)
+    autoStart = true,             // Авто-натискання Start / Play Again
     items = DEFAULT_9_ITEMS,
     errorIndicator = DEFAULT_ERROR_INDICATOR,
     successIndicator = DEFAULT_SUCCESS_INDICATOR,
@@ -282,6 +665,79 @@ export const sequenceMemoryNodeHandler = async ({
   const intervalMs = typeof checkInterval === 'number' ? checkInterval : 70;
   const maxTimeMs = typeof maxDuration === 'number' ? maxDuration : 120000;
 
+  logToClient(
+    `✨ Гра «Послідовність»: старт [Режим: ${
+      engineMode === 'phaser' ? '🎮 Phaser Hook' : engineMode === 'vision' ? '👁️ Pixel Vision' : '⚡ Авто'
+    }]...`,
+    'info'
+  );
+
+  // ── РЕЖИМ PHASER HOOK (Швидкий доступ через стан рушія Phaser) ────────────
+  if (engineMode !== 'vision') {
+    logToClient(`🔍 [Phaser Hook] Пошук рушія гри «Послідовність» (Chaac's Temple) у фреймах...`, 'debug');
+    let phaserInfo = await findSequencePhaserFrame(activePage);
+
+    // Якщо відразу не знайдено, даємо декілька спроб (до ~3 секунд) на появу фрейму гри
+    if (!phaserInfo) {
+      for (let attempt = 0; attempt < 6 && !phaserInfo && checkRunning(); attempt++) {
+        await smartSleep(500, ws);
+        phaserInfo = await findSequencePhaserFrame(activePage);
+      }
+    }
+
+    if (phaserInfo) {
+      logToClient(`⚡ Знайдено рушій Phaser гри «Послідовність»! Запуск режиму Phaser Hook (людські таймінги)...`, 'success');
+      const phaserRes = await solveSequenceWithPhaserHook(
+        phaserInfo.targetFrame,
+        logToClient,
+        smartSleep,
+        checkRunning,
+        ws,
+        Number(targetScore) || 5,
+        Number(reactionDelay) ?? 450,
+        Number(pressDuration) ?? 90,
+        Number(stepDelay) ?? 350,
+        maxTimeMs,
+        autoStart !== false
+      );
+
+      if (phaserRes.success) {
+        logToClient(
+          `🎉 Phaser Hook: успішно пройдено! Рахунок: ${phaserRes.score}, рун натиснуто: ${phaserRes.totalPressed}, життів: ${phaserRes.lives}`,
+          'success'
+        );
+
+        return {
+          data: {
+            ...context,
+            score: phaserRes.score,
+            completedRounds: phaserRes.score,
+            lives: phaserRes.lives,
+            totalPressed: phaserRes.totalPressed,
+            value: phaserRes.score
+          },
+          nextHandle: [null, undefined, 'success'],
+        };
+      } else {
+        if (!checkRunning()) {
+          return { data: context, nextHandle: ['error'] };
+        }
+
+        if (engineMode === 'phaser') {
+          logToClient(`❌ Помилка режиму Phaser Hook: ${phaserRes.error}`, 'error');
+          return { data: context, nextHandle: ['error'] };
+        }
+
+        logToClient(`⚠️ Phaser Hook не зміг завершити гру (${phaserRes.error}). Перемикаюсь на Pixel Vision...`, 'info');
+      }
+    } else {
+      if (engineMode === 'phaser') {
+        logToClient(`❌ Режим "Phaser Hook" увімкнено, але екземпляр гри Phaser (Chaac's Temple) не знайдено у відкритих сторінках/фреймах!`, 'error');
+        return { data: context, nextHandle: ['error'] };
+      }
+    }
+  }
+
   // Отримуємо 9 предметів
   const activeItems: TargetRegionConfig[] = Array.isArray(items) && items.length === 9
     ? (items as TargetRegionConfig[])
@@ -290,7 +746,7 @@ export const sequenceMemoryNodeHandler = async ({
   const errInd: IndicatorConfig = (errorIndicator as IndicatorConfig) || DEFAULT_ERROR_INDICATOR;
   const succInd: IndicatorConfig = (successIndicator as IndicatorConfig) || DEFAULT_SUCCESS_INDICATOR;
 
-  logToClient(`✨ Гра «Послідовність»: старт калібрування...`, 'info');
+  logToClient(`✨ Режим Pixel Vision: старт калібрування сітки 9 предметів...`, 'info');
 
   try {
     const dpr = await activePage.evaluate(() => window.devicePixelRatio || 1).catch(() => 1);

@@ -21,7 +21,8 @@ import {
   executeNodeLogic,
   projectQueueManager,
   getQueueConfig,
-  getRunningProjectsCount
+  getRunningProjectsCount,
+  stopProject
 } from '../runner/ProjectRunner';
 import { browserLifecycle, wsLifecycle } from '../services';
 import { ProjectSession, ExtendedWebSocket } from '../types';
@@ -56,6 +57,27 @@ export async function handleClientMessage(
   if (!data || typeof data !== 'object' || !data.type) {
     logger.warn('WS: Received message without type field', { projectName });
     ws.send(JSON.stringify({ type: 'ERROR', message: 'Message must have a type field' }));
+    return;
+  }
+
+  if (data.type === 'OPEN_BROWSER') {
+    const forceHeaded = data.forceHeaded === true || data.visible === true;
+    try {
+      await ensureBrowserSettings(projectName, session);
+      await connectToBrowser(
+        session,
+        session.botSettings?.width || session.botSettings?.browserWidth || 1280,
+        session.botSettings?.height || session.botSettings?.browserHeight || 720,
+        session.botSettings?.profile,
+        session.botSettings?.profileDir,
+        session.botSettings?.proxy,
+        forceHeaded
+      );
+      ws.send(JSON.stringify({ type: 'CONSOLE_LOG', message: `🌐 Браузер проекту [${projectName}] відкрито у ${forceHeaded ? 'видимому' : 'фоновому'} режимі!`, logType: 'success' }));
+    } catch (e: any) {
+      logger.error(`Failed to open browser via WS for project ${projectName}`, e instanceof Error ? e : new Error(String(e)));
+      ws.send(JSON.stringify({ type: 'ERROR', message: `Помилка відкриття браузера: ${e.message || String(e)}` }));
+    }
     return;
   }
 
@@ -133,8 +155,22 @@ export async function handleClientMessage(
           if (!(ws as any).isStreaming) return;
           try {
             if (isSessionBrowserAlive(session) && session.page) {
+              const vp = session.page.viewportSize() || { width: 1280, height: 720 };
+              (session as any)._deviceWidth = vp.width;
+              (session as any)._deviceHeight = vp.height;
               const screenshot = await session.page.screenshot({ type: 'jpeg', quality: 50 });
-              if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'STREAM_FRAME', frame: screenshot.toString('base64') }));
+              if (ws.readyState === 1) {
+                ws.send(JSON.stringify({ 
+                  type: 'STREAM_FRAME', 
+                  frame: screenshot.toString('base64'),
+                  metadata: {
+                    deviceWidth: vp.width,
+                    deviceHeight: vp.height,
+                    pageScaleFactor: 1,
+                    offsetTop: 0
+                  }
+                }));
+              }
             }
           } catch (e) { logger.warn(`Stream send error for ${projectName}`, { error: String(e) }); }
           if ((ws as any).isStreaming) {
@@ -162,15 +198,10 @@ export async function handleClientMessage(
   }
   
   if (data.type === 'STOP_BOT') {
-    if (session.currentRunId) {
-      RunLogger.finishRun(projectName, session.currentRunId, 'stopped', 'Зупинено вручну користувачем');
-      session.currentRunId = undefined;
-    }
     (ws as any).isBotRunning = false;
-    session.isBotRunning = false;
-    if (session.activeWs && session.activeWs.readyState === 1) {
-      session.activeWs.send(JSON.stringify({ type: 'BOT_FINISHED', status: 'stopped' }));
-    }
+    await stopProject(projectName).catch(err => {
+      logger.error(`Error stopping project ${projectName} on STOP_BOT`, err instanceof Error ? err : new Error(String(err)));
+    });
   }
 
   if (data.type === 'LAUNCH_BROWSER') {
@@ -259,7 +290,11 @@ export async function handleClientMessage(
             await session.page.mouse.up({ button: button === 'right' ? 'right' : button === 'middle' ? 'middle' : 'left' });
             break;
           case 'click':
-            await session.page.mouse.click(px, py, { button: button === 'right' ? 'right' : button === 'middle' ? 'middle' : 'left', clickCount });
+            await session.page.mouse.click(px, py, { 
+              button: button === 'right' ? 'right' : button === 'middle' ? 'middle' : 'left', 
+              clickCount,
+              delay: delay || 50
+            });
             break;
           case 'double_click':
           case 'dblclick':
@@ -271,12 +306,12 @@ export async function handleClientMessage(
             break;
           case 'ctrl_click':
             await session.page.keyboard.down('Control');
-            await session.page.mouse.click(px, py, { button: 'left' });
+            await session.page.mouse.click(px, py, { button: 'left', delay: 50 });
             await session.page.keyboard.up('Control');
             break;
           case 'shift_click':
             await session.page.keyboard.down('Shift');
-            await session.page.mouse.click(px, py, { button: 'left' });
+            await session.page.mouse.click(px, py, { button: 'left', delay: 50 });
             await session.page.keyboard.up('Shift');
             break;
           case 'scroll':
@@ -331,7 +366,7 @@ export async function handleClientMessage(
             await session.page.goForward().catch(() => {});
             break;
           default:
-            await session.page.mouse.click(px, py, { button: 'left' });
+            await session.page.mouse.click(px, py, { button: 'left', delay: 50 });
             break;
         }
       } catch (interactErr) {
@@ -340,17 +375,48 @@ export async function handleClientMessage(
     }
   }
 
-  if (data.type === 'OPEN_DEVTOOLS') {
+  if (data.type === 'OPEN_DEVTOOLS' || data.type === 'GET_PAGE_SOURCE') {
     try {
-      const response = await fetch(`http://localhost:${session.cdpPort}/json/list`);
-      const list = await response.json();
-      const target = list.find((t: any) => t.type === 'page' && !t.url.includes('devtools'));
-      if (target && target.devtoolsFrontendUrl) {
-        ws.send(JSON.stringify({ type: 'DEVTOOLS_URL', url: target.devtoolsFrontendUrl }));
+      if (isSessionBrowserAlive(session) && session.page) {
+        const html = await session.page.content();
+        const url = session.page.url();
+        const title = await session.page.title();
+
+        let elements: any[] = [];
+        try {
+          elements = await session.page.evaluate(() => {
+            (window as any).__name = (window as any).__name || ((f: any) => f);
+            const items: { tag: string; id: string; className: string; text: string; selector: string }[] = [];
+            const all = document.querySelectorAll('button, input, select, textarea, a, canvas, [role="button"], [data-testid], [aria-label]');
+            all.forEach((el) => {
+              const tag = el.tagName.toLowerCase();
+              const className = typeof el.className === 'string' ? el.className.trim() : '';
+              const text = (el.textContent || '').trim().slice(0, 60);
+              let selector = tag;
+              if (el.id) selector = `#${CSS.escape(el.id)}`;
+              else if (el.getAttribute('data-testid')) selector = `${tag}[data-testid="${el.getAttribute('data-testid')}"]`;
+              else if (el.getAttribute('aria-label')) selector = `${tag}[aria-label="${el.getAttribute('aria-label')}"]`;
+              else if (className) selector = `${tag}.${className.split(/\s+/).filter(Boolean).slice(0, 2).map(c => CSS.escape(c)).join('.')}`;
+              items.push({ tag, id: el.id, className, text, selector });
+            });
+            return items.slice(0, 150);
+          });
+        } catch (_) {}
+
+        ws.send(JSON.stringify({
+          type: 'PAGE_SOURCE_DATA',
+          projectName,
+          url,
+          title,
+          html,
+          elements
+        }));
+      } else {
+        logToClient(session, 'Браузер не запущено. Запустіть браузер або трансляцію.', 'info');
       }
     } catch (e) {
       logger.warn(`OPEN_DEVTOOLS error for ${projectName}`, { error: String(e) });
-      logToClient(session, 'Помилка підключення до DevTools API.', 'error');
+      logToClient(session, 'Помилка отримання коду сторінки.', 'error');
     }
   }
 
@@ -381,6 +447,7 @@ export async function handleClientMessage(
         }
         
         const info = await session.page.evaluate(({ cx, cy, nId, pType, smart }) => {
+          (window as any).__name = (window as any).__name || ((f: any) => f);
           const el = document.elementFromPoint(cx, cy) as HTMLElement;
           if (!el) return null;
           
@@ -500,13 +567,168 @@ export async function handleClientMessage(
           let matchCount = 0;
           try { matchCount = document.querySelectorAll(selector).length; } catch { matchCount = -1; }
           
+          // Підсвічуємо елемент прямо у вікні браузера
+          try {
+            const oldH = document.getElementById('__sf_active_highlight');
+            if (oldH) oldH.remove();
+            const r = el.getBoundingClientRect();
+            const h = document.createElement('div');
+            h.id = '__sf_active_highlight';
+            h.style.cssText = `
+              position: fixed;
+              top: ${r.top}px;
+              left: ${r.left}px;
+              width: ${r.width}px;
+              height: ${r.height}px;
+              border: 2px solid #00ffcc;
+              background: rgba(0, 255, 204, 0.2);
+              box-shadow: 0 0 15px #00ffcc, inset 0 0 10px rgba(0, 255, 204, 0.3);
+              z-index: 2147483647;
+              pointer-events: none;
+              border-radius: 4px;
+            `;
+            document.body.appendChild(h);
+          } catch (_) {}
+
+          const parents: { tag: string; selector: string; text?: string }[] = [];
+          let pCurr = el.parentElement;
+          while (pCurr && pCurr !== document.body && pCurr !== document.documentElement && parents.length < 6) {
+            parents.push({
+              tag: pCurr.tagName.toLowerCase(),
+              selector: buildSelector(pCurr),
+              text: pCurr.innerText?.trim().slice(0, 35) || undefined
+            });
+            pCurr = pCurr.parentElement;
+          }
+
+          // ─── Вкладені елементи всередині вибраного блоку ───
+          const children: { tag: string; selector: string; text?: string; id?: string; className?: string }[] = [];
+          const allDescendants = Array.from(el.querySelectorAll('*')) as HTMLElement[];
+          for (const c of allDescendants.slice(0, 30)) {
+            const cTag = c.tagName.toLowerCase();
+            const cText = (c.innerText || c.textContent || '').trim().slice(0, 40);
+            children.push({
+              tag: cTag,
+              selector: buildSelector(c),
+              text: cText || undefined,
+              id: c.id || undefined,
+              className: (typeof c.className === 'string' && c.className.trim()) ? c.className.trim() : undefined
+            });
+          }
+
+          // ─── Виявлення зображень у вибраному елементі та його дітях ───
+          const images: {
+            name: string;
+            src: string;
+            alt?: string;
+            tag: string;
+            selector: string;
+            width?: number;
+            height?: number;
+          }[] = [];
+
+          const seenSources = new Set<string>();
+          const extractImageName = (url: string, fallback?: string): string => {
+            if (!url) return fallback || 'image';
+            if (url.startsWith('data:')) {
+              return fallback ? `data: ${fallback}` : 'inline_data_image';
+            }
+            try {
+              const urlObj = new URL(url, window.location.href);
+              const fileName = urlObj.pathname.split('/').pop()?.split('?')[0];
+              if (fileName && fileName.trim()) return decodeURIComponent(fileName);
+            } catch {
+              const clean = url.split('/').pop()?.split('?')[0]?.split('#')[0];
+              if (clean && clean.trim()) return decodeURIComponent(clean);
+            }
+            return fallback || 'image';
+          };
+
+          const elementsToCheck = [el, ...allDescendants];
+          for (const item of elementsToCheck) {
+            if (images.length >= 25) break;
+            const itemTag = item.tagName.toLowerCase();
+
+            // 1. Тег <img>
+            if (itemTag === 'img') {
+              const img = item as HTMLImageElement;
+              const rawSrc = img.currentSrc || img.getAttribute('src') || img.src || '';
+              const alt = img.getAttribute('alt') || img.getAttribute('title') || '';
+              const imgName = extractImageName(rawSrc, alt);
+              const sel = buildSelector(img);
+              const key = rawSrc || sel;
+              if (!seenSources.has(key)) {
+                seenSources.add(key);
+                images.push({
+                  name: imgName,
+                  src: rawSrc,
+                  alt: alt || undefined,
+                  tag: 'img',
+                  selector: sel,
+                  width: img.naturalWidth || img.width || undefined,
+                  height: img.naturalHeight || img.height || undefined,
+                });
+              }
+            }
+
+            // 2. CSS background-image
+            try {
+              const bgImg = window.getComputedStyle(item).backgroundImage;
+              if (bgImg && bgImg !== 'none' && bgImg.includes('url(')) {
+                const match = bgImg.match(/url\(['"]?(.*?)['"]?\)/);
+                if (match && match[1]) {
+                  const bgUrl = match[1];
+                  if (!seenSources.has(bgUrl)) {
+                    seenSources.add(bgUrl);
+                    images.push({
+                      name: extractImageName(bgUrl),
+                      src: bgUrl,
+                      tag: itemTag,
+                      selector: buildSelector(item),
+                      width: item.offsetWidth || undefined,
+                      height: item.offsetHeight || undefined,
+                    });
+                  }
+                }
+              }
+            } catch (_) {}
+
+            // 3. SVG елементи
+            if (itemTag === 'svg') {
+              const ariaLabel = item.getAttribute('aria-label') || item.getAttribute('data-icon') || item.id || '';
+              const svgUse = item.querySelector('use');
+              const href = svgUse?.getAttribute('href') || svgUse?.getAttribute('xlink:href') || '';
+              const svgName = ariaLabel || (href ? href.split('#').pop() : '') || 'SVG Icon';
+              const sel = buildSelector(item);
+              if (!seenSources.has(sel)) {
+                seenSources.add(sel);
+                images.push({
+                  name: svgName || 'svg-icon',
+                  src: '',
+                  alt: ariaLabel || undefined,
+                  tag: 'svg',
+                  selector: sel,
+                  width: item.clientWidth || undefined,
+                  height: item.clientHeight || undefined,
+                });
+              }
+            }
+          }
+
+          const attrs = Array.from(el.attributes || []).map(a => ({ name: a.name, value: a.value }));
+          
           return { 
             nodeId: nId, 
             pickType: pType, 
             selector, 
             text: el.innerText?.substring(0, 50),
             matchCount,
-            tag: el.tagName.toLowerCase()
+            tag: el.tagName.toLowerCase(),
+            outerHTML: el.outerHTML ? el.outerHTML.slice(0, 2500) : '',
+            attributes: attrs,
+            parents,
+            children,
+            images
           };
         }, { cx: px, cy: py, nId: nodeId, pType: pickType, smart: isSmart });
         
@@ -521,6 +743,266 @@ export async function handleClientMessage(
       } catch (pickErr) {
         logger.warn(`PICK_SELECTOR_BY_COORDS error for ${projectName}`, { error: String(pickErr) });
       }
+    }
+  }
+
+  if (data.type === 'HIGHLIGHT_SELECTOR') {
+    const { selector } = data;
+    if (isSessionBrowserAlive(session) && session.page) {
+      try {
+        const info = await session.page.evaluate((sel) => {
+          const oldH = document.getElementById('__sf_active_highlight');
+          if (oldH) oldH.remove();
+          if (!sel) return null;
+          try {
+            const el = document.querySelector(sel) as HTMLElement;
+            if (el) {
+              const r = el.getBoundingClientRect();
+              const isVisible = r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth;
+              if (!isVisible) {
+                try { el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
+              }
+
+              const newR = el.getBoundingClientRect();
+              const h = document.createElement('div');
+              h.id = '__sf_active_highlight';
+              h.style.cssText = `
+                position: fixed;
+                top: ${newR.top}px;
+                left: ${newR.left}px;
+                width: ${newR.width}px;
+                height: ${newR.height}px;
+                border: 2px solid #00ffcc;
+                background: rgba(0, 255, 204, 0.25);
+                box-shadow: 0 0 20px #00ffcc, inset 0 0 10px rgba(0, 255, 204, 0.4);
+                z-index: 2147483647;
+                pointer-events: none;
+                border-radius: 4px;
+              `;
+              document.body.appendChild(h);
+
+              const buildSelector = (target: HTMLElement): string => {
+                if (target.id) return '#' + CSS.escape(target.id);
+                const dataAttrs = ['data-testid', 'data-id', 'data-name', 'data-type', 'data-action'];
+                for (const attr of dataAttrs) {
+                  const val = target.getAttribute(attr);
+                  if (val) {
+                    const s = `${target.tagName.toLowerCase()}[${attr}="${val}"]`;
+                    if (document.querySelectorAll(s).length === 1) return s;
+                  }
+                }
+                const ariaLabel = target.getAttribute('aria-label');
+                if (ariaLabel) {
+                  const s = `${target.tagName.toLowerCase()}[aria-label="${ariaLabel}"]`;
+                  if (document.querySelectorAll(s).length === 1) return s;
+                }
+                if (target.className && typeof target.className === 'string') {
+                  const allClasses = target.className.trim().split(/\s+/).filter((c: string) => 
+                    c && !c.includes(':') && !c.includes('[') && c.length < 40
+                  );
+                  if (allClasses.length > 0) {
+                    const fullSel = `${target.tagName.toLowerCase()}.${allClasses.map(c => CSS.escape(c)).join('.')}`;
+                    if (document.querySelectorAll(fullSel).length === 1) return fullSel;
+                    for (const cls of allClasses) {
+                      const s = `${target.tagName.toLowerCase()}.${CSS.escape(cls)}`;
+                      if (document.querySelectorAll(s).length === 1) return s;
+                    }
+                  }
+                }
+                if (target.tagName === 'IMG') {
+                  const src = target.getAttribute('src');
+                  if (src) {
+                    const lastPart = src.split('/').pop()?.split('?')[0];
+                    if (lastPart) {
+                      const s = `img[src*="${lastPart}"]`;
+                      if (document.querySelectorAll(s).length === 1) return s;
+                    }
+                  }
+                }
+                const parts: string[] = [];
+                let current: HTMLElement | null = target;
+                while (current && current !== document.body && current !== document.documentElement) {
+                  let tag = current.tagName.toLowerCase();
+                  if (current.id) {
+                    parts.unshift(`#${CSS.escape(current.id)}`);
+                    break;
+                  }
+                  const classes = (current.className && typeof current.className === 'string') 
+                    ? current.className.trim().split(/\s+/).filter((c: string) => 
+                        c && !c.includes(':') && !c.includes('[') && c.length < 40
+                      ).slice(0, 2)
+                    : [];
+                  if (classes.length > 0) {
+                    tag += '.' + classes.map(c => CSS.escape(c)).join('.');
+                  }
+                  const parent = current.parentElement;
+                  if (parent) {
+                    const siblings = Array.from(parent.children).filter(s => s.tagName === current!.tagName);
+                    if (siblings.length > 1) {
+                      const idx = siblings.indexOf(current) + 1;
+                      tag += `:nth-child(${idx})`;
+                    }
+                  }
+                  parts.unshift(tag);
+                  current = current.parentElement;
+                  if (parts.length >= 5) break;
+                }
+                const finalSel = parts.join(' > ');
+                return finalSel || target.tagName.toLowerCase();
+              };
+
+              const attrs = Array.from(el.attributes || []).map(a => ({ name: a.name, value: a.value }));
+              const parents: { tag: string; selector: string; text?: string }[] = [];
+              let pCurr = el.parentElement;
+              while (pCurr && pCurr !== document.body && pCurr !== document.documentElement && parents.length < 6) {
+                parents.push({
+                  tag: pCurr.tagName.toLowerCase(),
+                  selector: buildSelector(pCurr),
+                  text: pCurr.innerText?.trim().slice(0, 35) || undefined
+                });
+                pCurr = pCurr.parentElement;
+              }
+
+              const children: { tag: string; selector: string; text?: string; id?: string; className?: string }[] = [];
+              const allDescendants = Array.from(el.querySelectorAll('*')) as HTMLElement[];
+              for (const c of allDescendants.slice(0, 30)) {
+                const cTag = c.tagName.toLowerCase();
+                const cText = (c.innerText || c.textContent || '').trim().slice(0, 40);
+                children.push({
+                  tag: cTag,
+                  selector: buildSelector(c),
+                  text: cText || undefined,
+                  id: c.id || undefined,
+                  className: (typeof c.className === 'string' && c.className.trim()) ? c.className.trim() : undefined
+                });
+              }
+
+              const images: {
+                name: string;
+                src: string;
+                alt?: string;
+                tag: string;
+                selector: string;
+                width?: number;
+                height?: number;
+              }[] = [];
+
+              const seenSources = new Set<string>();
+              const extractImageName = (url: string, fallback?: string): string => {
+                if (!url) return fallback || 'image';
+                if (url.startsWith('data:')) return fallback ? `data: ${fallback}` : 'inline_data_image';
+                try {
+                  const urlObj = new URL(url, window.location.href);
+                  const fileName = urlObj.pathname.split('/').pop()?.split('?')[0];
+                  if (fileName && fileName.trim()) return decodeURIComponent(fileName);
+                } catch {
+                  const clean = url.split('/').pop()?.split('?')[0]?.split('#')[0];
+                  if (clean && clean.trim()) return decodeURIComponent(clean);
+                }
+                return fallback || 'image';
+              };
+
+              const elementsToCheck = [el, ...allDescendants];
+              for (const item of elementsToCheck) {
+                if (images.length >= 25) break;
+                const itemTag = item.tagName.toLowerCase();
+                if (itemTag === 'img') {
+                  const img = item as HTMLImageElement;
+                  const rawSrc = img.currentSrc || img.getAttribute('src') || img.src || '';
+                  const alt = img.getAttribute('alt') || img.getAttribute('title') || '';
+                  const imgName = extractImageName(rawSrc, alt);
+                  const s = buildSelector(img);
+                  const key = rawSrc || s;
+                  if (!seenSources.has(key)) {
+                    seenSources.add(key);
+                    images.push({
+                      name: imgName,
+                      src: rawSrc,
+                      alt: alt || undefined,
+                      tag: 'img',
+                      selector: s,
+                      width: img.naturalWidth || img.width || undefined,
+                      height: img.naturalHeight || img.height || undefined,
+                    });
+                  }
+                }
+                try {
+                  const bgImg = window.getComputedStyle(item).backgroundImage;
+                  if (bgImg && bgImg !== 'none' && bgImg.includes('url(')) {
+                    const match = bgImg.match(/url\(['"]?(.*?)['"]?\)/);
+                    if (match && match[1]) {
+                      const bgUrl = match[1];
+                      if (!seenSources.has(bgUrl)) {
+                        seenSources.add(bgUrl);
+                        images.push({
+                          name: extractImageName(bgUrl),
+                          src: bgUrl,
+                          tag: itemTag,
+                          selector: buildSelector(item),
+                          width: item.offsetWidth || undefined,
+                          height: item.offsetHeight || undefined,
+                        });
+                      }
+                    }
+                  }
+                } catch (_) {}
+                if (itemTag === 'svg') {
+                  const ariaLabel = item.getAttribute('aria-label') || item.getAttribute('data-icon') || item.id || '';
+                  const svgUse = item.querySelector('use');
+                  const href = svgUse?.getAttribute('href') || svgUse?.getAttribute('xlink:href') || '';
+                  const svgName = ariaLabel || (href ? href.split('#').pop() : '') || 'SVG Icon';
+                  const s = buildSelector(item);
+                  if (!seenSources.has(s)) {
+                    seenSources.add(s);
+                    images.push({
+                      name: svgName || 'svg-icon',
+                      src: '',
+                      alt: ariaLabel || undefined,
+                      tag: 'svg',
+                      selector: s,
+                      width: item.clientWidth || undefined,
+                      height: item.clientHeight || undefined,
+                    });
+                  }
+                }
+              }
+
+              let matchCount = 0;
+              try { matchCount = document.querySelectorAll(sel).length; } catch { matchCount = -1; }
+
+              return {
+                selector: sel,
+                tag: el.tagName.toLowerCase(),
+                text: el.innerText?.substring(0, 50),
+                matchCount,
+                outerHTML: el.outerHTML ? el.outerHTML.slice(0, 2500) : '',
+                attributes: attrs,
+                parents,
+                children,
+                images
+              };
+            }
+          } catch (_) {}
+          return null;
+        }, selector);
+
+        if (info) {
+          ws.send(JSON.stringify({ type: 'SELECTOR_INFO_PICKED', ...info }));
+        }
+      } catch (err) {
+        logger.warn(`HIGHLIGHT_SELECTOR error for ${projectName}`, { selector, error: String(err) });
+      }
+    }
+  }
+
+  if (data.type === 'CLEAR_HIGHLIGHT') {
+    if (isSessionBrowserAlive(session) && session.page) {
+      try {
+        await session.page.evaluate(() => {
+          const oldH = document.getElementById('__sf_active_highlight');
+          if (oldH) oldH.remove();
+        });
+      } catch (_) {}
     }
   }
 

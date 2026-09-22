@@ -41,10 +41,10 @@ export interface AppConfig {
   // Request Configuration
   REQUEST_TIMEOUT: number;
   
-  // IT Browser Configuration
-  ITBROWSER_EXE: string;
-  ITBROWSER_USER_DATA: string;
-  ITBROWSER_PROFILE_DIR: string;
+  // Browser Configuration (Camoufox / Firefox)
+  CAMOUFOX_PROFILES_DIR: string;
+  CAMOUFOX_DEFAULT_PROFILE: string;
+  CAMOUFOX_EXECUTABLE_PATH?: string;
   
   // Telegram Configuration (optional)
   TELEGRAM_BOT_TOKEN?: string;
@@ -95,10 +95,10 @@ class ConfigManager {
       // Request Configuration
       REQUEST_TIMEOUT: this.getNumber('REQUEST_TIMEOUT', 30000, 1000, 300000),
       
-      // IT Browser Configuration
-      ITBROWSER_EXE: this.getString('ITBROWSER_EXE', ''),
-      ITBROWSER_USER_DATA: this.getString('ITBROWSER_USER_DATA', ''),
-      ITBROWSER_PROFILE_DIR: this.getString('ITBROWSER_PROFILE_DIR', 'Default'),
+      // Browser Configuration (Camoufox / Firefox)
+      CAMOUFOX_PROFILES_DIR: this.getString('CAMOUFOX_PROFILES_DIR', '/app/profiles'),
+      CAMOUFOX_DEFAULT_PROFILE: this.getString('CAMOUFOX_DEFAULT_PROFILE', 'default'),
+      CAMOUFOX_EXECUTABLE_PATH: this.getOptionalString('CAMOUFOX_EXECUTABLE_PATH'),
       
       // Telegram Configuration (optional)
       TELEGRAM_BOT_TOKEN: this.getOptionalString('TELEGRAM_BOT_TOKEN'),
@@ -156,23 +156,6 @@ class ConfigManager {
         key: 'MAX_PARALLEL_BROWSERS',
         message: `MAX_PARALLEL_BROWSERS must be a positive integer, got ${this.config.MAX_PARALLEL_BROWSERS}`,
         severity: 'error'
-      });
-    }
-
-    // Validate IT Browser configuration (warnings only, as they might be set later)
-    if (!this.config.ITBROWSER_EXE) {
-      this.validationErrors.push({
-        key: 'ITBROWSER_EXE',
-        message: 'ITBROWSER_EXE is not set - browser automation will not work',
-        severity: 'warning'
-      });
-    }
-
-    if (!this.config.ITBROWSER_USER_DATA) {
-      this.validationErrors.push({
-        key: 'ITBROWSER_USER_DATA',
-        message: 'ITBROWSER_USER_DATA is not set - browser profiles will not work',
-        severity: 'warning'
       });
     }
 

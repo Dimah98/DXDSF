@@ -2,7 +2,7 @@
 // Відображає налаштування: 9 предметів, індикатор помилки, індикатор перемоги, пороги та таймінги
 import { memo, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Sparkles, Check, X, Timer, SlidersHorizontal, LayoutGrid, AlertTriangle, Trophy } from 'lucide-react';
+import { Sparkles, Check, X, Timer, SlidersHorizontal, LayoutGrid, AlertTriangle, Trophy, Cpu, Zap } from 'lucide-react';
 import BaseNode, { getHandleStyle } from './BaseNode';
 
 export interface TargetRegionConfig {
@@ -49,6 +49,7 @@ const SequenceMemoryNode = memo(({ id, data }: { id: string; data: any }) => {
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   const [showAllItems, setShowAllItems] = useState(false);
   const [activeTab, setActiveTab] = useState<'items' | 'indicators'>('items');
+  const engineMode = data.engineMode || 'auto';
 
   // Отримуємо або ініціалізуємо масив 9 предметів
   const getItems = (): TargetRegionConfig[] => {
@@ -119,8 +120,119 @@ const SequenceMemoryNode = memo(({ id, data }: { id: string; data: any }) => {
       {!mini && (
         <div className="p-3 space-y-3">
 
-          {/* ── Параметри та таймінги ─────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* ── Вибір рушія виконання ─────────────────────────────── */}
+          <div className="p-2 rounded bg-muted/40 border border-border/60">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                <Cpu size={12} className="text-indigo-400" /> Рушій гри
+              </span>
+              <select
+                value={engineMode}
+                onChange={(e) => data.onDataChange(id, { engineMode: e.target.value })}
+                className="bg-background/80 border border-border px-1.5 py-0.5 rounded text-[10px] font-medium focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+              >
+                <option value="auto">⚡ Авто (Phaser + Зір)</option>
+                <option value="phaser">🎮 Phaser Hook (Швидкий)</option>
+                <option value="vision">👁️ Комп'ютерний зір</option>
+              </select>
+            </div>
+            <p className="text-[9px] text-muted-foreground mt-1">
+              {engineMode === 'phaser'
+                ? "Зчитує послідовність рун з Phaser та відтворює зі звичайними людськими таймінгами"
+                : engineMode === 'vision'
+                ? "Аналіз спалахів через комп'ютерний зір (кадри поля)"
+                : "Phaser Hook за наявності з авто-перемиканням на зір"}
+            </p>
+          </div>
+
+          {/* ── Налаштування Phaser Hook ─────────────────────────── */}
+          {engineMode !== 'vision' && (
+            <div className="space-y-2 p-2 rounded bg-indigo-950/20 border border-indigo-500/20">
+              <div className="text-[10px] font-bold uppercase text-indigo-300 flex items-center gap-1.5">
+                <Zap size={11} /> Налаштування Phaser Hook (людські таймінги)
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <span className="text-[9px] text-muted-foreground">Цільовий рахунок</span>
+                  <input
+                    type="number"
+                    value={data.targetScore ?? 5}
+                    onChange={(e) => data.onDataChange(id, { targetScore: parseInt(e.target.value) || 0 })}
+                    className="w-full p-1.5 text-xs bg-muted border-none rounded-md focus:ring-1 ring-indigo-500 outline-none font-mono"
+                    min={0}
+                    max={100}
+                    step={1}
+                    placeholder="5"
+                    title="Кількість раундів для перемоги (0 = до кінця)"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[9px] text-muted-foreground">Крок ходу (мс)</span>
+                  <input
+                    type="number"
+                    value={data.stepDelay ?? 350}
+                    onChange={(e) => data.onDataChange(id, { stepDelay: parseInt(e.target.value) || 0 })}
+                    className="w-full p-1.5 text-xs bg-muted border-none rounded-md focus:ring-1 ring-indigo-500 outline-none font-mono"
+                    min={50}
+                    max={1000}
+                    step={25}
+                    title="Пауза між натисканням рун у черзі (як людина)"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <span className="text-[9px] text-muted-foreground">Реакція (мс)</span>
+                  <input
+                    type="number"
+                    value={data.reactionDelay ?? 450}
+                    onChange={(e) => data.onDataChange(id, { reactionDelay: parseInt(e.target.value) || 0 })}
+                    className="w-full p-1.5 text-xs bg-muted border-none rounded-md focus:ring-1 ring-indigo-500 outline-none font-mono"
+                    min={0}
+                    max={1500}
+                    step={50}
+                    title="Затримка перед першим ходом після показу послідовності (як людина)"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[9px] text-muted-foreground">Натискання (мс)</span>
+                  <input
+                    type="number"
+                    value={data.pressDuration ?? 90}
+                    onChange={(e) => data.onDataChange(id, { pressDuration: parseInt(e.target.value) || 90 })}
+                    className="w-full p-1.5 text-xs bg-muted border-none rounded-md focus:ring-1 ring-indigo-500 outline-none font-mono"
+                    min={20}
+                    max={300}
+                    step={10}
+                    title="Час утримання кнопки руни натиснутою"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 p-1.5 bg-muted/60 rounded-md cursor-pointer hover:bg-muted/80 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={data.autoStart !== false}
+                  onChange={(e) => data.onDataChange(id, { autoStart: e.target.checked })}
+                  className="rounded border-border text-indigo-500 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                />
+                <span className="text-[10px] font-medium text-muted-foreground select-none">
+                  Авто-натискання "Start" / "Play Again"
+                </span>
+              </label>
+            </div>
+          )}
+
+          {/* Секція комп'ютерного зору (Pixel Vision) */}
+          {engineMode !== 'phaser' && (
+            <div className="space-y-3 pt-1">
+              {engineMode === 'auto' && (
+                <div className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
+                  <LayoutGrid size={11} /> Параметри комп'ютерного зору (резерв)
+                </div>
+              )}
+
+              {/* ── Параметри та таймінги ─────────────────────────────── */}
+              <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
                 <SlidersHorizontal size={11} /> Поріг (%)
@@ -484,6 +596,8 @@ const SequenceMemoryNode = memo(({ id, data }: { id: string; data: any }) => {
                 )}
               </div>
 
+            </div>
+          )}
             </div>
           )}
 

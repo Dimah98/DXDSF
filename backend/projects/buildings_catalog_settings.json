@@ -1,0 +1,164 @@
+{
+  "Water Well": {
+    "buildingImage": "Water Well.png",
+    "categoryImage": "hammer",
+    "shopImage": "shop.png",
+    "mapImage": "Water Well.png"
+  },
+  "Kitchen": {
+    "buildingImage": "kitchen.png",
+    "categoryImage": "hammer",
+    "shopImage": "kitchen_icon",
+    "mapImage": "Kitchen.png"
+  },
+  "Hen House": {
+    "buildingImage": "hen house.png",
+    "categoryImage": "hammer",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Hen House.png"
+  },
+  "Barn": {
+    "buildingImage": "barn.png",
+    "categoryImage": "hammer",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Barn.png"
+  },
+  "Bakery": {
+    "buildingImage": "bakery.png",
+    "categoryImage": "hammer",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Bakery.png"
+  },
+  "Deli": {
+    "buildingImage": "deli.png",
+    "categoryImage": "hammer",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Deli.png"
+  },
+  "Smoothie Shack": {
+    "buildingImage": "smoothie shack.png",
+    "categoryImage": "hammer",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Smoothie Shack.png"
+  },
+  "Toolshed": {
+    "buildingImage": "toolshed.png",
+    "categoryImage": "hammer",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Toolshed.png"
+  },
+  "Warehouse": {
+    "buildingImage": "warehouse.png",
+    "categoryImage": "buildings_category.png",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Warehouse.png"
+  },
+  "Compost Bin": {
+    "buildingImage": "compost bin.png",
+    "categoryImage": "buildings_category.png",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Compost Bin.png"
+  },
+  "Turbo Composter": {
+    "buildingImage": "turbo composter.png",
+    "categoryImage": "buildings_category.png",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Turbo Composter.png"
+  },
+  "Premium Composter": {
+    "buildingImage": "premium composter.png",
+    "categoryImage": "buildings_category.png",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Premium Composter.png"
+  },
+  "Greenhouse": {
+    "buildingImage": "greenhouse.png",
+    "categoryImage": "buildings_category.png",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Greenhouse.png"
+  },
+  "Crop Machine": {
+    "buildingImage": "crop machine.png",
+    "categoryImage": "buildings_category.png",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Crop Machine.png"
+  },
+  "Crafting Box": {
+    "buildingImage": "crafting box.png",
+    "categoryImage": "buildings_category.png",
+    "shopImage": "buildings_shop.png",
+    "mapImage": "Crafting Box.png"
+  },
+  "Basic Scarecrow": {
+    "buildingImage": "basic scarecrow.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Basic Scarecrow.png"
+  },
+  "Scary Mike": {
+    "buildingImage": "scary mike.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Scary Mike.png"
+  },
+  "Laurie the Chuckle Crow": {
+    "buildingImage": "laurie the chuckle crow.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Laurie the Chuckle Crow.png"
+  },
+  "Bale": {
+    "buildingImage": "bale.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Bale.png"
+  },
+  "Immortal Pear": {
+    "buildingImage": "immortal pear.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Immortal Pear.png"
+  },
+  "Squirrel": {
+    "buildingImage": "squirrel.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Squirrel.png"
+  },
+  "Stone Beetle": {
+    "buildingImage": "stone beetle.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Stone Beetle.png"
+  },
+  "Iron Beetle": {
+    "buildingImage": "iron beetle.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Iron Beetle.png"
+  },
+  "Gold Beetle": {
+    "buildingImage": "gold beetle.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Gold Beetle.png"
+  },
+  "Fairy Circle": {
+    "buildingImage": "fairy circle.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Fairy Circle.png"
+  },
+  "Macaw": {
+    "buildingImage": "macaw.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Macaw.png"
+  },
+  "Butterfly": {
+    "buildingImage": "butterfly.png",
+    "categoryImage": "blacksmith_category.png",
+    "shopImage": "blacksmith_shop.png",
+    "mapImage": "Butterfly.png"
+  }
+}

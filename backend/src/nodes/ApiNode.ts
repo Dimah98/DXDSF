@@ -5,6 +5,7 @@ import { sessions } from '../browserManager';
 import { PROJECTS_DIR } from '../constants';
 import * as fs from 'fs'; // Імпортуємо модуль файлової системи для збереження файлів
 import * as path from 'path'; // Імпортуємо модуль path для роботи зі шляхами файлів
+import { writeJsonAtomic } from '../utils/fileUtils';
 
 const logger = new Logger('ApiNode');
 
@@ -19,7 +20,7 @@ const saveResponseToProject = async (
     const inventoryFilePath = path.join(PROJECTS_DIR, `${projectName}_save.json`); // Шлях до збереженого файлу проекту
     try {
       await fs.promises.mkdir(PROJECTS_DIR, { recursive: true }); // Створюємо папку проектів якщо вона не існує
-      await fs.promises.writeFile(inventoryFilePath, JSON.stringify(responseJson, null, 2), 'utf-8'); // Записуємо JSON дані у файл
+      await writeJsonAtomic(inventoryFilePath, responseJson); // Атомарно записуємо JSON дані у файл
       logToClient(`💾 JSON збережено в проект: ${projectName}_save.json`, 'success'); // Повідомляємо клієнта про успішне збереження та назву файлу
       logger.info(`Saved API response JSON to project`, { projectName, path: inventoryFilePath }); // Логуємо подію в бекенді
     } catch (saveErr) { // Перехоплюємо помилки запису

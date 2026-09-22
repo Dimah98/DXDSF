@@ -144,10 +144,9 @@ describe('ConfigManager', () => {
       // Request Configuration
       expect(typeof cfg.REQUEST_TIMEOUT).toBe('number');
 
-      // IT Browser Configuration
-      expect(typeof cfg.ITBROWSER_EXE).toBe('string');
-      expect(typeof cfg.ITBROWSER_USER_DATA).toBe('string');
-      expect(typeof cfg.ITBROWSER_PROFILE_DIR).toBe('string');
+      // Browser Configuration
+      expect(typeof cfg.CAMOUFOX_PROFILES_DIR).toBe('string');
+      expect(typeof cfg.CAMOUFOX_DEFAULT_PROFILE).toBe('string');
     });
 
     it('should allow accessing config values by key', () => {

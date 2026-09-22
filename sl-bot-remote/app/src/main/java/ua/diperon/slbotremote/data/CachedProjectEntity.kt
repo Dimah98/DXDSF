@@ -21,5 +21,8 @@ data class CachedProjectEntity(
     val hasChestCollectedToday: Boolean = false,
     val hasShipmentRestockedToday: Boolean = false,
     val hasPetalPuzzleSolvedToday: Boolean = false,
+    val completedDeliveries: Int = 0,
+    val completedDeliveryTypes: String = "",
+    val lastSaveUpdate: Long? = null,
     val cachedAt: Long = System.currentTimeMillis()
 )
