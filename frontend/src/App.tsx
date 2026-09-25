@@ -6,8 +6,9 @@ import './index.css'
 
 const InventoryOverview = lazy(() => import('./components/InventoryOverview'));
 const MassSchedulerPage = lazy(() => import('./pages/MassSchedulerPage'));
+const FarmCardsOverview = lazy(() => import('./components/FarmCardsOverview'));
 
-type View = 'editor' | 'inventory' | 'scheduler';
+type View = 'editor' | 'inventory' | 'scheduler' | 'farms';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('editor');
@@ -26,8 +27,10 @@ function App() {
         }>
           {currentView === 'inventory' ? (
             <InventoryOverview currentView={currentView} setCurrentView={setCurrentView} />
-          ) : (
+          ) : currentView === 'scheduler' ? (
             <MassSchedulerPage currentView={currentView} setCurrentView={setCurrentView} />
+          ) : (
+            <FarmCardsOverview currentView={currentView} setCurrentView={setCurrentView} />
           )}
         </Suspense>
       )}

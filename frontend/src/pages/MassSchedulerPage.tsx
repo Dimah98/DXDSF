@@ -18,7 +18,9 @@ import {
   ChevronUp, 
   Layers,
   HelpCircle,
-  Timer
+  Timer,
+  LayoutGrid,
+  Boxes
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -274,10 +276,20 @@ const MassSchedulerPage: React.FC<{currentView: any, setCurrentView: any}> = ({s
 
   return (
     <div className="w-full h-full bg-background overflow-y-auto p-3 sm:p-6 md:p-8 custom-scrollbar relative flex flex-col text-white">
-      <button onClick={() => setCurrentView('editor')} className="sticky sm:absolute top-2 left-2 sm:top-6 sm:left-6 z-50 flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors shadow-lg border border-slate-700 text-xs sm:text-sm self-start mb-2 sm:mb-0">
-        <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
-        До Редактора
-      </button>
+      <div className="sticky sm:absolute top-2 left-2 sm:top-6 sm:left-6 z-50 flex items-center gap-2 self-start mb-2 sm:mb-0">
+        <button onClick={() => setCurrentView('editor')} className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors shadow-lg border border-slate-700 text-xs sm:text-sm">
+          <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
+          <span>Редактор</span>
+        </button>
+        <button onClick={() => setCurrentView('farms')} className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-emerald-600/30 text-emerald-300 rounded-lg hover:bg-emerald-600/40 transition-colors shadow-lg border border-emerald-500/40 text-xs sm:text-sm font-semibold">
+          <LayoutGrid size={16} className="sm:w-[18px] sm:h-[18px]" />
+          <span>Ферми</span>
+        </button>
+        <button onClick={() => setCurrentView('inventory')} className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors shadow-lg border border-blue-500/40 text-xs sm:text-sm font-semibold">
+          <Boxes size={16} className="sm:w-[18px] sm:h-[18px]" />
+          <span>Інвентар</span>
+        </button>
+      </div>
 
       <div className="max-w-4xl mx-auto w-full space-y-4 sm:space-y-6 mt-2 sm:mt-8">
         <h1 className="text-xl sm:text-3xl font-bold flex items-center gap-2 sm:gap-3">

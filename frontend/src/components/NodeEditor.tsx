@@ -970,11 +970,18 @@ const NodeEditor = ({ currentView: _currentView, setCurrentView }: NodeEditorPro
                       <CalendarClock size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
                     <button
+                      onClick={() => setCurrentView('farms')}
+                      className="p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30 shadow-emerald-500/20"
+                      title="Карточки проектів (Ферми)"
+                    >
+                      <LayoutGrid size={16} className="md:w-[18px] md:h-[18px]" />
+                    </button>
+                    <button
                       onClick={() => setCurrentView('inventory')}
                       className="p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-blue-600/20 text-blue-400 border-blue-500/40 hover:bg-blue-600/30 shadow-blue-500/20"
                       title="Загальний Інвентар (Overview)"
                     >
-                      <LayoutGrid size={16} className="md:w-[18px] md:h-[18px]" />
+                      <Boxes size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
                     <button
                       onClick={() => {

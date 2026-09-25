@@ -32,8 +32,8 @@ const extractResourceKey = (imageUrl: string): string => { // Функція д�
   return decodeURIComponent(filename.replace(/\.[^.]+$/, '')); // Видаляємо розширення файлу та декодуємо
 }; // Кінець функції extractResourceKey
 
-import { ArrowLeft } from 'lucide-react';
-const InventoryOverview = ({ currentView, setCurrentView }: any) => { // Основний компонент сторінки зведеного інвентарю
+import { ArrowLeft, LayoutGrid, Clock } from 'lucide-react';
+const InventoryOverview = ({ currentView: _currentView, setCurrentView }: any) => { // Основний компонент сторінки зведеного інвентарю
   const [data, setData] = useState<InventoryOverviewData | null>(null); // Стейт для даних інвентарів
   const [loading, setLoading] = useState<boolean>(true); // Стейт для відображення індикатора завантаження
   const [error, setError] = useState<string | null>(null); // Стейт для збереження помилок
@@ -247,6 +247,22 @@ const InventoryOverview = ({ currentView, setCurrentView }: any) => { // Осн�
           >
             <ArrowLeft size={14} />
             <span>Редактор</span>
+          </button>
+          <button 
+            onClick={() => setCurrentView('farms')} 
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 rounded-lg text-xs font-bold transition-colors shadow shrink-0 border border-emerald-500/40 mr-1"
+            title="Перейти до Карточок проектів (Ферми)"
+          >
+            <LayoutGrid size={14} />
+            <span>Ферми</span>
+          </button>
+          <button 
+            onClick={() => setCurrentView('scheduler')} 
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent-orange)]/20 hover:bg-[var(--accent-orange)]/30 text-[var(--accent-orange)] rounded-lg text-xs font-bold transition-colors shadow shrink-0 border border-[var(--accent-orange)]/40 mr-2"
+            title="Перейти до Масового Планувальника"
+          >
+            <Clock size={14} />
+            <span>Розклад</span>
           </button>
           <div className="inventory-overview__categories-tabs">
             <button
