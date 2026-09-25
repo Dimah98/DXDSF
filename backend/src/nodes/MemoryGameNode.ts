@@ -322,7 +322,7 @@ async function detectGrid( // Функція пошуку сітки карто�
       // Малюємо центральну точку картки
       drawDot(annotatedPx, W, H, c.cx, c.cy, 3, 255, 255, 0);
     }
-    const annotatedBuf = encodePng({ width: W, height: H, pixels: annotatedPx });
+    const annotatedBuf = await encodePng({ width: W, height: H, pixels: annotatedPx });
     await sendDebugPhoto(ws, `🎯 Виявлена сітка (${rawCards.length} карток [${filteredRows.length}×${filteredCols.length}])`, nodeId, annotatedBuf);
   } catch (annotErr) {
     logger.warn('Failed to generate annotated grid debug photo', { error: String(annotErr) });
@@ -425,7 +425,7 @@ async function rescanMasterGrid(
 
   if (ws && nodeId) {
     try {
-      const debugBuf = encodePng({ width: W, height: H, pixels: debugAnnotatedPx });
+      const debugBuf = await encodePng({ width: W, height: H, pixels: debugAnnotatedPx });
       await sendDebugPhoto(ws, `🎯 Повторне сканування (${activeRemainingCards.length}/${masterGrid.length} закритих карток)`, nodeId, debugBuf);
     } catch {}
   }
@@ -492,7 +492,7 @@ async function extractFingerprintFromPng(
 
   if (ws && nodeId && label) {
     try {
-      const cardDebugBuf = encodePng({ width: W, height: H, pixels: px });
+      const cardDebugBuf = await encodePng({ width: W, height: H, pixels: px });
       await sendDebugPhoto(ws, label, nodeId, cardDebugBuf);
     } catch {}
   }

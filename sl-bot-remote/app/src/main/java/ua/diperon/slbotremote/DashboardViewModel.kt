@@ -239,8 +239,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             isRunning = item.isRunning,
                             isBrowserOpen = item.isBrowserOpen,
                             activeNodeTitle = item.activeNodeTitle,
-                            nextRun = item.nextRun,
-                            plannedNodeRun = item.plannedNodeRun,
+                            nextRun = item.nextRunLong,
+                            plannedNodeRun = item.plannedNodeRunLong,
                             miniImages = item.getParsedMiniImages(),
                             level = item.level,
                             gold = item.gold,
@@ -253,9 +253,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             hasPetalPuzzleSolvedToday = item.hasPetalPuzzleSolvedToday,
                             completedDeliveries = item.completedDeliveries,
                             completedDeliveryTypes = item.completedDeliveryTypes,
-                            lastSaveUpdate = item.lastSaveUpdate
+                            lastSaveUpdate = item.lastSaveUpdateLong
                         )
-                    }
+                    }.sortedWith { a, b -> NaturalOrderComparator.compare(a.name, b.name) }
                 } catch (overviewErr: Exception) {
                     Log.w(TAG, "getProjectsOverview failed, falling back to legacy multi-request: ${overviewErr.message}")
                     val projectNames = try {
@@ -370,7 +370,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     }
                 }
 
-                _projects.value = loadedProjects
+                _projects.value = loadedProjects.sortedWith { a, b -> NaturalOrderComparator.compare(a.name, b.name) }
 
                 val queueResponse = try {
                     apiService.getQueue()
@@ -464,6 +464,33 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 if (loadedProjects.isNotEmpty()) {
                     _errorMessage.value = null
                     _isConnectionSuccessful.value = true
+
+                    // Фоновий пре-фетч для AppMemoryCache (забезпечує миттєве 0мс відкриття екранів)
+                    launch {
+                        try {
+                            val deliveriesBulk = apiService.getAllDeliveries()
+                            if (deliveriesBulk.success) {
+                                AppMemoryCache.deliveriesData = deliveriesBulk.deliveries
+                                AppMemoryCache.deliveriesInventory = deliveriesBulk.inventories
+                                AppMemoryCache.markedDeliveries = deliveriesBulk.marked.mapValues { it.value.toSet() }
+                                AppMemoryCache.deliveriesTimestamp = deliveriesBulk.timestamp
+                            }
+                        } catch (e: Exception) {
+                            Log.d(TAG, "Silent deliveries prefetch error: ${e.message}")
+                        }
+                        try {
+                            val inventoriesBulk = apiService.getAllInventories()
+                            if (inventoriesBulk.success) {
+                                AppMemoryCache.inventoriesData = inventoriesBulk.inventories
+                                AppMemoryCache.stockData = inventoriesBulk.stock
+                                AppMemoryCache.categories = inventoriesBulk.categories
+                                AppMemoryCache.itemToCategories = inventoriesBulk.itemToCategories
+                                AppMemoryCache.inventoriesTimestamp = inventoriesBulk.timestamp
+                            }
+                        } catch (e: Exception) {
+                            Log.d(TAG, "Silent inventories prefetch error: ${e.message}")
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failure during refreshData: ${e.message}", e)
@@ -649,32 +676,44 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun saveSettings(host: String, port: String, ipAddress: String, ipAddress2: String, activeIpAddress: Int) {
-        val newConfig = ConnectionConfig(host.trim(), port.trim(), ipAddress.trim(), ipAddress2.trim(), activeIpAddress)
+        val cleanHost = sanitizeNetworkAddress(host)
+        val cleanPort = port.trim().filter { it.isDigit() }.ifBlank { "3001" }
+        val cleanIp1 = sanitizeNetworkAddress(ipAddress)
+        val cleanIp2 = sanitizeNetworkAddress(ipAddress2)
+
+        val newConfig = ConnectionConfig(cleanHost, cleanPort, cleanIp1, cleanIp2, activeIpAddress)
         configManager.saveConfig(newConfig)
         _connectionConfig.value = newConfig
         val url = configManager.getHttpUrl()
-        interceptor.setBaseUrl(url)
-        Log.d(TAG, "Settings saved. Base URL updated: $url")
-        refreshData()
+        try {
+            interceptor.setBaseUrl(url)
+            Log.d(TAG, "Settings saved. Base URL updated: $url")
+            refreshData()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting base URL: ${e.message}", e)
+            viewModelScope.launch {
+                _errorEvents.emit("Помилка адреси: ${e.localizedMessage}")
+            }
+        }
     }
 
     fun testConnection(tempHost: String, tempPort: String) {
         viewModelScope.launch {
             _testResult.value = TestConnectionResult.Testing
             try {
-                val cleanHost = tempHost.replace("http://", "").replace("https://", "").trim()
-                val cleanPort = tempPort.trim()
+                val cleanHost = sanitizeNetworkAddress(tempHost).replace("http://", "").replace("https://", "").trim()
+                val cleanPort = tempPort.trim().filter { it.isDigit() }.ifBlank { "3001" }
                 val tempInterceptor = DynamicBaseUrlInterceptor()
                 tempInterceptor.setBaseUrl("http://$cleanHost:$cleanPort")
                 val tempService = BotApiService.create(tempInterceptor)
                 val projects = tempService.getProjects()
                 _testResult.value = TestConnectionResult.Success(
-                    "Connected successfully!\nDiscovered ${projects.size} active bot constructor projects."
+                    "З'єднання успішне!\nЗнайдено проектів: ${projects.size}."
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Connection verification failed: ${e.message}")
                 _testResult.value = TestConnectionResult.Failure(
-                    e.localizedMessage ?: "Network Connection Refused or Timed out."
+                    e.localizedMessage ?: "Помилка підключення до сервера."
                 )
                 _errorEvents.emit("Тест з'єднання не вдався: ${e.localizedMessage}")
             }

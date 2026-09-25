@@ -47,6 +47,7 @@ import SequenceMemoryNode from './SequenceMemoryNode';
 import FruitRunnerNode from './FruitRunnerNode';
 import ChickenRescueNode from './ChickenRescueNode';
 import CaptchaNode from './CaptchaNode';
+import WorldNavigatorNode from './WorldNavigatorNode';
 import SearchAndClickNode from './SearchAndClickNode';
 import ConfigNode from './ConfigNode';
 import IslandArrangerNode from './IslandArrangerNode';
@@ -107,6 +108,7 @@ export const SUB_NODE_TYPES: Record<string, any> = {
   fruitRunnerNode: FruitRunnerNode,
   chickenRescueNode: ChickenRescueNode,
   captchaSolverNode: CaptchaNode,
+  worldNavigatorNode: WorldNavigatorNode,
   searchAndClickNode: SearchAndClickNode,
   configNode: ConfigNode,
   islandArrangerNode: IslandArrangerNode,

@@ -2398,7 +2398,7 @@ export const fruitRunnerNodeHandler = async ({
             const snapshotData = (png.width >= 350 && png.height >= 500)
               ? downscale2x(dbgPx, png.width, png.height)
               : { width: png.width, height: png.height, pixels: dbgPx };
-            const debugBuf = encodePng(snapshotData);
+            const debugBuf = await encodePng(snapshotData);
             sendDebugSnapshot(ws, currentNode.id, nodeTitle || 'Fruit Runner (Phaser 60FPS)', debugBuf, {
               playerX: telemetry.playerX,
               targetX: telemetry.targetX,
@@ -2954,7 +2954,7 @@ export const fruitRunnerNodeHandler = async ({
           const snapshotData = (png.width >= 350 && png.height >= 500)
             ? downscale2x(dbgPx, png.width, png.height)
             : { width: png.width, height: png.height, pixels: dbgPx };
-          const debugBuf = encodePng(snapshotData);
+          const debugBuf = await encodePng(snapshotData);
           sendDebugSnapshot(ws, currentNode.id, nodeTitle || 'Fruit Runner v2', debugBuf, {
             playerX: analysis.playerX,
             targetX,

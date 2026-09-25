@@ -116,3 +116,18 @@ export interface InventoryFile {
     scanDuration: number;
   };
 }
+
+/**
+ * Configuration stored in WorldNavigatorNode.data
+ */
+export interface WorldNavigatorNodeData {
+  label?: string;
+  targetLocation?: 'current' | 'plaza' | 'beach' | 'retreat' | 'kingdom' | 'custom';
+  customLocationUrl?: string;
+  targetNpc?: string;
+  customNpcName?: string;
+  customCoords?: { x: number; y: number };
+  autoInteract?: boolean;
+  interactionDistance?: number;
+  timeoutSeconds?: number;
+}

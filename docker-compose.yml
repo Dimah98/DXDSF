@@ -32,6 +32,8 @@ services:
       - ./backend/projects:/app/backend/projects
       # Профілі Camoufox (кукі, сесії) залишаються локально
       - ./profiles:/app/profiles
+      # Зображення гри для інвентарів та детекції
+      - ./im:/app/im:ro
       # Можливість змінювати код без повної перезбірки образу
       - ./backend/src:/app/backend/src
     shm_size: '2gb' # Критично для стабільної роботи Firefox/Camoufox без вильотів пам'яті

@@ -1,7 +1,5 @@
 import { NodeHandlerParams } from './types';
-import { PROJECTS_DIR } from '../constants';
-import path from 'path';
-import fs from 'fs';
+import { getProjectSaveData } from '../utils/saveStorage';
 
 export interface FlowerRecipe {
   seed: string;
@@ -74,21 +72,19 @@ export const flowerPlanterNodeHandler = async ({
     logToClient('Квітник: Жодна квітка не увімкнена -> Пропускаємо.', 'info');
     return { data: context, nextHandle: ['skip'] };
   }
-  const saveFilePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
   let inventory: Record<string, unknown> = {};
   let flowers: Record<string, unknown> = {};
   try {
-    const rawData = await fs.promises.readFile(saveFilePath, 'utf-8');
-    const apiDataObj = JSON.parse(rawData);
+    const apiDataObj = await getProjectSaveData(projectName);
+    if (!apiDataObj) {
+      logToClient(`Квітник: Дані збереження для ${projectName} не знайдено`, 'error');
+      return { data: { ...context, error: 'No save file found' }, nextHandle: ['skip'] };
+    }
     const farmState = apiDataObj.visitorFarmState ?? apiDataObj.visitedFarmState ?? apiDataObj ?? {};
     inventory = (farmState.inventory as Record<string, unknown>) ?? {};
     flowers   = (farmState.flowers   as Record<string, unknown>) ?? {};
   } catch (err: any) {
-    if (err?.code === 'ENOENT') {
-      logToClient(`Квітник: Файл ${projectName}_save.json не знайдено`, 'error');
-      return { data: { ...context, error: 'No save file found' }, nextHandle: ['skip'] };
-    }
-    logToClient(`Квітник: Помилка читання файлу: ${err.message}`, 'error');
+    logToClient(`Квітник: Помилка читання збереження: ${err.message}`, 'error');
     return { data: { ...context, error: err.message }, nextHandle: ['skip'] };
   }
   const getQty = (name: string): number => Number(inventory[name] ?? flowers[name] ?? 0);

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PROJECTS_DIR } from '../constants';
+import { getAllDbProjectSaves } from '../db/schema';
 // Імпортуємо вбудований клас логера для діагностики роботи
 import { Logger } from '../logger';
 // Імпортуємо інтерфейс параметрів обробника ноди
@@ -76,32 +77,49 @@ export const browserNodeHandler = async ({ currentNode, activePage, logToClient,
     }
     // 6. Рандом ПТ
     else if (browser_action === 'random_pt') {
-       logToClient(`🎲 Пошук випадкового Bumpkin ID з файлів збережень...`, 'debug');
+       logToClient(`🎲 Пошук випадкового Bumpkin ID зі збережень...`, 'debug');
        const candidates: { projectName: string; bumpkinId: string | number }[] = [];
 
        try {
-         const files = (await fs.promises.readdir(PROJECTS_DIR)).filter(f => f.endsWith('_save.json'));
-         for (const file of files) {
+         // 1. Спочатку шукаємо у швидкій базі SQLite
+         const dbSaves = getAllDbProjectSaves();
+         for (const row of dbSaves) {
            try {
-             const filePath = path.join(PROJECTS_DIR, file);
-             const content = await fs.promises.readFile(filePath, 'utf-8');
-             const saveData = JSON.parse(content);
-
+             const saveData = typeof row.save_data === 'string' ? JSON.parse(row.save_data) : row.save_data;
              const bumpkinId = saveData?.visitedFarmState?.bumpkin?.id ??
                                saveData?.visitorFarmState?.bumpkin?.id ??
                                saveData?.bumpkin?.id ??
                                saveData?.farmState?.bumpkin?.id;
 
              if (bumpkinId !== undefined && bumpkinId !== null && String(bumpkinId).trim() !== '') {
-               const name = file.replace('_save.json', '');
-               candidates.push({ projectName: name, bumpkinId });
+               candidates.push({ projectName: row.project_name, bumpkinId });
              }
-           } catch {
-             // пропускаємо пошкоджені файли збережень
+           } catch {}
+         }
+
+         // 2. Якщо в базі порожньо, резервний пошук по файлах на диску
+         if (candidates.length === 0) {
+           const files = (await fs.promises.readdir(PROJECTS_DIR)).filter(f => f.endsWith('_save.json'));
+           for (const file of files) {
+             try {
+               const filePath = path.join(PROJECTS_DIR, file);
+               const content = await fs.promises.readFile(filePath, 'utf-8');
+               const saveData = JSON.parse(content);
+
+               const bumpkinId = saveData?.visitedFarmState?.bumpkin?.id ??
+                                 saveData?.visitorFarmState?.bumpkin?.id ??
+                                 saveData?.bumpkin?.id ??
+                                 saveData?.farmState?.bumpkin?.id;
+
+               if (bumpkinId !== undefined && bumpkinId !== null && String(bumpkinId).trim() !== '') {
+                 const name = file.replace('_save.json', '');
+                 candidates.push({ projectName: name, bumpkinId });
+               }
+             } catch {}
            }
          }
        } catch (err: any) {
-         logger.error(`Error reading projects directory for random_pt`, err instanceof Error ? err : new Error(String(err)));
+         logger.error(`Error reading project saves for random_pt`, err instanceof Error ? err : new Error(String(err)));
        }
 
        if (candidates.length === 0) {

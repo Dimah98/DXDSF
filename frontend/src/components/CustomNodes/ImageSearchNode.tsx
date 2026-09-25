@@ -1,7 +1,7 @@
 // Нода пошуку картинки на екрані (за файлом-еталоном)
 import { memo, useState, useEffect } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Search, Image as ImageIcon, Check, X, MapPin, MousePointer, Camera } from 'lucide-react';
+import { Search, Image as ImageIcon, MapPin, MousePointer, Camera } from 'lucide-react';
 import { Input } from '../ui/input';
 import BaseNode, { getHandleStyle } from './BaseNode';
 
@@ -60,7 +60,6 @@ const ImageSearchNode = memo(({ id, data }: any) => {
             </label>
             <div className="relative">
               <textarea
-                list={`images-${id}`}
                 value={data.imageName || ''}
                 onChange={(e) => data.onDataChange(id, { imageName: e.target.value })}
                 placeholder="resource.png&#10;item.png&#10;icon.png"

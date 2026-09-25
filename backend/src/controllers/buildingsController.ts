@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PROJECTS_DIR } from '../constants';
 import { DEFAULT_BUILDINGS_CATALOG, BuildingCatalogItem } from '../data/buildingsCatalog';
+import { getProjectSaveData } from '../utils/saveStorage';
+import { getProjectContent } from '../db/schema';
 
 const SETTINGS_FILE = path.join(PROJECTS_DIR, 'buildings_catalog_settings.json');
 const GLOBAL_BUILDING_TYPES_FILE = path.join(PROJECTS_DIR, 'global_building_types.json');
@@ -131,32 +133,43 @@ export const saveBuildingsCatalogHandler = async (req: Request, res: Response) =
 export const getProjectBuildingsStatusHandler = async (req: Request, res: Response) => {
   const { projectName } = req.params;
   try {
-    const findFile = (prefix: string, suffix: string) => {
-      const exact = path.join(PROJECTS_DIR, `${prefix}${suffix}`);
-      if (fs.existsSync(exact)) return exact;
-      try {
-        const files = fs.readdirSync(PROJECTS_DIR);
-        const match = files.find(f => f.toLowerCase() === `${prefix.toLowerCase()}${suffix.toLowerCase()}`);
-        if (match) return path.join(PROJECTS_DIR, match);
-      } catch (_) {}
-      return null;
-    };
-
-    const saveFilePath = findFile(projectName, '_save.json');
-    const projFilePath = findFile(projectName, '.json');
-
-    let saveData: any = null;
+    let saveData: any = await getProjectSaveData(projectName);
     let projData: any = null;
-    if (saveFilePath && fs.existsSync(saveFilePath)) {
-      try {
-        saveData = JSON.parse(await fs.promises.readFile(saveFilePath, 'utf-8'));
-      } catch (_) {}
-    }
-    if (projFilePath && fs.existsSync(projFilePath)) {
-      try {
-        projData = JSON.parse(await fs.promises.readFile(projFilePath, 'utf-8'));
-      } catch (_) {}
-      if (!saveData) saveData = projData;
+
+    try {
+      const dbProj = getProjectContent(projectName);
+      if (dbProj && dbProj.content) {
+        projData = JSON.parse(dbProj.content);
+        if (!saveData) saveData = projData;
+      }
+    } catch (_) {}
+
+    if (!saveData) {
+      const findFile = (prefix: string, suffix: string) => {
+        const exact = path.join(PROJECTS_DIR, `${prefix}${suffix}`);
+        if (fs.existsSync(exact)) return exact;
+        try {
+          const files = fs.readdirSync(PROJECTS_DIR);
+          const match = files.find(f => f.toLowerCase() === `${prefix.toLowerCase()}${suffix.toLowerCase()}`);
+          if (match) return path.join(PROJECTS_DIR, match);
+        } catch (_) {}
+        return null;
+      };
+
+      const saveFilePath = findFile(projectName, '_save.json');
+      const projFilePath = findFile(projectName, '.json');
+
+      if (saveFilePath && fs.existsSync(saveFilePath)) {
+        try {
+          saveData = JSON.parse(await fs.promises.readFile(saveFilePath, 'utf-8'));
+        } catch (_) {}
+      }
+      if (projFilePath && fs.existsSync(projFilePath)) {
+        try {
+          projData = JSON.parse(await fs.promises.readFile(projFilePath, 'utf-8'));
+        } catch (_) {}
+        if (!saveData) saveData = projData;
+      }
     }
 
     const extractVFarm = (data: any): any => {

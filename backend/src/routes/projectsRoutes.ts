@@ -7,6 +7,8 @@ import {
   getProjectRuns,
   getProjectRunLogs,
   getProject,
+  getProjectSettings,
+  updateProjectSettings,
   loadProject,
   saveProject,
   deleteProjectHandler,
@@ -31,6 +33,11 @@ router.get('/api/projects/:projectName/containers', authMiddleware, getProjectCo
 router.get('/api/projects/:name/runs', authMiddleware, getProjectRuns);
 router.get('/api/projects/:name/runs/:runId/logs', authMiddleware, getProjectRunLogs);
 router.get('/api/projects/:name', authMiddleware, getProject);
+
+// Project settings (browser & launch settings)
+router.get('/api/projects/:name/settings', authMiddleware, getProjectSettings);
+router.post('/api/projects/:name/settings', authMiddleware, updateProjectSettings);
+router.put('/api/projects/:name/settings', authMiddleware, updateProjectSettings);
 
 // Project loading & saving
 router.get('/api/load', authMiddleware, loadProject);

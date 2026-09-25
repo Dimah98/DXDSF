@@ -730,43 +730,10 @@ fun InventoryItemCard(
     // Отримуємо базовий URL з конфігурації
     val baseUrl = remember(context) { ConnectionConfigManager(context).getHttpUrl().removeSuffix("/") }
     
-    // Формуємо повний URL для зображення
-    val imageUrl = remember(item.image, assetFiles) { // Залежить також від списку файлів assets
-        // Очищаємо назву предмета (наприклад, "/api/images/iron.png" -> "iron")
-        val cleanName = item.image
-            .substringAfterLast("/") // Беремо частину після останнього слеша
-            .substringBeforeLast(".") // Видаляємо розширення файлу
-            .lowercase(Locale.ROOT) // Переводимо в нижній регістр
-            .trim() // Видаляємо зайві пробіли
-            
-        // 1. Спочатку шукаємо точний збіг назви файлу з назвою предмета
-        var matchedFileName = assetFiles.firstOrNull { assetFile ->
-            val assetClean = assetFile.substringBeforeLast(".").lowercase(Locale.ROOT).trim() // Очищаємо назву з assets
-            // Перевіряємо точний збіг за різними стилями написання
-            assetClean == cleanName || assetClean.replace(" ", "_") == cleanName || assetClean.replace("_", " ") == cleanName
-        } // Кінець пошуку точного збігу
-
-        // 2. Якщо точного збігу немає, шукаємо файл, назва якого містить назву предмета
-        if (matchedFileName == null) {
-            matchedFileName = assetFiles.firstOrNull { assetFile ->
-                val assetClean = assetFile.substringBeforeLast(".").lowercase(Locale.ROOT).trim() // Очищаємо назву з assets
-                assetClean.contains(cleanName) // Перевіряємо чи назва файлу містить назву предмета
-            } // Кінець пошуку часткового збігу
-        } // Кінець перевірки
-
-        if (matchedFileName != null) { // Якщо локальний файл знайдено
-            "file:///android_asset/im/$matchedFileName" // Повертаємо локальне посилання
-        } else { // Якщо локальний файл не знайдено
-            when {
-                // Якщо це base64 дані
-                item.image.startsWith("data:") -> item.image
-                // Якщо це пряме HTTP посилання
-                item.image.startsWith("http://") || item.image.startsWith("https://") -> item.image
-                // Для відносних шляхів
-                else -> "$baseUrl${item.image}"
-            } // Кінець when
-        } // Кінець перевірки
-    } // Кінець remember
+    // Формуємо повний URL для зображення через ItemImageResolver
+    val imageUrl = remember(item.image, baseUrl) {
+        ItemImageResolver.resolveImageUrl(item.image, context, baseUrl)
+    }
     
     Box(
         modifier = Modifier

@@ -33,8 +33,8 @@ data class ProjectOverviewItem(
     @Json(name = "isRunning") val isRunning: Boolean = false,
     @Json(name = "isBrowserOpen") val isBrowserOpen: Boolean = false,
     @Json(name = "activeNodeTitle") val activeNodeTitle: String? = null,
-    @Json(name = "nextRun") val nextRun: Long? = null,
-    @Json(name = "plannedNodeRun") val plannedNodeRun: Long? = null,
+    @Json(name = "nextRun") val nextRun: Double? = null,
+    @Json(name = "plannedNodeRun") val plannedNodeRun: Double? = null,
     @Json(name = "level") val level: Int? = null,
     @Json(name = "gold") val gold: Double? = null,
     @Json(name = "balance") val balance: Double? = null,
@@ -47,8 +47,11 @@ data class ProjectOverviewItem(
     @Json(name = "miniImages") val miniImages: List<List<Any?>> = emptyList(),
     @Json(name = "completedDeliveries") val completedDeliveries: Int = 0,
     @Json(name = "completedDeliveryTypes") val completedDeliveryTypes: List<String> = emptyList(),
-    @Json(name = "lastSaveUpdate") val lastSaveUpdate: Long? = null
+    @Json(name = "lastSaveUpdate") val lastSaveUpdate: Double? = null
 ) {
+    val nextRunLong: Long? get() = nextRun?.toLong()
+    val plannedNodeRunLong: Long? get() = plannedNodeRun?.toLong()
+    val lastSaveUpdateLong: Long? get() = lastSaveUpdate?.toLong()
     fun getParsedMiniImages(): List<Pair<String, Int?>> {
         return miniImages.mapNotNull { item ->
             if (item.isNotEmpty()) {
@@ -387,6 +390,91 @@ data class ProjectRunsResponse(
     @Json(name = "error") val error: String? = null
 )
 
+// ===== NPC Deliveries Models =====
+
+data class NpcDeliveryCatalogItem(
+    @Json(name = "name") val name: String = "",
+    @Json(name = "amount") val amount: Double = 0.0,
+    @Json(name = "image") val image: String = ""
+)
+
+data class NpcDeliveryVariant(
+    @Json(name = "id") val id: String = "",
+    @Json(name = "signature") val signature: String = "",
+    @Json(name = "items") val items: List<NpcDeliveryCatalogItem> = emptyList(),
+    @Json(name = "reward") val reward: String = "",
+    @Json(name = "rewardType") val rewardType: String = "",
+    @Json(name = "rewardIcon") val rewardIcon: String = "",
+    @Json(name = "cost") val cost: String = ""
+)
+
+data class NpcGroup(
+    @Json(name = "id") val id: String = "",
+    @Json(name = "name") val name: String = "",
+    @Json(name = "displayName") val displayName: String = "",
+    @Json(name = "icon") val icon: String = "",
+    @Json(name = "category") val category: String = "",
+    @Json(name = "avgReward") val avgReward: String = "",
+    @Json(name = "avgCost") val avgCost: String = "",
+    @Json(name = "deliveriesCount") val deliveriesCount: Int = 0,
+    @Json(name = "deliveries") val deliveries: List<NpcDeliveryVariant> = emptyList()
+)
+
+data class NpcDeliveriesCatalogResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "data") val data: Map<String, NpcGroup> = emptyMap()
+)
+
+data class NpcDeliverySetting(
+    @Json(name = "status") val status: String = "skip", // "skip" | "deliver" | "config"
+    @Json(name = "configId") val configId: String? = null
+)
+
+data class NpcDeliverySettingsResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "projectName") val projectName: String? = null,
+    @Json(name = "settings") val settings: Map<String, NpcDeliverySetting> = emptyMap(),
+    @Json(name = "global") val global: Map<String, NpcDeliverySetting>? = null,
+    @Json(name = "projectOverrides") val projectOverrides: Map<String, NpcDeliverySetting>? = null
+)
+
+data class SaveNpcDeliverySettingsRequest(
+    @Json(name = "projectName") val projectName: String? = null,
+    @Json(name = "settings") val settings: Map<String, NpcDeliverySetting>,
+    @Json(name = "applyToAll") val applyToAll: Boolean = false
+)
+
+data class TestNpcConfigRequest(
+    @Json(name = "projectName") val projectName: String,
+    @Json(name = "configId") val configId: String
+)
+
+data class TestNpcConfigResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "configId") val configId: String? = null,
+    @Json(name = "projectName") val projectName: String? = null,
+    @Json(name = "passed") val passed: Boolean = false,
+    @Json(name = "error") val error: String? = null
+)
+
+// ===== Bulk All Data Models =====
+
+data class AllDeliveriesBulkResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "timestamp") val timestamp: Long = 0L,
+    @Json(name = "deliveries") val deliveries: Map<String, List<Delivery>> = emptyMap(),
+    @Json(name = "inventories") val inventories: Map<String, List<InventoryItem>> = emptyMap(),
+    @Json(name = "marked") val marked: Map<String, List<String>> = emptyMap()
+)
+
+data class AllInventoriesBulkResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "timestamp") val timestamp: Long = 0L,
+    @Json(name = "inventories") val inventories: Map<String, List<InventoryItem>> = emptyMap(),
+    @Json(name = "stock") val stock: Map<String, List<InventoryItem>> = emptyMap(),
+    @Json(name = "categories") val categories: List<String> = emptyList(),
+    @Json(name = "itemToCategories") val itemToCategories: Map<String, List<String>> = emptyMap()
+)
 
 // ===== Dynamic Base URL Interceptor =====
 
@@ -394,8 +482,20 @@ class DynamicBaseUrlInterceptor : Interceptor {
     private val baseUrlRef = AtomicReference<HttpUrl?>(null)
 
     fun setBaseUrl(url: String) {
-        val clean = url.trim().removeSuffix("/")
-        baseUrlRef.set("$clean/".toHttpUrlOrNull() ?: throw IllegalArgumentException("Invalid URL: $url"))
+        val sanitized = sanitizeNetworkAddress(url).trim().removeSuffix("/")
+        val withScheme = if (!sanitized.startsWith("http://", ignoreCase = true) && !sanitized.startsWith("https://", ignoreCase = true)) {
+            "http://$sanitized"
+        } else sanitized
+
+        val parsedUrl = "$withScheme/".toHttpUrlOrNull()
+        if (parsedUrl != null) {
+            baseUrlRef.set(parsedUrl)
+        } else {
+            android.util.Log.e("DynamicBaseUrlInterceptor", "Invalid URL provided: '$url' (sanitized: '$sanitized'). Keeping previous URL: ${baseUrlRef.get()}")
+            if (baseUrlRef.get() == null) {
+                baseUrlRef.set("http://127.0.0.1:3001/".toHttpUrlOrNull())
+            }
+        }
     }
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -693,6 +793,26 @@ interface BotApiService {
 
     @GET("api/projects/{projectName}/buildings-status")
     suspend fun getProjectBuildingsStatus(@Path("projectName") projectName: String): ProjectBuildingsStatusResponse
+
+    // --- NPC Deliveries API ---
+    @GET("api/npc-deliveries")
+    suspend fun getNpcDeliveries(): NpcDeliveriesCatalogResponse
+
+    @GET("api/npc-deliveries/settings")
+    suspend fun getNpcDeliverySettings(@Query("projectName") projectName: String? = null): NpcDeliverySettingsResponse
+
+    @POST("api/npc-deliveries/settings")
+    suspend fun saveNpcDeliverySettings(@Body request: SaveNpcDeliverySettingsRequest): ActionResponse
+
+    @POST("api/npc-deliveries/test-config")
+    suspend fun testNpcDeliveryConfig(@Body request: TestNpcConfigRequest): TestNpcConfigResponse
+
+    // --- Bulk All Data API ---
+    @GET("api/all-deliveries")
+    suspend fun getAllDeliveries(): AllDeliveriesBulkResponse
+
+    @GET("api/all-inventories")
+    suspend fun getAllInventories(): AllInventoriesBulkResponse
 
     companion object {
         private const val TAG = "BotApiService"

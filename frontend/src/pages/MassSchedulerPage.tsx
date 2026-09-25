@@ -164,6 +164,7 @@ const MassSchedulerPage: React.FC<{currentView: any, setCurrentView: any}> = ({s
       }, 300);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isAdding, mode, jsonPath, selectedConfigId, fetchTimePreview]);
 
   useEffect(() => {

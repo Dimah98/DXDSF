@@ -4,12 +4,14 @@ import {
   getProjectMap,
   saveProjectMap,
   deleteProjectMap,
-  getProjectDeliveries
+  getProjectDeliveries,
+  getAllProjectsDeliveries
 } from '../controllers/projectDataController';
 import { authMiddleware } from '../auth/AuthMiddleware';
 
 const router = Router();
 
+router.get('/api/all-deliveries', authMiddleware, getAllProjectsDeliveries);
 router.get('/api/project-save/:projectName', authMiddleware, getProjectSave);
 router.get('/api/project-map/:projectName', authMiddleware, getProjectMap);
 router.post('/api/project-map/:projectName', authMiddleware, saveProjectMap);

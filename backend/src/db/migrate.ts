@@ -2,7 +2,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   db,
-  upsertProject
+  upsertProject,
+  saveDbProjectVariables,
+  saveDbProjectSave,
+  saveDbProjectLayout
 } from './schema';
 import { PROJECTS_DIR } from '../constants';
 
@@ -55,11 +58,99 @@ export function migrateProjects(projectsDir: string = DEFAULT_PROJECTS_DIR) {
       const stats = fs.statSync(filePath);
       if (isFileAlreadyMigrated(filePath, stats.mtimeMs)) continue;
 
-      upsertProject(projectName, filePath, stats.birthtimeMs, stats.mtimeMs);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      upsertProject(projectName, filePath, stats.birthtimeMs, stats.mtimeMs, content);
+      
+      // Також перевіряємо, чи є вкладені змінні у файлі проекту
+      try {
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed.variables === 'object' && parsed.variables !== null && Object.keys(parsed.variables).length > 0) {
+          saveDbProjectVariables(projectName, parsed.variables, stats.mtimeMs);
+        }
+      } catch (_) {}
+
       markFileMigrated(filePath, stats.mtimeMs);
       count++;
     } catch (e) {
-      console.error(`[Migrate] ${projectName}: failed to migrate project metadata`, e);
+      console.error(`[Migrate] ${projectName}: failed to migrate project content`, e);
+    }
+  }
+  return count;
+}
+
+export function migrateVariables(projectsDir: string = DEFAULT_PROJECTS_DIR): number {
+  if (!fs.existsSync(projectsDir)) return 0;
+  const files = fs.readdirSync(projectsDir).filter(f => f.endsWith('_vars.json') || f === 'save_vars.json');
+  let count = 0;
+
+  for (const file of files) {
+    const projectName = file === 'save_vars.json' ? 'default' : file.replace('_vars.json', '');
+    const filePath = path.join(projectsDir, file);
+    try {
+      const stat = fs.statSync(filePath);
+      if (isFileAlreadyMigrated(filePath, stat.mtimeMs)) continue;
+
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const vars = JSON.parse(raw);
+      if (typeof vars === 'object' && vars !== null) {
+        saveDbProjectVariables(projectName, vars, stat.mtimeMs);
+        markFileMigrated(filePath, stat.mtimeMs);
+        count++;
+      }
+    } catch (e) {
+      console.error(`[Migrate] ${projectName}: failed to migrate vars file`, e);
+    }
+  }
+  return count;
+}
+
+export function migrateSaves(projectsDir: string = DEFAULT_PROJECTS_DIR): number {
+  if (!fs.existsSync(projectsDir)) return 0;
+  const files = fs.readdirSync(projectsDir).filter(f => f.endsWith('_save.json') || f === 'save.json');
+  let count = 0;
+
+  for (const file of files) {
+    const projectName = file === 'save.json' ? 'default' : file.replace('_save.json', '');
+    const filePath = path.join(projectsDir, file);
+    try {
+      const stat = fs.statSync(filePath);
+      if (isFileAlreadyMigrated(filePath, stat.mtimeMs)) continue;
+
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const data = JSON.parse(raw);
+      if (data && typeof data === 'object') {
+        saveDbProjectSave(projectName, data, stat.mtimeMs);
+        markFileMigrated(filePath, stat.mtimeMs);
+        count++;
+      }
+    } catch (e) {
+      console.error(`[Migrate] ${projectName}: failed to migrate save file`, e);
+    }
+  }
+  return count;
+}
+
+export function migrateLayouts(projectsDir: string = DEFAULT_PROJECTS_DIR): number {
+  if (!fs.existsSync(projectsDir)) return 0;
+  const files = fs.readdirSync(projectsDir).filter(f => f.endsWith('_layout.json'));
+  let count = 0;
+
+  for (const file of files) {
+    const projectName = file.replace('_layout.json', '');
+    const filePath = path.join(projectsDir, file);
+    try {
+      const stat = fs.statSync(filePath);
+      if (isFileAlreadyMigrated(filePath, stat.mtimeMs)) continue;
+
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const data = JSON.parse(raw);
+      if (data && typeof data === 'object') {
+        saveDbProjectLayout(projectName, data, stat.mtimeMs);
+        markFileMigrated(filePath, stat.mtimeMs);
+        count++;
+      }
+    } catch (e) {
+      console.error(`[Migrate] ${projectName}: failed to migrate layout file`, e);
     }
   }
   return count;
@@ -276,14 +367,17 @@ export function runAutoMigration(projectsDir: string = DEFAULT_PROJECTS_DIR) {
   try {
     const startTime = Date.now();
     const projCount = migrateProjects(projectsDir);
+    const varsCount = migrateVariables(projectsDir);
+    const savesCount = migrateSaves(projectsDir);
+    const layoutsCount = migrateLayouts(projectsDir);
     const invCount = migrateInventories(projectsDir);
     const statsCount = migrateStats(projectsDir);
     const runsCount = migrateRuns();
     const logsCount = migrateLogs(projectsDir);
-    const totalMigrated = projCount + invCount + statsCount + runsCount + logsCount;
+    const totalMigrated = projCount + varsCount + savesCount + layoutsCount + invCount + statsCount + runsCount + logsCount;
 
     if (totalMigrated > 0) {
-      console.log(`[SQLite AutoMigration] Completed in ${Date.now() - startTime}ms (Projects: ${projCount}, Inventory: ${invCount}, Stats: ${statsCount}, Runs: ${runsCount}, Logs: ${logsCount})`);
+      console.log(`[SQLite AutoMigration] Completed in ${Date.now() - startTime}ms (Projects: ${projCount}, Vars: ${varsCount}, Saves: ${savesCount}, Layouts: ${layoutsCount}, Inventory: ${invCount}, Stats: ${statsCount}, Runs: ${runsCount}, Logs: ${logsCount})`);
     }
   } catch (err) {
     console.error('[SQLite AutoMigration] Failed to run migration:', err);
@@ -301,6 +395,9 @@ if (require.main === module) {
   const counts = db.prepare(`
     SELECT
       (SELECT COUNT(*) FROM projects) as projects,
+      (SELECT COUNT(*) FROM project_variables) as project_variables,
+      (SELECT COUNT(*) FROM project_saves) as project_saves,
+      (SELECT COUNT(*) FROM project_layouts) as project_layouts,
       (SELECT COUNT(*) FROM inventory_items) as inventory_items,
       (SELECT COUNT(*) FROM executions) as executions,
       (SELECT COUNT(*) FROM execution_logs) as execution_logs

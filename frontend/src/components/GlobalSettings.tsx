@@ -70,7 +70,6 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
       photoDebug: true,
       queueMode: false,
       maxParallelProjects: 1,
-      timeout10mMode: false,
       snapToGrid: true,
       browserSafetyTimeoutMinutes: 1440,
       rateLimitApi: 9999999,
@@ -89,7 +88,6 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
             ...prev,
             queueMode: data.queueMode === 1,
             maxParallelProjects: data.maxParallelProjects || 1,
-            timeout10mMode: data.timeout10mMode === 1,
             disableImages: data.disableImages === 1,
             photoDebug: data.photoDebug !== 0,
             headless: data.headless === 1,
@@ -155,7 +153,7 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
   const updateSetting = (key: string, value: any) => {
     setSettings((prev: any) => ({ ...prev, [key]: value }));
     if ([
-      'queueMode', 'timeout10mMode', 'disableImages', 'photoDebug', 'headless', 'maxParallelProjects',
+      'queueMode', 'disableImages', 'photoDebug', 'headless', 'maxParallelProjects',
       'browserSafetyTimeoutMinutes', 'rateLimitApi', 'rateLimitWs', 'rateLimitRunMultiple'
     ].includes(key)) {
       const isNumberField = ['maxParallelProjects', 'browserSafetyTimeoutMinutes', 'rateLimitApi', 'rateLimitWs', 'rateLimitRunMultiple'].includes(key);
@@ -243,18 +241,6 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
                       </div>
                     )}
 
-                    <label className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors border border-transparent">
-                      <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
-                        <Timer size={13} className="text-amber-400" />
-                        <span>Режим 10хв (Закривати браузер через 10 хвилин)</span>
-                      </div>
-                      <input 
-                        type="checkbox" 
-                        checked={settings.timeout10mMode === true} 
-                        onChange={(e) => updateSetting('timeout10mMode', e.target.checked)} 
-                        className="rounded border-white/20 text-amber-500 focus:ring-amber-500 bg-black/20" 
-                      />
-                    </label>
 
                     {/* Таймаут неактивності браузера */}
                     <div className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-colors text-[11px] text-slate-300">
@@ -443,11 +429,21 @@ const GlobalSettings = ({ forceOpen, onOpenChange }: { forceOpen?: boolean, onOp
                         type="button"
                         onClick={async () => {
                           const proj = localStorage.getItem('sfl_current_project') || 'default';
+                          const savedBs = localStorage.getItem(`sfl_browser_${proj}`);
+                          const parsedBs = savedBs ? JSON.parse(savedBs) : {};
                           try {
                             await fetch(`/api/browser/open/${encodeURIComponent(proj)}?forceHeaded=true`, {
                               method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ forceHeaded: true })
+                              headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+                              },
+                              body: JSON.stringify({
+                                forceHeaded: true,
+                                browserSettings: parsedBs,
+                                width: parsedBs.width,
+                                height: parsedBs.height
+                              })
                             });
                           } catch (_) {}
                         }}

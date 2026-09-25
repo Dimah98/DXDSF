@@ -1,9 +1,7 @@
 import { NodeHandlerParams } from './types';
 import { SMOOTHIE_SHACK_RECIPES } from '../plugins/sunflower-land/data/recipes';
 import { recipeImagesConfig } from '../recipeImagesConfig';
-import { PROJECTS_DIR } from '../constants';
-import path from 'path';
-import fs from 'fs';
+import { getProjectInventory } from '../utils/saveStorage';
 
 interface SmoothieShackRule {
   recipeName: string;
@@ -25,23 +23,18 @@ export const smoothieShackNodeHandler = async ({
     return { data: context, nextHandle: ['skip'] };
   }
 
-  // Зчитуємо інвентар з файлу _save.json
-  const saveFilePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
+  // Зчитуємо інвентар з швидкого SQLite сховища
   let inventory: Record<string, unknown> = {};
-
   try {
-    const rawData = await fs.promises.readFile(saveFilePath, 'utf-8');
-    const apiDataObj = JSON.parse(rawData);
-    const visitorFarmState = apiDataObj.visitorFarmState as Record<string, unknown> | undefined;
-    const visitedFarmState = apiDataObj.visitedFarmState as Record<string, unknown> | undefined;
-    inventory = (visitorFarmState?.inventory as Record<string, unknown>) || (visitedFarmState?.inventory as Record<string, unknown>) || {};
+    inventory = await getProjectInventory(projectName);
   } catch (err: any) {
-    if (err?.code === 'ENOENT') {
-      logToClient(`❌ Smoothie Shack: Файл збереження ${projectName}_save.json не знайдено`, 'error');
-      return { data: { ...context, error: 'No save file found' }, nextHandle: ['skip'] };
-    }
-    logToClient(`❌ Smoothie Shack: Помилка читання файлу збереження: ${err.message}`, 'error');
+    logToClient(`❌ Smoothie Shack: Помилка читання інвентарю: ${err.message}`, 'error');
     return { data: { ...context, error: err.message }, nextHandle: ['skip'] };
+  }
+
+  if (Object.keys(inventory).length === 0) {
+    logToClient(`❌ Smoothie Shack: Дані інвентарю для ${projectName} порожні або не знайдені`, 'error');
+    return { data: { ...context, error: 'No inventory data found' }, nextHandle: ['skip'] };
   }
 
   // Завантажуємо глобальні назви зображень для Smoothie Shack

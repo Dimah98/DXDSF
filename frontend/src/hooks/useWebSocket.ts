@@ -19,6 +19,7 @@ interface UseWebSocketProps {
 export function useWebSocket(props: UseWebSocketProps) {
   const { WS_HOST, wsRef } = props;
   const [retryCount, setRetryCount] = useState(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout>>();
   
   // Використовуємо refs для всіх динамічних параметрів, щоб уникнути перепідключень WS
   const propsRef = useRef(props);
@@ -33,10 +34,10 @@ export function useWebSocket(props: UseWebSocketProps) {
         const data = JSON.parse(event.data);
         const { 
           addLog, setNodes, subNodeCallbacksRef, nodesRef, 
-          setGlobalVariables, setIsBotRunning, attachCallbacks, setDebugImages 
+          setGlobalVariables, setIsBotRunning, setDebugImages 
         } = propsRef.current;
 
-        if (data.type === 'PICKED_SELECTOR' || data.type === 'SELECTOR_INFO_PICKED') {
+        if (data.type === 'SELECTOR_INFO_PICKED') {
           addLog(`Отримано селектор: ${data.selector || data.info?.selector}`, 'success');
           
           const subCb = subNodeCallbacksRef.current.get(data.nodeId);
@@ -115,15 +116,6 @@ export function useWebSocket(props: UseWebSocketProps) {
           if (!data.isRunning) {
             useExecutionStore.getState().setActiveExecutingNodeId(null);
           }
-        } else if (data.type === 'NODE_RECORDED') {
-          const newNode: Node = {
-            id: `node_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-            type: data.nodeType,
-            position: { x: 400 + Math.random() * 100, y: 200 + Math.random() * 100 },
-            data: data.data,
-            dragHandle: '.drag-handle',
-          };
-          setNodes((nds) => attachCallbacks([...nds, newNode]));
         } else if (data.type === 'CONSOLE_LOG') {
           addLog(data.message, data.logType || 'info', data.data);
         } else if (data.type === 'DEBUG_SNAPSHOT') {
@@ -160,7 +152,7 @@ export function useWebSocket(props: UseWebSocketProps) {
       if (!isMounted) return;
       propsRef.current.addLog('З\'єднання втрачено. Перепідключення через 3с...', 'error');
       wsRef.current = null;
-      setTimeout(() => {
+      retryTimerRef.current = setTimeout(() => {
         if (isMounted) setRetryCount(c => c + 1);
       }, 3000);
     };
@@ -175,6 +167,7 @@ export function useWebSocket(props: UseWebSocketProps) {
     wsRef.current = websocket;
     return () => {
       isMounted = false;
+      clearTimeout(retryTimerRef.current);
       if (websocket.readyState === WebSocket.OPEN) {
         websocket.close();
       } else {

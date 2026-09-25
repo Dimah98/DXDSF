@@ -108,7 +108,7 @@ export async function getMatchingProjects(req: Request, res: Response): Promise<
       if (!f.endsWith('.json')) return false;
       const name = f.replace('.json', '');
       if (name === 'categories' || name === 'global_building_types') return false;
-      if (name.endsWith('_layout') || name.endsWith('_save')) return false;
+      if (name.endsWith('_layout') || name.endsWith('_save') || name.endsWith('_vars')) return false;
       if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
       if (name.includes('schedule') || name.includes('notifications')) return false;
       return true;

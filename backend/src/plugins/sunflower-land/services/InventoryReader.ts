@@ -16,7 +16,17 @@ const defaultLogger: Logger = {
   debug: (message: any, ...args: any[]) => console.debug(message, ...args)
 };
 
-const IM_DIR = path.resolve(__dirname, '../../../../../im');
+function getImCandidates(): string[] {
+  return [
+    path.resolve(__dirname, '../../../../../data/im'),
+    path.resolve(__dirname, '../../../../data/im'),
+    path.resolve(__dirname, '../../../../../im'),
+    path.resolve(__dirname, '../../../../im'),
+    path.resolve(process.cwd(), 'data/im'),
+    path.resolve(process.cwd(), 'im'),
+  ];
+}
+
 let imMapCache: Map<string, string> | null = null;
 let imFilesList: string[] = [];
 
@@ -25,19 +35,27 @@ function normalizeKey(str: string): string {
 }
 
 function initImCache(): Map<string, string> {
-  if (imMapCache !== null) return imMapCache;
+  if (imMapCache !== null && imMapCache.size > 0) return imMapCache;
   imMapCache = new Map<string, string>();
-  try {
-    imFilesList = fsSync.readdirSync(IM_DIR);
-    for (const file of imFilesList) {
-      const base = path.basename(file, path.extname(file)).toLowerCase().trim();
-      imMapCache.set(base, file);
-      imMapCache.set(base.replace(/ /g, '_'), file);
-      imMapCache.set(base.replace(/_/g, ' '), file);
-      imMapCache.set(normalizeKey(base), file);
+  imFilesList = [];
+  const candidates = getImCandidates();
+
+  for (const dir of candidates) {
+    try {
+      if (fsSync.existsSync(dir)) {
+        const files = fsSync.readdirSync(dir);
+        for (const file of files) {
+          const base = path.basename(file, path.extname(file)).toLowerCase().trim();
+          if (!imMapCache.has(base)) imMapCache.set(base, file);
+          if (!imMapCache.has(base.replace(/ /g, '_'))) imMapCache.set(base.replace(/ /g, '_'), file);
+          if (!imMapCache.has(base.replace(/_/g, ' '))) imMapCache.set(base.replace(/_/g, ' '), file);
+          if (!imMapCache.has(normalizeKey(base))) imMapCache.set(normalizeKey(base), file);
+          imFilesList.push(file);
+        }
+      }
+    } catch {
+      // Пробуємо наступну директорію
     }
-  } catch {
-    imFilesList = [];
   }
   return imMapCache;
 }
@@ -54,7 +72,7 @@ export function getImageUrl(itemName: string): string {
     || cache.get(norm);
 
   if (!matchedFile && imFilesList.length > 0) {
-    // Fallback: частковий збіг із мемоізацією
+    // Fallback 1: частковий збіг із мемоізацією
     matchedFile = imFilesList.find(file => {
       const fileClean = path.basename(file, path.extname(file)).toLowerCase().trim();
       return fileClean.includes(cleanName) || cleanName.includes(fileClean);
@@ -65,7 +83,35 @@ export function getImageUrl(itemName: string): string {
     }
   }
 
-  return matchedFile ? `/api/im/${matchedFile}` : `/api/im/${itemName}.png`;
+  // Fallback 2: прямий пошук на диску (на випадок якщо файли додані після ініціалізації)
+  if (!matchedFile) {
+    const candidates = getImCandidates();
+    const tryNames = [
+      itemName,
+      `${itemName}.png`,
+      `${itemName}.webp`,
+      `${cleanName}.png`,
+      `${cleanName.replace(/ /g, '_')}.png`,
+      `${cleanName.replace(/_/g, ' ')}.png`,
+      `${itemName}.jpg`
+    ];
+    for (const dir of candidates) {
+      if (!fsSync.existsSync(dir)) continue;
+      for (const tName of tryNames) {
+        const full = path.join(dir, tName);
+        if (fsSync.existsSync(full)) {
+          matchedFile = tName;
+          cache.set(cleanName, matchedFile);
+          cache.set(norm, matchedFile);
+          break;
+        }
+      }
+      if (matchedFile) break;
+    }
+  }
+
+  const resultFile = matchedFile || `${itemName}.png`;
+  return `/api/im/${resultFile}`;
 }
 
 interface CacheEntry {

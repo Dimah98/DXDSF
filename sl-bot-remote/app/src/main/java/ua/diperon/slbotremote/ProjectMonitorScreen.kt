@@ -13,6 +13,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition // Запам'
 import androidx.compose.animation.core.tween // Тривалість та форма кривої анімації
 import androidx.compose.animation.fadeIn // Плавна поява елементів
 import androidx.compose.animation.fadeOut // Плавне зникнення елементів
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke // Параметри обводки (бордюра)
 import androidx.compose.foundation.Canvas // Елемент розширеного малювання фігур
 import androidx.compose.foundation.Image // Елемент відображення растрових картинок
@@ -93,7 +95,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.Mouse
-import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.FilterCenterFocus
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardReturn
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -163,6 +167,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.graphicsLayer
 import ua.diperon.slbotremote.ui.theme.*
 
 /**
@@ -206,6 +212,7 @@ fun ProjectMonitorScreen(
     val isLoadingRunLogs by viewModel.isLoadingRunLogs.collectAsState()
     val projectSaveRawJson by viewModel.projectSaveRawJson.collectAsState()
     val isLoadingProjectSave by viewModel.isLoadingProjectSave.collectAsState()
+    val selectedElementInfo by viewModel.selectedElementInfo.collectAsState()
 
     val context = LocalContext.current
     val inventoryPrefs = remember { InventoryPreferences(context) }
@@ -300,7 +307,12 @@ fun ProjectMonitorScreen(
         onGoForward = { viewModel.goForward() },
         onToggleDeliveryMark = { deliveryId -> viewModel.toggleDeliveryMark(deliveryId) },
         onRefreshContainers = { viewModel.fetchContainers() },
-        onRunContainer = { container -> viewModel.runContainer(container) }
+        onRunContainer = { container -> viewModel.runContainer(container) },
+        selectedElementInfo = selectedElementInfo,
+        onPickSelectorByCoords = { x, y -> viewModel.pickSelectorByCoords(x, y) },
+        onHighlightSelector = { sel -> viewModel.highlightSelector(sel) },
+        onClearHighlight = { viewModel.clearHighlight() },
+        onClearSelectedElement = { viewModel.clearSelectedElement() }
     )
 }
 
@@ -375,7 +387,12 @@ fun ProjectMonitorContent(
     onGoForward: () -> Unit = {},
     onToggleDeliveryMark: (String) -> Unit = {},
     onRefreshContainers: () -> Unit = {},
-    onRunContainer: (FlowNodeData) -> Unit = {}
+    onRunContainer: (FlowNodeData) -> Unit = {},
+    selectedElementInfo: BotWsMessage.SelectorInfoPicked? = null,
+    onPickSelectorByCoords: (Int, Int) -> Unit = { _, _ -> },
+    onHighlightSelector: (String) -> Unit = {},
+    onClearHighlight: () -> Unit = {},
+    onClearSelectedElement: () -> Unit = {}
 ) {
     // Локальні змінні тригерів для активації нових діалогових вікон
     var isFullScreenStream by remember { mutableStateOf(false) } // Діалог на весь екран
@@ -661,7 +678,12 @@ fun ProjectMonitorContent(
                 onRefreshBrowser = onRefreshBrowserPage,
                 onNavigateToUrl = onNavigateToUrl,
                 onGoBack = onGoBack,
-                onGoForward = onGoForward
+                onGoForward = onGoForward,
+                selectedElementInfo = selectedElementInfo,
+                onPickSelectorByCoords = onPickSelectorByCoords,
+                onHighlightSelector = onHighlightSelector,
+                onClearHighlight = onClearHighlight,
+                onClearSelectedElement = onClearSelectedElement
             )
         }
 
@@ -1084,13 +1106,9 @@ fun MiniInventoryItemCard(item: InventoryItem) {
     // Отримуємо базовий URL з конфігурації
     val baseUrl = remember { ConnectionConfigManager(context).getHttpUrl().removeSuffix("/") }
     
-    // Формуємо повний URL для зображення
-    val imageUrl = remember(item.image) {
-        when {
-            item.image.startsWith("data:") -> item.image
-            item.image.startsWith("http://") || item.image.startsWith("https://") -> item.image
-            else -> "$baseUrl${item.image}"
-        }
+    // Формуємо повний URL для зображення через ItemImageResolver (з пріоритетом локальних assets/im/)
+    val imageUrl = remember(item.image, baseUrl) {
+        ItemImageResolver.resolveImageUrl(item.image, context, baseUrl)
     }
     
     val imageLoader = remember(context) { ImageLoaderProvider.getImageLoader(context) }
@@ -1616,17 +1634,24 @@ fun FullscreenImageViewer(
                 val timestamp = remember { System.currentTimeMillis() }
                 val imageUrl = "$baseUrl/api/screenshots/${projectName}_screenshots/${screenshots[index]}?t=$timestamp"
 
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(imageUrl)
-                        .crossfade(true)
-                        .diskCachePolicy(coil.request.CachePolicy.DISABLED)
-                        .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
-                        .build(),
-                    contentDescription = screenshots[index],
+                ZoomableBox(
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
-                )
+                    minScale = 1f,
+                    maxScale = 5f,
+                    showControls = true
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(imageUrl)
+                            .crossfade(true)
+                            .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                            .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                            .build(),
+                        contentDescription = screenshots[index],
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
             }
 
             // Close button
@@ -1994,7 +2019,9 @@ enum class AndroidStreamMode(val label: String) {
     DIRECT("Пряме"),
     DRAG("Перетягування"),
     CLICK("Клік"),
-    SCROLL("Скрол")
+    SCROLL("Скрол"),
+    INSPECT("Інспектор"),
+    ZOOM("Зум/Огляд")
 }
 
 data class StreamTouchRipple(
@@ -2004,10 +2031,331 @@ data class StreamTouchRipple(
 )
 
 @Composable
+fun InspectorElementCard(
+    element: BotWsMessage.SelectorInfoPicked,
+    onHighlight: (String) -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val clipboardManager = LocalClipboardManager.current
+    var copiedKey by remember { mutableStateOf<String?>(null) }
+    var isCollapsed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(copiedKey) {
+        if (copiedKey != null) {
+            kotlinx.coroutines.delay(2000)
+            copiedKey = null
+        }
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xF20F172A)
+        ),
+        border = BorderStroke(1.5.dp, Color(0xFFF59E0B).copy(alpha = 0.7f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Заголовок картки інспектора
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFF59E0B).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = "<${element.tag ?: "element"}>",
+                            color = Color(0xFFFBBF24),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (element.matchCount == 1) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFFF59E0B).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, if (element.matchCount == 1) Color(0xFF10B981).copy(alpha = 0.5f) else Color(0xFFF59E0B).copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = if (element.matchCount == 1) "1 унікальний" else "${element.matchCount} збігів",
+                            color = if (element.matchCount == 1) Color(0xFF34D399) else Color(0xFFFBBF24),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF06B6D4).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF06B6D4).copy(alpha = 0.5f)),
+                        modifier = Modifier.clickable { onHighlight(element.selector) }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Visibility,
+                                contentDescription = "Підсвітити",
+                                tint = Color(0xFF67E8F9),
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = "Підсвітити",
+                                color = Color(0xFF67E8F9),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = { isCollapsed = !isCollapsed },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isCollapsed) Icons.Default.UnfoldMore else Icons.Default.UnfoldLess,
+                            contentDescription = "Згорнути",
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onClose,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Закрити",
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            if (!isCollapsed) {
+                // Текст елемента (якщо є)
+                if (!element.text.isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Black.copy(alpha = 0.4f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "«${element.text}»",
+                            color = Color(0xFFE2E8F0),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            maxLines = 2
+                        )
+                    }
+                }
+
+                // CSS Селектор + кнопка копіювання
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "CSS СЕЛЕКТОР:",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF94A3B8)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .clickable {
+                                    clipboardManager.setText(AnnotatedString(element.selector))
+                                    copiedKey = "selector"
+                                }
+                                .padding(horizontal = 4.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (copiedKey == "selector") Icons.Default.Check else Icons.Default.ContentCopy,
+                                contentDescription = "Копіювати",
+                                tint = if (copiedKey == "selector") Color(0xFF10B981) else Color(0xFFF59E0B),
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Text(
+                                text = if (copiedKey == "selector") "Скопійовано!" else "Копіювати",
+                                color = if (copiedKey == "selector") Color(0xFF10B981) else Color(0xFFF59E0B),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF020617),
+                        border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.3f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onHighlight(element.selector) }
+                    ) {
+                        Text(
+                            text = element.selector,
+                            color = Color(0xFFFDE68A),
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(6.dp)
+                        )
+                    }
+                }
+
+                // Атрибути
+                if (element.attributes.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "АТРИБУТИ (${element.attributes.size}):",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF94A3B8)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            element.attributes.forEach { (name, value) ->
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color.White.copy(alpha = 0.08f),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                                    modifier = Modifier.clickable {
+                                        clipboardManager.setText(AnnotatedString(value))
+                                        copiedKey = name
+                                    }
+                                ) {
+                                    Text(
+                                        text = "$name=\"$value\"",
+                                        color = if (copiedKey == name) Color(0xFF34D399) else Color(0xFFCBD5E1),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Батьківські та дочірні елементи
+                if (element.parents.isNotEmpty() || element.children.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (element.parents.isNotEmpty()) {
+                            Text(
+                                text = "Батьки:",
+                                fontSize = 9.sp,
+                                color = Color(0xFF94A3B8),
+                                fontWeight = FontWeight.Bold
+                            )
+                            element.parents.forEach { (pTag, pSel) ->
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF1E293B),
+                                    border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.3f)),
+                                    modifier = Modifier.clickable { onHighlight(pSel) }
+                                ) {
+                                    Text(
+                                        text = "<$pTag>",
+                                        color = Color(0xFFFDE68A),
+                                        fontSize = 10.sp,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (element.children.isNotEmpty()) {
+                            Text(
+                                text = "Дочірні:",
+                                fontSize = 9.sp,
+                                color = Color(0xFF94A3B8),
+                                fontWeight = FontWeight.Bold
+                            )
+                            element.children.forEach { (cTag, cSel) ->
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF1E293B),
+                                    border = BorderStroke(1.dp, Color(0xFF06B6D4).copy(alpha = 0.3f)),
+                                    modifier = Modifier.clickable { onHighlight(cSel) }
+                                ) {
+                                    Text(
+                                        text = "<$cTag>",
+                                        color = Color(0xFF67E8F9),
+                                        fontSize = 10.sp,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun FullScreenStreamDialog(
     frameBitmap: android.graphics.Bitmap?,
     isBrowserOpen: Boolean,
     activeNodeTitle: String? = null,
+    selectedElementInfo: BotWsMessage.SelectorInfoPicked? = null,
     onDismiss: () -> Unit,
     onToggleBrowser: () -> Unit,
     onSendClick: (relX: Float, relY: Float, button: String) -> Unit,
@@ -2028,11 +2376,22 @@ fun FullScreenStreamDialog(
     onRefreshBrowser: () -> Unit,
     onNavigateToUrl: (url: String) -> Unit,
     onGoBack: () -> Unit,
-    onGoForward: () -> Unit
+    onGoForward: () -> Unit,
+    onPickSelectorByCoords: (x: Int, y: Int) -> Unit = { _, _ -> },
+    onHighlightSelector: (String) -> Unit = {},
+    onClearHighlight: () -> Unit = {},
+    onClearSelectedElement: () -> Unit = {}
 ) {
     if (frameBitmap == null) return
 
     var mode by remember { mutableStateOf(AndroidStreamMode.DIRECT) }
+
+    LaunchedEffect(selectedElementInfo) {
+        if (selectedElementInfo != null) {
+            mode = AndroidStreamMode.INSPECT
+        }
+    }
+
     var textInput by remember { mutableStateOf("") }
     var pressEnterAfterType by remember { mutableStateOf(true) }
     var showNavToolbar by remember { mutableStateOf(false) }
@@ -2055,6 +2414,21 @@ fun FullScreenStreamDialog(
                 .background(Color.Black)
         ) {
             var boxSize by remember { mutableStateOf(androidx.compose.ui.geometry.Size.Zero) }
+            var streamScale by remember { mutableFloatStateOf(1f) }
+            var streamOffset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+
+            fun clampStreamOffset(newOffset: androidx.compose.ui.geometry.Offset, curScale: Float): androidx.compose.ui.geometry.Offset {
+                if (curScale <= 1f) return androidx.compose.ui.geometry.Offset.Zero
+                val boxW = boxSize.width
+                val boxH = boxSize.height
+                if (boxW <= 0f || boxH <= 0f) return androidx.compose.ui.geometry.Offset.Zero
+                val maxOffsetX = (boxW * (curScale - 1f)) / 2f
+                val maxOffsetY = (boxH * (curScale - 1f)) / 2f
+                return androidx.compose.ui.geometry.Offset(
+                    x = newOffset.x.coerceIn(-maxOffsetX, maxOffsetX),
+                    y = newOffset.y.coerceIn(-maxOffsetY, maxOffsetY)
+                )
+            }
 
             fun getRelCoords(touchX: Float, touchY: Float): Pair<Float, Float>? {
                 val imgW = frameBitmap.width.toFloat()
@@ -2081,8 +2455,12 @@ fun FullScreenStreamDialog(
                     drawW = w; drawH = h; offsetX = 0f; offsetY = (boxH - h) / 2f
                 }
 
-                val tapX = touchX - offsetX
-                val tapY = touchY - offsetY
+                // Враховуємо масштаб (streamScale) та зміщення (streamOffset) для точного попадання
+                val unscaledTouchX = (touchX - streamOffset.x - boxW / 2f) / streamScale + (boxW / 2f)
+                val unscaledTouchY = (touchY - streamOffset.y - boxH / 2f) / streamScale + (boxH / 2f)
+
+                val tapX = unscaledTouchX - offsetX
+                val tapY = unscaledTouchY - offsetY
 
                 if (drawW <= 0f || drawH <= 0f) return null
 
@@ -2105,18 +2483,44 @@ fun FullScreenStreamDialog(
                     .pointerInput(mode) {
                         detectTapGestures(
                             onTap = { offset ->
+                                if (mode == AndroidStreamMode.ZOOM) return@detectTapGestures
                                 val coords = getRelCoords(offset.x, offset.y) ?: return@detectTapGestures
                                 val (relX, relY) = coords
-                                lastTouchCoords = Pair((relX * 1280).toInt(), (relY * 720).toInt())
+                                val pxX = (relX * 1280).toInt()
+                                val pxY = (relY * 720).toInt()
+                                lastTouchCoords = Pair(pxX, pxY)
                                 ripples.add(StreamTouchRipple(System.currentTimeMillis(), offset.x, offset.y))
-                                onSendClick(relX, relY, "left")
+                                if (mode == AndroidStreamMode.INSPECT) {
+                                    onPickSelectorByCoords(pxX, pxY)
+                                } else {
+                                    onSendClick(relX, relY, "left")
+                                }
                             },
                             onDoubleTap = { offset ->
+                                if (mode == AndroidStreamMode.ZOOM) {
+                                    if (streamScale > 1.05f) {
+                                        streamScale = 1f
+                                        streamOffset = androidx.compose.ui.geometry.Offset.Zero
+                                    } else {
+                                        val newScale = 2.5f
+                                        val boxW = boxSize.width
+                                        val boxH = boxSize.height
+                                        val targetOffset = androidx.compose.ui.geometry.Offset(
+                                            (boxW / 2f - offset.x) * (newScale - 1f),
+                                            (boxH / 2f - offset.y) * (newScale - 1f)
+                                        )
+                                        streamScale = newScale
+                                        streamOffset = clampStreamOffset(targetOffset, newScale)
+                                    }
+                                    return@detectTapGestures
+                                }
+                                if (mode == AndroidStreamMode.INSPECT) return@detectTapGestures
                                 val coords = getRelCoords(offset.x, offset.y) ?: return@detectTapGestures
                                 val (relX, relY) = coords
                                 onSendDoubleClick(relX, relY)
                             },
                             onLongPress = { offset ->
+                                if (mode == AndroidStreamMode.ZOOM || mode == AndroidStreamMode.INSPECT) return@detectTapGestures
                                 val coords = getRelCoords(offset.x, offset.y) ?: return@detectTapGestures
                                 val (relX, relY) = coords
                                 onSendRightClick(relX, relY)
@@ -2126,6 +2530,7 @@ fun FullScreenStreamDialog(
                     .pointerInput(mode) {
                         detectDragGestures(
                             onDragStart = { offset ->
+                                if (mode == AndroidStreamMode.ZOOM || mode == AndroidStreamMode.INSPECT) return@detectDragGestures
                                 val coords = getRelCoords(offset.x, offset.y) ?: return@detectDragGestures
                                 val (relX, relY) = coords
                                 lastTouchCoords = Pair((relX * 1280).toInt(), (relY * 720).toInt())
@@ -2134,6 +2539,12 @@ fun FullScreenStreamDialog(
                                 }
                             },
                             onDrag = { change, dragAmount ->
+                                if (mode == AndroidStreamMode.ZOOM) {
+                                    change.consume()
+                                    streamOffset = clampStreamOffset(streamOffset + dragAmount, streamScale)
+                                    return@detectDragGestures
+                                }
+                                if (mode == AndroidStreamMode.INSPECT) return@detectDragGestures
                                 change.consume()
                                 val coords = getRelCoords(change.position.x, change.position.y) ?: return@detectDragGestures
                                 val (relX, relY) = coords
@@ -2152,6 +2563,7 @@ fun FullScreenStreamDialog(
                                 }
                             },
                             onDragEnd = {
+                                if (mode == AndroidStreamMode.ZOOM || mode == AndroidStreamMode.INSPECT) return@detectDragGestures
                                 if (mode == AndroidStreamMode.DIRECT || mode == AndroidStreamMode.DRAG) {
                                     val (relX, relY) = lastTouchCoords?.let {
                                         Pair(it.first / 1280f, it.second / 720f)
@@ -2160,6 +2572,7 @@ fun FullScreenStreamDialog(
                                 }
                             },
                             onDragCancel = {
+                                if (mode == AndroidStreamMode.ZOOM || mode == AndroidStreamMode.INSPECT) return@detectDragGestures
                                 if (mode == AndroidStreamMode.DIRECT || mode == AndroidStreamMode.DRAG) {
                                     val (relX, relY) = lastTouchCoords?.let {
                                         Pair(it.first / 1280f, it.second / 720f)
@@ -2168,6 +2581,12 @@ fun FullScreenStreamDialog(
                                 }
                             }
                         )
+                    }
+                    .graphicsLayer {
+                        scaleX = streamScale
+                        scaleY = streamScale
+                        translationX = streamOffset.x
+                        translationY = streamOffset.y
                     },
                 contentScale = ContentScale.Fit
             )
@@ -2175,11 +2594,104 @@ fun FullScreenStreamDialog(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 ripples.forEach { rip ->
                     drawCircle(
-                        color = Color(0x9922C55E),
+                        color = when (mode) {
+                            AndroidStreamMode.INSPECT -> Color(0xFFF59E0B)
+                            AndroidStreamMode.ZOOM -> Color(0xFF8B5CF6)
+                            else -> Color(0x9922C55E)
+                        },
                         radius = 24.dp.toPx(),
                         center = androidx.compose.ui.geometry.Offset(rip.x, rip.y),
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx())
                     )
+                }
+            }
+
+            // Плаваюча панель масштабування стріму (+ / - / 1x)
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 12.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.Black.copy(alpha = 0.75f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(
+                        onClick = {
+                            val newScale = (streamScale + 0.5f).coerceIn(1f, 5f)
+                            streamScale = newScale
+                            streamOffset = clampStreamOffset(streamOffset, newScale)
+                        },
+                        modifier = Modifier.size(36.dp),
+                        enabled = streamScale < 5f
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ZoomIn,
+                            contentDescription = "Збільшити",
+                            tint = if (streamScale < 5f) Color.White else Color.White.copy(alpha = 0.3f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (streamScale > 1f) Color(0xFF8B5CF6).copy(alpha = 0.3f) else Color.Transparent,
+                        modifier = Modifier.clickable {
+                            val nextScale = when {
+                                streamScale < 1.9f -> 2.0f
+                                streamScale < 2.9f -> 3.0f
+                                else -> 1.0f
+                            }
+                            streamScale = nextScale
+                            streamOffset = clampStreamOffset(streamOffset, nextScale)
+                        }
+                    ) {
+                        Text(
+                            text = "${String.format(Locale.ROOT, "%.1f", streamScale)}x",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (streamScale > 1f) Color(0xFFA78BFA) else Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
+                            val newScale = (streamScale - 0.5f).coerceIn(1f, 5f)
+                            streamScale = newScale
+                            streamOffset = clampStreamOffset(streamOffset, newScale)
+                        },
+                        modifier = Modifier.size(36.dp),
+                        enabled = streamScale > 1f
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ZoomOut,
+                            contentDescription = "Зменшити",
+                            tint = if (streamScale > 1f) Color.White else Color.White.copy(alpha = 0.3f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    if (streamScale > 1f) {
+                        IconButton(
+                            onClick = {
+                                streamScale = 1f
+                                streamOffset = androidx.compose.ui.geometry.Offset.Zero
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.RestartAlt,
+                                contentDescription = "Скинути (1x)",
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -2206,10 +2718,24 @@ fun FullScreenStreamDialog(
                     ) {
                         AndroidStreamMode.entries.forEach { m ->
                             val isSelected = mode == m
+                            val btnBgColor = if (isSelected) {
+                                when (m) {
+                                    AndroidStreamMode.INSPECT -> Color(0xFFF59E0B)
+                                    AndroidStreamMode.ZOOM -> Color(0xFF8B5CF6)
+                                    else -> Color(0xFF10B981)
+                                }
+                            } else {
+                                Color.White.copy(alpha = 0.1f)
+                            }
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = if (isSelected) Color(0xFF10B981) else Color.White.copy(alpha = 0.1f),
-                                modifier = Modifier.clickable { mode = m }
+                                color = btnBgColor,
+                                modifier = Modifier.clickable {
+                                    mode = m
+                                    if (m != AndroidStreamMode.INSPECT) {
+                                        onClearHighlight()
+                                    }
+                                }
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -2222,6 +2748,8 @@ fun FullScreenStreamDialog(
                                             AndroidStreamMode.DRAG -> Icons.Default.PanTool
                                             AndroidStreamMode.CLICK -> Icons.Default.Mouse
                                             AndroidStreamMode.SCROLL -> Icons.Default.UnfoldMore
+                                            AndroidStreamMode.INSPECT -> Icons.Default.FilterCenterFocus
+                                            AndroidStreamMode.ZOOM -> Icons.Default.ZoomIn
                                         },
                                         contentDescription = null,
                                         tint = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
@@ -2318,6 +2846,21 @@ fun FullScreenStreamDialog(
                     }
                 }
 
+                if (streamScale > 1.05f) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xCC7C3AED),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+                    ) {
+                        Text(
+                            text = "${String.format(Locale.ROOT, "%.1f", streamScale)}x",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
                 lastTouchCoords?.let { coords ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
@@ -2333,13 +2876,30 @@ fun FullScreenStreamDialog(
                 }
             }
 
-            Surface(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .align(Alignment.BottomCenter),
-                color = Color(0xEE111827),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                    .align(Alignment.BottomCenter)
             ) {
+                AnimatedVisibility(
+                    visible = selectedElementInfo != null,
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
+                ) {
+                    selectedElementInfo?.let { info ->
+                        InspectorElementCard(
+                            element = info,
+                            onHighlight = onHighlightSelector,
+                            onClose = onClearSelectedElement
+                        )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xEE111827),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2491,6 +3051,7 @@ fun FullScreenStreamDialog(
             }
         }
     }
+}
 }
 
 @Composable

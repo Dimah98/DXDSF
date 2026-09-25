@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Globe, Map as MapIcon, Package, Camera, Truck, CalendarClock, LayoutGrid,
-  ChevronRight, ChevronLeft, Square, Play, Boxes, Images, SlidersHorizontal, Eye, Hammer
+  ChevronRight, ChevronLeft, Square, Play, Boxes, Images, SlidersHorizontal, Eye, Hammer, PackageCheck
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -68,6 +68,7 @@ import ChickenRescueNode from './CustomNodes/ChickenRescueNode'; // Нода П�
 import CaptchaNode from './CustomNodes/CaptchaNode'; // Нода Капча
 // Імпортуємо новий компонент для введення тексту та кліку
 import SearchAndClickNode from './CustomNodes/SearchAndClickNode';
+import WorldNavigatorNode from './CustomNodes/WorldNavigatorNode';
 import ConfigNode from './CustomNodes/ConfigNode';
 import IslandArrangerNode from './CustomNodes/IslandArrangerNode';
 import TextInputNode from './CustomNodes/TextInputNode';
@@ -81,6 +82,7 @@ import DelayEdge from './DelayEdge';
 import GlobalSettings from './GlobalSettings';
 import Sidebar from './Sidebar';
 import StreamPicker from './StreamPicker';
+import { ErrorBoundary } from './ErrorBoundary';
 import { GlobalStatisticsModal } from './GlobalStatisticsModal';
 import { PortTooltipManager } from './PortTooltipManager';
 import { NODE_CONFIG } from '../nodeConfig';
@@ -94,6 +96,7 @@ import ScheduleManager from './ScheduleManager';
 import { IslandMapModal } from './Map/IslandMapModal'; // Менеджер розкладу
 import { DeliveriesModal } from './Modals/DeliveriesModal';
 import { AllDeliveriesModal } from './Modals/AllDeliveriesModal';
+import { NpcDeliveriesModal } from './Modals/NpcDeliveriesModal';
 import { AllScreenshotsModal } from './Modals/AllScreenshotsModal';
 import { AllInventoriesModal } from './Modals/AllInventoriesModal';
 import { InventoryModal } from './InventoryModal'; // Модалка інвентаря
@@ -157,6 +160,7 @@ const nodeTypes = {
   fruitRunnerNode: FruitRunnerNode,  // Фруктовий Ранер (Dodge & Collect)
   chickenRescueNode: ChickenRescueNode,  // Порятунок Кур (Chicken Rescue)
   captchaSolverNode: CaptchaNode,  // Капча (Quick Check)
+  worldNavigatorNode: WorldNavigatorNode,  // Навігатор до NPC у відкритому світі
   searchAndClickNode: SearchAndClickNode,
   configNode: ConfigNode,
   islandArrangerNode: IslandArrangerNode,
@@ -196,7 +200,7 @@ interface NodeEditorProps {
   setCurrentView: (view: any) => void;
 }
 
-const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
+const NodeEditor = ({ currentView: _currentView, setCurrentView }: NodeEditorProps) => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -251,7 +255,7 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
     useCallback((nds: Node[]) => attachCallbacksRef.current(nds), [])
   );
 
-  const [menu, setMenu] = useState<{ x: number, y: number, type: 'pane' | 'node' | 'selection', nodeId?: string, hasSelection?: boolean } | null>(null);
+  const [menu, setMenu] = useState<{ x: number, y: number, type: 'pane' | 'node' | 'selection', nodeId?: string, nodeType?: string, hasSelection?: boolean } | null>(null);
   const [theme] = useState<'light' | 'dark'>('dark'); 
   const [isBotRunning, setIsBotRunning] = useState(false);
   // Бокова панель за замовчуванням згорнута — зберігаємо стан у localStorage
@@ -297,6 +301,7 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
   const [isPurchasableBuildingsOpen, setIsPurchasableBuildingsOpen] = useState(false);
   const [isDeliveriesOpen, setIsDeliveriesOpen] = useState(false);
   const [isAllDeliveriesOpen, setIsAllDeliveriesOpen] = useState(false);
+  const [isNpcDeliveriesOpen, setIsNpcDeliveriesOpen] = useState(false);
   const [isAllScreenshotsOpen, setIsAllScreenshotsOpen] = useState(false);
   const [isAllInventoriesOpen, setIsAllInventoriesOpen] = useState(false);
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(true);
@@ -309,6 +314,12 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
   useEffect(() => {
     localStorage.setItem('sfl_screenshot_sidebar_collapsed', String(isScreenshotSidebarCollapsed));
   }, [isScreenshotSidebarCollapsed]);
+
+  useEffect(() => {
+    const handler = () => setIsNpcDeliveriesOpen(true);
+    window.addEventListener('open-npc-deliveries', handler);
+    return () => window.removeEventListener('open-npc-deliveries', handler);
+  }, []);
   // Ініціалізуємо поточний проект, пріоритетно зчитуючи його з query-параметра URL, потім з localStorage
   const [currentProject, setCurrentProject] = useState<string>(() => {
     // Створюємо об'єкт для роботи з query-параметрами поточного URL
@@ -843,16 +854,26 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
 
   const handleOpenVisibleBrowser = useCallback(async () => {
     if (!currentProject) return;
+    const savedBs = localStorage.getItem(`sfl_browser_${currentProject}`);
+    const parsedBs = savedBs ? JSON.parse(savedBs) : {};
     addLog(`🌐 Запуск браузера проекту [${currentProject}] у видимому режимі...`, 'info');
     try {
       const res = await fetch(`/api/browser/open/${encodeURIComponent(currentProject)}?forceHeaded=true`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forceHeaded: true })
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify({
+          forceHeaded: true,
+          browserSettings: parsedBs,
+          width: parsedBs.width,
+          height: parsedBs.height
+        })
       });
       const data = await res.json();
       if (data.success) {
-        addLog(`✅ Браузер проекту [${currentProject}] успішно відкрито у видимому режимі!`, 'success');
+        addLog(`✅ Браузер проекту [${currentProject}] успішно відкрито (${data.width || parsedBs.width || 1280}x${data.height || parsedBs.height || 720})!`, 'success');
       } else {
         addLog(`❌ Помилка запуску браузера: ${data.message || data.error}`, 'error');
       }
@@ -933,6 +954,13 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
                       title={currentProject ? 'Доставки' : 'Завантажте проект'}
                     >
                       <Truck size={16} className="md:w-[18px] md:h-[18px]" />
+                    </button>
+                    <button
+                      onClick={() => setIsNpcDeliveriesOpen(true)}
+                      className="p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 shadow-amber-500/20"
+                      title="Налаштування доставок NPC"
+                    >
+                      <PackageCheck size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
                     <button
                       onClick={() => setCurrentView('scheduler')}
@@ -1020,13 +1048,22 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
                   >
                     <Globe size={15} />
                   </button>
+                  <button
+                    onClick={() => setIsNpcDeliveriesOpen(true)}
+                    className="p-1.5 md:p-2 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+                    title="Налаштування доставок NPC"
+                  >
+                    <PackageCheck size={15} />
+                  </button>
                 </div>
               )}
             </div>
 
             <GlobalSettings forceOpen={showSettings} onOpenChange={setShowSettings} />
             {pickerConfig && (
-              <StreamPicker ws={wsRef.current} wsUrl={pickerConfig.wsUrl} nodeId={pickerConfig.nodeId} pickType={pickerConfig.pickType} onClose={() => setPickerConfig(null)} />
+              <ErrorBoundary fallbackTitle="Помилка трансляції браузера" onClose={() => setPickerConfig(null)}>
+                <StreamPicker ws={wsRef.current} wsUrl={pickerConfig.wsUrl} nodeId={pickerConfig.nodeId} pickType={pickerConfig.pickType} onClose={() => setPickerConfig(null)} />
+              </ErrorBoundary>
             )}
             <button
               onClick={() => setPickerConfig({ nodeId: 'remote_browser', pickType: 'default' })}
@@ -1074,15 +1111,25 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
               }}
               onOpenVisibleBrowser={(projName) => {
                 if (!projName) return;
+                const savedBs = localStorage.getItem(`sfl_browser_${projName}`);
+                const parsedBs = savedBs ? JSON.parse(savedBs) : {};
                 addLog(`🌐 Запуск браузера проекту [${projName}] у видимому режимі...`, 'info');
                 fetch(`/api/browser/open/${encodeURIComponent(projName)}?forceHeaded=true`, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ forceHeaded: true })
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+                  },
+                  body: JSON.stringify({
+                    forceHeaded: true,
+                    browserSettings: parsedBs,
+                    width: parsedBs.width,
+                    height: parsedBs.height
+                  })
                 })
                   .then(r => r.json())
                   .then(d => {
-                    if (d.success) addLog(`✅ Браузер [${projName}] успішно відкрито у видимому режимі!`, 'success');
+                    if (d.success) addLog(`✅ Браузер [${projName}] успішно відкрито (${d.width || parsedBs.width || 1280}x${d.height || parsedBs.height || 720})!`, 'success');
                     else addLog(`❌ Помилка запуску [${projName}]: ${d.message || d.error}`, 'error');
                   })
                   .catch(e => addLog(`❌ Помилка: ${e.message}`, 'error'));
@@ -1210,6 +1257,7 @@ const NodeEditor = ({ currentView, setCurrentView }: NodeEditorProps) => {
       </div>
       <DeliveriesModal isOpen={isDeliveriesOpen} onClose={() => setIsDeliveriesOpen(false)} projectName={currentProject || ''} />
       <AllDeliveriesModal isOpen={isAllDeliveriesOpen} onClose={() => setIsAllDeliveriesOpen(false)} />
+      <NpcDeliveriesModal isOpen={isNpcDeliveriesOpen} onClose={() => setIsNpcDeliveriesOpen(false)} defaultProjectName={currentProject || undefined} />
       <AllScreenshotsModal isOpen={isAllScreenshotsOpen} onClose={() => setIsAllScreenshotsOpen(false)} />
       <AllInventoriesModal isOpen={isAllInventoriesOpen} onClose={() => setIsAllInventoriesOpen(false)} />
     </div>

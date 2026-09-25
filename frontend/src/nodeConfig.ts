@@ -9,7 +9,7 @@ import {
   MessageSquare, Timer, XCircle, Calculator, Activity,
   ArrowRightLeft, Package, Clock, CalendarClock, Bell, Sprout, Flame, ChefHat, Gamepad2, Hammer, Sparkles, Egg,
   Settings, Type, Flower, PackageCheck,
-  Wallet, Maximize, Puzzle,
+  Wallet, Maximize, Puzzle, Compass,
 } from 'lucide-react';
 
 // Тип одного запису конфігурації ноди
@@ -613,6 +613,23 @@ export const NODE_CONFIG: Record<string, NodeConfig> = {
       detectionTopY: 0,
       detectionBottomY: 0,
       enableDebugSnapshot: true,
+    }
+  },
+  worldNavigatorNode: {
+    label: 'Навігатор до NPC',
+    icon: Compass,
+    desc: 'Рух до NPC у відкритому світі',
+    hint: 'Автоматично визначає положення персонажа у відкритому світі (Плаза, Пляж, Притулок тощо), знаходить цільового NPC або координати, розраховує оптимальний шлях за алгоритмом A* в обхід усіх стін та перешкод карти. Плавно веде персонажа через нативний джойстик та відкриває діалог чи магазин (клік / Space).',
+    defaultColor: '#4f46e5',
+    defaults: {
+      targetLocation: 'current',
+      customLocationUrl: '',
+      targetNpc: 'stella',
+      customNpcName: '',
+      customCoords: { x: 0, y: 0 },
+      autoInteract: true,
+      interactionDistance: 35,
+      timeoutSeconds: 35
     }
   },
   // Конфігурація для нової ноди "Введення та Клік"

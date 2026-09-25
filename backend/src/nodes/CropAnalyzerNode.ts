@@ -1,9 +1,7 @@
 import { NodeHandlerParams } from './types';
 import { schedulerService } from '../services';
 import { BASE_GROWTH_TIMES } from '../plugins/sunflower-land/data/crops';
-import { PROJECTS_DIR } from '../constants';
-import fs from 'fs';
-import path from 'path';
+import { getProjectSaveData } from '../utils/saveStorage';
 
 // Тип одного правила розкладу
 // Якщо час до врожаю потрапляє в діапазон [fromMin, toMin),
@@ -26,14 +24,17 @@ export const cropAnalyzerNodeHandler = async ({
     return { data: { ...context, error: 'Missing variable name' }, nextHandle: ['error'] };
   }
 
-  const savePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
   let apiData: any = null;
   try {
-    const fileContent = await fs.promises.readFile(savePath, 'utf-8');
-    apiData = JSON.parse(fileContent);
+    apiData = await getProjectSaveData(projectName);
   } catch (e) {
-    logToClient(`❌ Аналізатор: Не вдалося прочитати ${projectName}_save.json`, 'error');
-    return { data: { ...context, error: 'Failed to read save file' }, nextHandle: ['error'] };
+    logToClient(`❌ Аналізатор: Не вдалося отримати збереження для ${projectName}`, 'error');
+    return { data: { ...context, error: 'Failed to read save data' }, nextHandle: ['error'] };
+  }
+
+  if (!apiData) {
+    logToClient(`❌ Аналізатор: Дані збереження для ${projectName} не знайдено`, 'error');
+    return { data: { ...context, error: 'Save data not found' }, nextHandle: ['error'] };
   }
 
   const apiDataObj = apiData as Record<string, unknown>;

@@ -1106,7 +1106,7 @@ export const whackAMoleNodeHandler = async ({
     if (isPhotoDebug && ws) {
       for (const tmpl of templates) {
         try {
-          const tmplBuf = encodePng(tmpl.data);
+          const tmplBuf = await encodePng(tmpl.data);
           await sendDebugPhoto(ws, `📁 Шаблон: ${tmpl.name} (${tmpl.data.width}×${tmpl.data.height})`, currentNode.id, tmplBuf);
         } catch {}
       }
@@ -1133,7 +1133,7 @@ export const whackAMoleNodeHandler = async ({
             drawRect(gridPx, diagPng.width, diagPng.height, pxX0, pxY0, pxX1, pxY1, 245, 158, 11, 2);
             drawDot(gridPx, diagPng.width, diagPng.height, cx, cy, 3, 0, 255, 255);
           }
-          const gridBuf = encodePng({ width: diagPng.width, height: diagPng.height, pixels: gridPx });
+          const gridBuf = await encodePng({ width: diagPng.width, height: diagPng.height, pixels: gridPx });
           await sendDebugPhoto(ws, '🎯 Розмітка 9 комірок (3×3)', currentNode.id, gridBuf);
         }
       } catch (e) { logToClient(`⚠️ Діагностичний скріншот не вдався`, 'debug'); }
@@ -1329,7 +1329,7 @@ export const whackAMoleNodeHandler = async ({
             const hitPixelY = Math.max(0, Math.min(fieldPng.height - 1, Math.round((vpClickY - minClipY) * dpr)));
             drawCrosshair(hitPx, fieldPng.width, fieldPng.height, hitPixelX, hitPixelY, 10, 255, 50, 50, 2);
 
-            const hitDebugBuf = encodePng({ width: fieldPng.width, height: fieldPng.height, pixels: hitPx });
+            const hitDebugBuf = await encodePng({ width: fieldPng.width, height: fieldPng.height, pixels: hitPx });
             await sendDebugPhoto(
               ws,
               `🔨 Удар: Комірка #${mole.cellIndex + 1} (${mole.row},${mole.col}) • ${mole.templateName} (${Math.round(mole.score * 100)}%)`,
@@ -1345,7 +1345,7 @@ export const whackAMoleNodeHandler = async ({
               Math.min(fieldPng.width - mole.relX, mole.w + 10),
               Math.min(fieldPng.height - mole.relY, mole.h + 10)
             );
-            const moleCropBuf = encodePng(moleCrop);
+            const moleCropBuf = await encodePng(moleCrop);
             await sendDebugPhoto(
               ws,
               `🦔 Крот #${mole.cellIndex + 1} (${mole.row},${mole.col}) • ${mole.templateName}`,

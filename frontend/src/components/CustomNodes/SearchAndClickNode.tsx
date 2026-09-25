@@ -88,7 +88,7 @@ const SearchAndClickNode = memo(({ id, data }: any) => {
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-muted-foreground uppercase px-1 flex items-center gap-1">
               Затримка перед кліком (мс):
-              <HelpCircle size={10} className="text-muted-foreground" title="Час очікування після введення тексту перед пошуком елемента" />
+              <span title="Час очікування після введення тексту перед пошуком елемента"><HelpCircle size={10} className="text-muted-foreground" /></span>
             </label>
             <Input 
               type="number"

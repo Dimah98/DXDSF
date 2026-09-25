@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'; // Імпортуємо React та хуки стейту, ефектів та мемоізації
 import { X } from 'lucide-react'; // Іконка закриття модалки
+import { getCleanImageUrl, handleImageErrorWithCacheBust, DEFAULT_NO_IMAGE_SVG } from '../utils/imageUtils';
 
 interface InventoryModalProps { // Пропси компонента
   isOpen: boolean; // Чи відкрита модалка
@@ -127,7 +128,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({ isOpen, onClose,
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23374151"/%3E%3Ctext x="50" y="50" font-family="Arial" font-size="12" fill="%239CA3AF" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E';
+    handleImageErrorWithCacheBust(e, DEFAULT_NO_IMAGE_SVG);
   };
 
   const filteredData = data.filter((item) => {
@@ -296,7 +297,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({ isOpen, onClose,
                     {/* Зображення предмета */}
                     <div className="relative w-full aspect-square rounded-md overflow-hidden bg-slate-900/50">
                       <img
-                        src={item.image}
+                        src={getCleanImageUrl(item.image)}
                         alt={itemName}
                         className="w-full h-full object-contain"
                         onError={handleImageError}

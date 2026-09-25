@@ -119,9 +119,7 @@ export function setupWebSocketServer(server: http.Server): WebSocketServer {
     wsLifecycle.registerConnection(ws as any, projectName);
 
     (ws as any)._msgCount = 0;
-    (ws as any)._msgResetTimer = setInterval(() => {
-      (ws as any)._msgCount = 0;
-    }, 1000);
+    (ws as any)._msgResetTime = Date.now();
 
     const cleanupSocketSession = () => {
       if (session.activeSockets) {
@@ -136,7 +134,6 @@ export function setupWebSocketServer(server: http.Server): WebSocketServer {
       try {
         cleanupSocketSession();
         if ((ws as any)._streamTimer) clearTimeout((ws as any)._streamTimer);
-        if ((ws as any)._msgResetTimer) clearInterval((ws as any)._msgResetTimer);
         if ((ws as any)._cdpScreencast) {
           try {
             (ws as any)._cdpScreencast.send('Page.stopScreencast').catch(() => {});
@@ -157,7 +154,6 @@ export function setupWebSocketServer(server: http.Server): WebSocketServer {
       try {
         cleanupSocketSession();
         if ((ws as any)._streamTimer) clearTimeout((ws as any)._streamTimer);
-        if ((ws as any)._msgResetTimer) clearInterval((ws as any)._msgResetTimer);
         if ((ws as any)._cdpScreencast) {
           try {
             (ws as any)._cdpScreencast.send('Page.stopScreencast').catch(() => {});

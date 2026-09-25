@@ -3,9 +3,11 @@ import fs from 'fs';
 import path from 'path';
 import { Logger } from '../logger';
 import { PROJECTS_DIR } from '../constants';
+import { loadProjectVariables } from '../utils/variableStorage';
+import { getProjectSaveData } from '../utils/saveStorage';
 import { InventoryReader, getImageUrl } from '../inventory-overview/InventoryReader';
 import { ResourceAggregator } from '../inventory-overview/ResourceAggregator';
-import { getInventory } from '../db/schema';
+import { getInventory, getProjects as getDbProjects } from '../db/schema';
 import { inputValidator } from '../validation/InputValidator';
 
 const logger = new Logger('InventoryController');
@@ -80,16 +82,14 @@ export async function getProjectInventory(req: Request, res: Response): Promise<
 
     const source = (req.query.source as string) === 'stock' ? 'stock' : 'inventory';
 
-    // 1. Спробуємо прочитати {projectName}_save.json
-    const savePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
+    // 1. Спробуємо прочитати збереження через SQLite сховище
     let items: Array<{ image: string; number: number; selector: string; coords: { x: number; y: number } }> = [];
     let timestamp: number | null = null;
     let loadedFromSave = false;
 
-    if (fs.existsSync(savePath)) {
-      try {
-        const fileContent = await fs.promises.readFile(savePath, 'utf-8');
-        const saveData = JSON.parse(fileContent);
+    try {
+      const saveData = await getProjectSaveData(projectName);
+      if (saveData) {
         const rawInventory: Record<string, any> = 
           (saveData.visitedFarmState && saveData.visitedFarmState[source]) ||
           (saveData.visitorFarmState && saveData.visitorFarmState[source]) ||
@@ -107,17 +107,12 @@ export async function getProjectInventory(req: Request, res: Response): Promise<
             }))
             .filter(item => item.number > 0);
 
-          try {
-            const stat = await fs.promises.stat(savePath);
-            timestamp = Math.round(stat.mtimeMs);
-          } catch (e) {
-            timestamp = Date.now();
-          }
+          timestamp = Date.now();
           loadedFromSave = true;
         }
-      } catch (err) {
-        logger.warn(`Failed to parse save file for ${projectName}`, { path: savePath, error: String(err) });
       }
+    } catch (err) {
+      logger.warn(`Failed to parse save data for ${projectName}`, { error: String(err) });
     }
 
     // 2. Якщо _save.json немає або він порожній — перевіряємо SQLite
@@ -158,12 +153,7 @@ export async function getProjectInventory(req: Request, res: Response): Promise<
 
     let variables = {};
     try {
-      const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
-      if (fs.existsSync(projectPath)) {
-        const projectContent = await fs.promises.readFile(projectPath, 'utf-8');
-        const projectData = JSON.parse(projectContent);
-        variables = projectData.variables || projectData;
-      }
+      variables = await loadProjectVariables(projectName);
     } catch (e) {}
 
     res.json({
@@ -180,3 +170,88 @@ export async function getProjectInventory(req: Request, res: Response): Promise<
     });
   }
 }
+
+export async function getAllProjectsInventories(_req: Request, res: Response): Promise<void> {
+  try {
+    const dbProjects = getDbProjects();
+    const projectNames = (dbProjects && dbProjects.length > 0)
+      ? dbProjects.map(p => p.name).filter(n =>
+          !n.endsWith('_vars') && !n.endsWith('_save') && !n.endsWith('_layout') &&
+          !n.endsWith('_stats') && !n.endsWith('_logs') && !n.endsWith('_inventory') &&
+          !['categories', 'global_building_types', 'buildings_catalog_settings', 'schedule', 'notifications', 'configs', 'mass_launches'].includes(n)
+        )
+      : [];
+
+    const allInventories: Record<string, any[]> = {};
+    const allStock: Record<string, any[]> = {};
+
+    for (const projectName of projectNames) {
+      try {
+        const saveData = await getProjectSaveData(projectName);
+        if (saveData) {
+          // Inventory
+          const rawInv: Record<string, any> =
+            (saveData.visitedFarmState && saveData.visitedFarmState.inventory) ||
+            (saveData.visitorFarmState && saveData.visitorFarmState.inventory) ||
+            saveData.inventory ||
+            {};
+          if (Object.keys(rawInv).length > 0) {
+            allInventories[projectName] = Object.entries(rawInv)
+              .map(([key, val]) => ({
+                image: getImageUrl(key),
+                number: typeof val === 'number' ? val : parseFloat(String(val)) || 0,
+                selector: '',
+                coords: { x: 0, y: 0 }
+              }))
+              .filter(item => item.number > 0);
+          }
+
+          // Stock
+          const rawStock: Record<string, any> =
+            (saveData.visitedFarmState && saveData.visitedFarmState.stock) ||
+            (saveData.visitorFarmState && saveData.visitorFarmState.stock) ||
+            saveData.stock ||
+            {};
+          if (Object.keys(rawStock).length > 0) {
+            allStock[projectName] = Object.entries(rawStock)
+              .map(([key, val]) => ({
+                image: getImageUrl(key),
+                number: typeof val === 'number' ? val : parseFloat(String(val)) || 0,
+                selector: '',
+                coords: { x: 0, y: 0 }
+              }))
+              .filter(item => item.number > 0);
+          }
+        }
+      } catch (projErr) {
+        logger.warn(`Failed to process inventory for ${projectName}`, { error: String(projErr) });
+      }
+    }
+
+    // Read categories
+    let categories: string[] = [];
+    let itemToCategories: Record<string, string[]> = {};
+    try {
+      const categoriesPath = path.join(PROJECTS_DIR, 'categories.json');
+      if (fs.existsSync(categoriesPath)) {
+        const content = await fs.promises.readFile(categoriesPath, 'utf-8');
+        const data = JSON.parse(content);
+        categories = Array.isArray(data.categories) ? data.categories : [];
+        itemToCategories = (data.itemToCategories && typeof data.itemToCategories === 'object') ? data.itemToCategories : {};
+      }
+    } catch (_) {}
+
+    res.json({
+      success: true,
+      timestamp: Date.now(),
+      inventories: allInventories,
+      stock: allStock,
+      categories,
+      itemToCategories
+    });
+  } catch (err: any) {
+    logger.error('Failed to get all inventories', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to load all inventories' });
+  }
+}
+

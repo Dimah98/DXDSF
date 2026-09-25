@@ -35,7 +35,7 @@ interface LayoutData {
 }
 
 interface InventoryGroup {
-  category: 'building' | 'collectible';
+  category: 'building' | 'collectible' | 'resource';
   items: InventoryBuilding[];
 }
 

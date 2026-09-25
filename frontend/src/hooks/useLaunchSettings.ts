@@ -36,7 +36,7 @@ export function useLaunchSettings(projectName: string | null = 'default') {
     }
   });
 
-  // Оновлюємо стан при зміні проекту
+  // Оновлюємо стан при зміні проекту (localStorage + сервер)
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -44,12 +44,45 @@ export function useLaunchSettings(projectName: string | null = 'default') {
     } catch {
       setSettings(DEFAULT_SETTINGS);
     }
-  }, [STORAGE_KEY]);
+
+    if (projectName && projectName !== 'default') {
+      fetch(`/api/projects/${encodeURIComponent(projectName)}/settings`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.success && data.launchSettings && Object.keys(data.launchSettings).length > 0) {
+            setSettings(prev => {
+              const merged = { ...prev, ...data.launchSettings };
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+              return merged;
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [STORAGE_KEY, projectName]);
 
   // Автоматично зберігаємо при кожній зміні
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  }, [settings, STORAGE_KEY]);
+    if (projectName && projectName !== 'default') {
+      const timer = setTimeout(() => {
+        fetch(`/api/projects/${encodeURIComponent(projectName)}/settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+          },
+          body: JSON.stringify({ launchSettings: settings })
+        }).catch(() => {});
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [settings, STORAGE_KEY, projectName]);
 
   // Оновлення окремого поля
   const update = useCallback(<K extends keyof LaunchSettings>(key: K, value: LaunchSettings[K]) => {

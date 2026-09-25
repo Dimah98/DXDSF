@@ -25,7 +25,7 @@ export const PortTooltipManager: React.FC<PortTooltipManagerProps> = ({ nodes })
   }, [nodes]);
 
   useEffect(() => {
-    let hoverTimeout: ReturnType<typeof setTimeout> | undefined = undefined;
+    let hoverTimeout: ReturnType<typeof setTimeout> | undefined;
 
     const handleMouseMove = (e: MouseEvent | TouchEvent) => {
       try {

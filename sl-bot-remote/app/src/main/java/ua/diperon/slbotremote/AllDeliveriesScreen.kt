@@ -396,7 +396,8 @@ fun AllDeliveriesItemCard(
 @Composable
 fun AllDeliveriesScreen(
     apiService: BotApiService,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onNavigateToSettings: () -> Unit = {}
 ) {
     android.util.Log.d("AllDeliveries", "AllDeliveriesScreen called")
     
@@ -405,14 +406,20 @@ fun AllDeliveriesScreen(
         android.widget.Toast.makeText(context, "AllDeliveriesScreen opened", android.widget.Toast.LENGTH_SHORT).show()
     }
     
-    var allDeliveries by remember { mutableStateOf<Map<String, List<Delivery>>>(emptyMap()) }
-    var allInventories by remember { mutableStateOf<Map<String, List<InventoryItem>>>(emptyMap()) }
-    var allProjectData by remember { mutableStateOf<Map<String, ProjectData?>>(emptyMap()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val cachedDeliveries = AppMemoryCache.deliveriesData
+    val cachedInventories = AppMemoryCache.deliveriesInventory
+    val cachedMarked = AppMemoryCache.markedDeliveries
+    val hasCache = cachedDeliveries != null && cachedDeliveries.isNotEmpty()
+
+    var allDeliveries by remember { mutableStateOf<Map<String, List<Delivery>>>(cachedDeliveries ?: emptyMap()) }
+    var allInventories by remember { mutableStateOf<Map<String, List<InventoryItem>>>(cachedInventories ?: emptyMap()) }
+    var allProjectData by remember { mutableStateOf<Map<String, ProjectData?>>(AppMemoryCache.allProjectData ?: emptyMap()) }
+    var isLoading by remember { mutableStateOf(!hasCache) }
+    var isRefreshing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedNpc by remember { mutableStateOf<String?>(null) }
     // Мітки: projectName → Set<deliveryId>
-    var markedDeliveries by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
+    var markedDeliveries by remember { mutableStateOf<Map<String, Set<String>>>(cachedMarked ?: emptyMap()) }
     var selectedDeliveryForDetails by remember { mutableStateOf<Pair<String, Delivery>?>(null) }
     val scope = rememberCoroutineScope()
     val baseUrl = remember { ConnectionConfigManager(context).getHttpUrl().removeSuffix("/") }
@@ -420,12 +427,38 @@ fun AllDeliveriesScreen(
 
     val loadData = {
         scope.launch {
-            android.util.Log.d("AllDeliveries", "loadData called")
-            isLoading = true
+            if (allDeliveries.isEmpty()) {
+                isLoading = true
+            } else {
+                isRefreshing = true
+            }
             errorMessage = null
+
+            // 1. Блискавичний пакетний запит (1 запит замість 90!)
+            try {
+                val bulk = apiService.getAllDeliveries()
+                if (bulk.success) {
+                    val markedMap = bulk.marked.mapValues { it.value.toSet() }
+                    allDeliveries = bulk.deliveries
+                    allInventories = bulk.inventories
+                    markedDeliveries = markedMap
+
+                    AppMemoryCache.deliveriesData = bulk.deliveries
+                    AppMemoryCache.deliveriesInventory = bulk.inventories
+                    AppMemoryCache.markedDeliveries = markedMap
+                    AppMemoryCache.deliveriesTimestamp = bulk.timestamp
+
+                    isLoading = false
+                    isRefreshing = false
+                    return@launch
+                }
+            } catch (bulkErr: Exception) {
+                android.util.Log.d("AllDeliveries", "Bulk endpoint failed, falling back to per-project: ${bulkErr.message}")
+            }
+
+            // 2. Фолбек на індивідуальні запити, якщо сервер старіший
             try {
                 val projectNames = apiService.getProjects()
-                android.util.Log.d("AllDeliveries", "Found ${projectNames.size} projects")
                 val deliveryMap = mutableMapOf<String, List<Delivery>>()
                 val inventoryMap = mutableMapOf<String, List<InventoryItem>>()
                 val projectDataMap = mutableMapOf<String, ProjectData?>()
@@ -444,16 +477,12 @@ fun AllDeliveriesScreen(
                                 if (deliveryResponse.data.isNotEmpty()) {
                                     deliveries = deliveryResponse.data
                                 }
-                            } catch (e: Exception) {
-                                android.util.Log.d("AllDeliveries", "Error getting deliveries for $name: ${e.message}")
-                            }
+                            } catch (_: Exception) {}
 
                             try {
                                 val inventoryResponse = apiService.getInventory(name)
                                 items = inventoryResponse.data
-                            } catch (e: Exception) {
-                                android.util.Log.d("AllDeliveries", "Error getting inventory for $name: ${e.message}")
-                            }
+                            } catch (_: Exception) {}
 
                             try {
                                 val projResponse = apiService.getProject(name)
@@ -479,9 +508,7 @@ fun AllDeliveriesScreen(
                                         }
                                     }
                                 }
-                            } catch (e: Exception) {
-                                android.util.Log.d("AllDeliveries", "Error getting project data for $name: ${e.message}")
-                            }
+                            } catch (_: Exception) {}
 
                             ProjectDeliveryResult(name, deliveries, items, projData, marked)
                         }
@@ -500,12 +527,18 @@ fun AllDeliveriesScreen(
                 allInventories = inventoryMap
                 allProjectData = projectDataMap
                 markedDeliveries = markedMap
-                android.util.Log.d("AllDeliveries", "Loaded ${deliveryMap.size} projects with deliveries")
+
+                AppMemoryCache.deliveriesData = deliveryMap
+                AppMemoryCache.deliveriesInventory = inventoryMap
+                AppMemoryCache.markedDeliveries = markedMap
+                AppMemoryCache.allProjectData = projectDataMap
+
                 isLoading = false
+                isRefreshing = false
             } catch (e: Exception) {
-                android.util.Log.d("AllDeliveries", "Error in loadData: ${e.message}")
                 errorMessage = "Помилка: ${e.message}"
                 isLoading = false
+                isRefreshing = false
             }
         }
     }
@@ -658,6 +691,9 @@ fun AllDeliveriesScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Outlined.Tune, contentDescription = "Налаштування NPC", tint = Color.White)
+                    }
                     IconButton(onClick = { loadData() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Оновити")
                     }

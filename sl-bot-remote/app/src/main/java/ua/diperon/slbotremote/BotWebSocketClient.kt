@@ -49,6 +49,16 @@ sealed class BotWsMessage {
         val message: String,
         val notification: NotificationItem? = null
     ) : BotWsMessage()
+    data class SelectorInfoPicked(
+        val selector: String,
+        val tag: String? = null,
+        val text: String? = null,
+        val matchCount: Int = 1,
+        val outerHTML: String? = null,
+        val attributes: List<Pair<String, String>> = emptyList(),
+        val parents: List<Pair<String, String>> = emptyList(),
+        val children: List<Pair<String, String>> = emptyList()
+    ) : BotWsMessage()
 }
 
 /**
@@ -217,6 +227,38 @@ class BotWebSocketClient {
      */
     fun stopStream() {
         sendMessage("{\"type\": \"STOP_STREAM\"}")
+    }
+
+    /**
+     * Запит інспекції елемента за координатами на екрані браузера.
+     */
+    fun pickSelectorByCoords(projectName: String, x: Int, y: Int) {
+        val payload = mapOf(
+            "type" to "PICK_SELECTOR_BY_COORDS",
+            "projectName" to projectName,
+            "x" to x,
+            "y" to y,
+            "isSmart" to true
+        )
+        sendMessage(org.json.JSONObject(payload).toString())
+    }
+
+    /**
+     * Підсвітити елемент за селектором у браузері.
+     */
+    fun highlightSelector(selector: String) {
+        val payload = mapOf(
+            "type" to "HIGHLIGHT_SELECTOR",
+            "selector" to selector
+        )
+        sendMessage(org.json.JSONObject(payload).toString())
+    }
+
+    /**
+     * Очистити підсвічування селектора.
+     */
+    fun clearHighlight() {
+        sendMessage("{\"type\":\"CLEAR_HIGHLIGHT\"}")
     }
 
     /**
@@ -441,6 +483,63 @@ class BotWebSocketClient {
                         read = false
                     )
                     BotWsMessage.NotificationReceived(projName, msg, notifItem)
+                }
+                "SELECTOR_INFO_PICKED" -> {
+                    val selector = jsonObject.optString("selector", "")
+                    val tag = jsonObject.optString("tag", "")
+                    val text = jsonObject.optString("text", "")
+                    val matchCount = jsonObject.optInt("matchCount", 1)
+                    val outerHTML = jsonObject.optString("outerHTML", "")
+
+                    val attrsList = mutableListOf<Pair<String, String>>()
+                    val attrsArray = jsonObject.optJSONArray("attributes")
+                    if (attrsArray != null) {
+                        for (i in 0 until attrsArray.length()) {
+                            val attrObj = attrsArray.optJSONObject(i)
+                            if (attrObj != null) {
+                                val name = attrObj.optString("name", "")
+                                val value = attrObj.optString("value", "")
+                                if (name.isNotBlank()) attrsList.add(Pair(name, value))
+                            }
+                        }
+                    }
+
+                    val parentsList = mutableListOf<Pair<String, String>>()
+                    val parentsArray = jsonObject.optJSONArray("parents")
+                    if (parentsArray != null) {
+                        for (i in 0 until parentsArray.length()) {
+                            val pObj = parentsArray.optJSONObject(i)
+                            if (pObj != null) {
+                                val pTag = pObj.optString("tag", "")
+                                val pSel = pObj.optString("selector", "")
+                                if (pSel.isNotBlank()) parentsList.add(Pair(pTag, pSel))
+                            }
+                        }
+                    }
+
+                    val childrenList = mutableListOf<Pair<String, String>>()
+                    val childrenArray = jsonObject.optJSONArray("children")
+                    if (childrenArray != null) {
+                        for (i in 0 until childrenArray.length()) {
+                            val cObj = childrenArray.optJSONObject(i)
+                            if (cObj != null) {
+                                val cTag = cObj.optString("tag", "")
+                                val cSel = cObj.optString("selector", "")
+                                if (cSel.isNotBlank()) childrenList.add(Pair(cTag, cSel))
+                            }
+                        }
+                    }
+
+                    BotWsMessage.SelectorInfoPicked(
+                        selector = selector,
+                        tag = tag,
+                        text = text,
+                        matchCount = matchCount,
+                        outerHTML = outerHTML,
+                        attributes = attrsList,
+                        parents = parentsList,
+                        children = childrenList
+                    )
                 }
                 else -> {
                     Log.w(TAG, "Unknown message type discovered: $type")

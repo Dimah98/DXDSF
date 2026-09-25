@@ -3,6 +3,8 @@ import { PROJECTS_DIR } from '../constants';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DEFAULT_BUILDINGS_CATALOG } from '../data/buildingsCatalog';
+import { getProjectSaveData } from '../utils/saveStorage';
+import { getDbProjectLayout } from '../db/schema';
 
 const BUILDING_SIZES: Record<string, [number, number]> = {
   'Tree': [2, 2], 'Water Well': [2, 2], 'Fruit Patch': [2, 2],
@@ -172,10 +174,12 @@ export const buildingPlacerNodeHandler = async ({
     let customCatalogSettings: Record<string, any> = {};
 
     try {
-      if (fs.existsSync(saveFilePath)) {
+      saveData = await getProjectSaveData(projectName);
+      if (!saveData && fs.existsSync(saveFilePath)) {
         saveData = JSON.parse(await fs.promises.readFile(saveFilePath, 'utf-8'));
       }
-      if (fs.existsSync(layoutFilePath)) {
+      layoutRaw = getDbProjectLayout(projectName);
+      if (!layoutRaw && fs.existsSync(layoutFilePath)) {
         layoutRaw = JSON.parse(await fs.promises.readFile(layoutFilePath, 'utf-8'));
       }
       if (fs.existsSync(globalTypesPath)) {

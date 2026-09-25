@@ -12,6 +12,7 @@ import mediaRoutes from './mediaRoutes';
 import scheduleRoutes from './scheduleRoutes';
 import notificationsRoutes from './notificationsRoutes';
 import buildingsRoutes from './buildingsRoutes';
+import npcDeliveriesRoutes from './npcDeliveriesRoutes';
 
 const router = Router();
 
@@ -29,5 +30,6 @@ router.use(mediaRoutes);
 router.use(scheduleRoutes);
 router.use(notificationsRoutes);
 router.use(buildingsRoutes);
+router.use(npcDeliveriesRoutes);
 
 export default router;

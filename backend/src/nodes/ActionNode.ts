@@ -349,7 +349,7 @@ export const actionNodeHandler = async ({
           } catch (e) {}
         }
         if (targetLoc && count > 0) break;
-        await activePage.waitForTimeout(100);
+        await activePage.waitForTimeout(250);
       }
 
       if (!targetLoc) {

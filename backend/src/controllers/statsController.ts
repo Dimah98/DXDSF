@@ -34,7 +34,8 @@ export async function getGlobalStats(_req: Request, res: Response): Promise<void
           projectName === 'categories' ||
           projectName === 'global_building_types' ||
           projectName.endsWith('_layout') ||
-          projectName.endsWith('_save')
+          projectName.endsWith('_save') ||
+          projectName.endsWith('_vars')
         ) {
           continue;
         }

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { sessions } from '../browserManager';
 import { writeJsonAtomic } from '../utils/fileUtils';
+import { getProjects as getDbProjects, getProjectContent } from '../db/schema';
 
 export interface ScheduledRun {
   projectName: string;
@@ -153,19 +154,33 @@ export class SchedulerService {
     }
   }
 
-  private async getProjectData(projectPath: string): Promise<any | null> {
+  private async getProjectData(projectName: string, projectPath?: string): Promise<any | null> {
     try {
-      const stat = await fs.promises.stat(projectPath);
-      const cached = this.projectCache.get(projectPath);
+      const dbProject = getProjectContent(projectName);
+      if (dbProject && dbProject.content) {
+        const cached = this.projectCache.get(projectName);
+        if (cached && cached.mtimeMs === dbProject.updated_at) {
+          return cached.data;
+        }
+        const parsed = JSON.parse(dbProject.content);
+        this.projectCache.set(projectName, { mtimeMs: dbProject.updated_at, data: parsed });
+        return parsed;
+      }
+    } catch {}
+
+    const filePath = projectPath || (projectName.endsWith('.json') ? projectName : `${projectName}.json`);
+    try {
+      const stat = await fs.promises.stat(filePath);
+      const cached = this.projectCache.get(filePath);
       if (cached && cached.mtimeMs === stat.mtimeMs) {
         return cached.data;
       }
-      const raw = await fs.promises.readFile(projectPath, 'utf-8');
+      const raw = await fs.promises.readFile(filePath, 'utf-8');
       const parsed = JSON.parse(raw);
-      this.projectCache.set(projectPath, { mtimeMs: stat.mtimeMs, data: parsed });
+      this.projectCache.set(filePath, { mtimeMs: stat.mtimeMs, data: parsed });
       return parsed;
     } catch {
-      this.projectCache.delete(projectPath);
+      this.projectCache.delete(filePath);
       return null;
     }
   }
@@ -195,35 +210,47 @@ export class SchedulerService {
   public async checkAndGetProjectsToRun(projectsDir: string): Promise<string[]> {
     const toRun: string[] = [];
     const now = Date.now();
-    let files: string[] = [];
-    
+    let projectNames: string[] = [];
+
+    // 1. Спочатку перевіряємо SQLite (швидко, без дискового IO)
     try {
-      files = await fs.promises.readdir(projectsDir);
-    } catch (err) {
-      console.error('Scheduler: failed to read projects dir', err);
-      return [];
+      const dbProjects = getDbProjects();
+      if (dbProjects && dbProjects.length > 0) {
+        projectNames = dbProjects.map(p => p.name);
+      }
+    } catch {}
+
+    // 2. Fallback на перевірку файлів
+    if (projectNames.length === 0) {
+      try {
+        const files = await fs.promises.readdir(projectsDir);
+        for (const file of files) {
+          if (
+            !file.endsWith('.json') ||
+            file.endsWith('_stats.json') ||
+            file.endsWith('_logs.json') ||
+            file.endsWith('_inventory.json') ||
+            file.endsWith('_layout.json') ||
+            file.endsWith('_save.json') ||
+            file.endsWith('_vars.json') ||
+            file === 'categories.json' ||
+            file === 'global_building_types.json' ||
+            file === 'schedule.json' ||
+            file === 'notifications.json'
+          ) {
+            continue;
+          }
+          projectNames.push(file.replace('.json', ''));
+        }
+      } catch (err) {
+        console.error('Scheduler: failed to read projects dir', err);
+        return [];
+      }
     }
 
-    for (const file of files) {
-      if (
-        !file.endsWith('.json') ||
-        file.endsWith('_stats.json') ||
-        file.endsWith('_logs.json') ||
-        file.endsWith('_inventory.json') ||
-        file.endsWith('_layout.json') ||
-        file.endsWith('_save.json') ||
-        file === 'categories.json' ||
-        file === 'global_building_types.json' ||
-        file === 'schedule.json' ||
-        file === 'notifications.json'
-      ) {
-        continue;
-      }
-      
-      const projectName = file.replace('.json', '');
-      const projectPath = path.join(projectsDir, file);
-      
-      const projectData = await this.getProjectData(projectPath);
+    for (const projectName of projectNames) {
+      const projectPath = path.join(projectsDir, `${projectName}.json`);
+      const projectData = await this.getProjectData(projectName, projectPath);
       if (!projectData) {
         continue;
       }
@@ -306,34 +333,46 @@ export class SchedulerService {
 
   public async getFullSchedule(projectsDir: string): Promise<ScheduleInfo[]> {
     const schedule: ScheduleInfo[] = [];
-    let files: string[] = [];
-    
+    let projectNames: string[] = [];
+
+    // 1. Спочатку беремо проекти з SQLite
     try {
-      files = await fs.promises.readdir(projectsDir);
-    } catch (err) {
-      return schedule;
+      const dbProjects = getDbProjects();
+      if (dbProjects && dbProjects.length > 0) {
+        projectNames = dbProjects.map(p => p.name);
+      }
+    } catch {}
+
+    // 2. Fallback на файлову систему
+    if (projectNames.length === 0) {
+      try {
+        const files = await fs.promises.readdir(projectsDir);
+        for (const file of files) {
+          if (
+            !file.endsWith('.json') || 
+            file.endsWith('_stats.json') || 
+            file.endsWith('_logs.json') || 
+            file.endsWith('_inventory.json') ||
+            file.endsWith('_layout.json') ||
+            file.endsWith('_save.json') ||
+            file.endsWith('_vars.json') ||
+            file === 'categories.json' ||
+            file === 'global_building_types.json' ||
+            file === 'schedule.json' || 
+            file === 'notifications.json'
+          ) {
+            continue;
+          }
+          projectNames.push(file.replace('.json', ''));
+        }
+      } catch (err) {
+        return schedule;
+      }
     }
 
-    for (const file of files) {
-      if (
-        !file.endsWith('.json') || 
-        file.endsWith('_stats.json') || 
-        file.endsWith('_logs.json') || 
-        file.endsWith('_inventory.json') ||
-        file.endsWith('_layout.json') ||
-        file.endsWith('_save.json') ||
-        file === 'categories.json' ||
-        file === 'global_building_types.json' ||
-        file === 'schedule.json' || 
-        file === 'notifications.json'
-      ) {
-        continue;
-      }
-      
-      const projectName = file.replace('.json', '');
-      const projectPath = path.join(projectsDir, file);
-      
-      const projectData = await this.getProjectData(projectPath);
+    for (const projectName of projectNames) {
+      const projectPath = path.join(projectsDir, `${projectName}.json`);
+      const projectData = await this.getProjectData(projectName, projectPath);
       if (!projectData) {
         continue;
       }

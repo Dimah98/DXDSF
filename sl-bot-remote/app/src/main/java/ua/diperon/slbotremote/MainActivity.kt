@@ -329,7 +329,42 @@ class MainActivity : ComponentActivity() {
                                     apiService = apiService,
                                     onBackClick = {
                                         navController.popBackStack()
+                                    },
+                                    onNavigateToSettings = {
+                                        navController.navigate("npc_deliveries_settings")
                                     }
+                                )
+                            } else {
+                                androidx.compose.foundation.layout.Box(
+                                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                                    contentAlignment = androidx.compose.ui.Alignment.Center
+                                ) {
+                                    androidx.compose.material3.Text("Завантаження...")
+                                }
+                            }
+                        }
+
+                        // 11.5 NPC Deliveries Settings Screen route
+                        composable(
+                            route = "npc_deliveries_settings?projectName={projectName}",
+                            arguments = listOf(
+                                navArgument("projectName") {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val projectName = backStackEntry.arguments?.getString("projectName")
+                            val apiService = sharedDashboardViewModel.getApiService()
+
+                            if (apiService != null) {
+                                NpcDeliveriesSettingsScreen(
+                                    apiService = apiService,
+                                    onBackClick = {
+                                        navController.popBackStack()
+                                    },
+                                    initialProjectName = projectName
                                 )
                             } else {
                                 androidx.compose.foundation.layout.Box(

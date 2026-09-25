@@ -7,7 +7,8 @@ import {
   getOrCreateSession,
   isSessionBrowserAlive,
   connectToBrowser,
-  closeSessionBrowser
+  closeSessionBrowser,
+  resizeBrowserWindow
 } from '../browserManager';
 import { ensureBrowserSettings } from '../runner/ProjectRunner';
 import { getRoninInjectionScript } from '../web3Signer';
@@ -33,30 +34,50 @@ export async function openBrowser(req: Request, res: Response): Promise<void> {
     if (!session) {
       session = getOrCreateSession(projectName);
     }
+
+    await ensureBrowserSettings(projectName, session);
+
+    const bodyBs = req.body?.browserSettings;
+    if (bodyBs && typeof bodyBs === 'object') {
+      session.botSettings = { ...session.botSettings, ...bodyBs };
+    }
+    const reqWidth = req.body?.width || bodyBs?.width;
+    const reqHeight = req.body?.height || bodyBs?.height;
+    if (reqWidth && reqHeight) {
+      session.botSettings = {
+        ...session.botSettings,
+        width: Number(reqWidth),
+        height: Number(reqHeight)
+      };
+    }
+
+    const targetWidth = Number(session.botSettings?.width || session.botSettings?.browserWidth || reqWidth || 1280);
+    const targetHeight = Number(session.botSettings?.height || session.botSettings?.browserHeight || reqHeight || 720);
     
     if (isSessionBrowserAlive(session)) {
       if (forceHeaded && session.currentlyRunningHeadless) {
         logger.info(`Browser for ${projectName} is currently running headless, restarting in visible mode...`);
         await closeSessionBrowser(session);
       } else {
-        res.json({ success: true, message: 'Browser is already running' });
+        if (session.page) {
+          await resizeBrowserWindow(session, session.page, targetWidth, targetHeight);
+        }
+        res.json({ success: true, message: 'Browser is already running and resized', width: targetWidth, height: targetHeight });
         return;
       }
     }
 
-    await ensureBrowserSettings(projectName, session);
-
     await connectToBrowser(
       session,
-      session.botSettings?.width || session.botSettings?.browserWidth || 1280,
-      session.botSettings?.height || session.botSettings?.browserHeight || 720,
+      targetWidth,
+      targetHeight,
       session.botSettings?.profile,
       session.botSettings?.profileDir,
       session.botSettings?.proxy,
       forceHeaded
     );
     
-    res.json({ success: true, message: 'Browser opened successfully' });
+    res.json({ success: true, message: 'Browser opened successfully', width: targetWidth, height: targetHeight });
   } catch (error: any) {
     logger.error(`Failed to open browser for ${projectName}`, error instanceof Error ? error : new Error(String(error)));
     res.status(500).json({ success: false, message: error.message });
@@ -331,9 +352,9 @@ export async function evalPageScript(req: Request, res: Response): Promise<void>
       return;
     }
     const { script } = req.body || {};
-    const result = await session.page.evaluate((s: string) => {
+    const result = await session.page.evaluate(async (s: string) => {
       try {
-        const val = eval(s);
+        const val = await eval(s);
         return { success: true, value: val };
       } catch (err: any) {
         return { success: false, error: err.message || String(err) };

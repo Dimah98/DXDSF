@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, RefreshCw, Loader2 } from 'lucide-react';
+import { X, RefreshCw, Loader2, Settings2 } from 'lucide-react';
 
 interface Delivery {
   id: string;
@@ -102,6 +102,17 @@ export const AllDeliveriesModal: React.FC<AllDeliveriesModalProps> = ({ isOpen, 
         <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5">
           <h2 className="text-xl font-bold text-white tracking-tight">Всі Доставки</h2>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new CustomEvent('open-npc-deliveries'));
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 text-xs font-bold transition-colors"
+              title="Налаштування доставок NPC"
+            >
+              <Settings2 size={15} />
+              <span className="hidden sm:inline">Налаштування</span>
+            </button>
             <button onClick={fetchData} className="p-2 hover:bg-white/10 rounded-xl text-white/60 hover:text-white transition-colors">
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
             </button>

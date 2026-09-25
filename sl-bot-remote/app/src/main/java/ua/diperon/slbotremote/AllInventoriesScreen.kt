@@ -63,6 +63,24 @@ fun formatCompactNumber(num: Double): String {
 }
 
 /**
+ * Розраховує повний список ресурсів для матриці інвентарів/складів
+ */
+fun computeAllResources(
+    inv: Map<String, List<InventoryItem>>,
+    stock: Map<String, List<InventoryItem>>,
+    source: String
+): List<String> {
+    val set = mutableSetOf<String>()
+    if (source == "inventory" || source == "both") {
+        inv.values.forEach { list -> list.forEach { set.add(it.image) } }
+    }
+    if (source == "stock" || source == "both") {
+        stock.values.forEach { list -> list.forEach { set.add(it.image) } }
+    }
+    return set.toList().sortedWith(NaturalOrderComparator)
+}
+
+/**
  * Екран перегляду всіх інвентарів
  * Показує матрицю: рядки = проекти, стовпці = ресурси
  */
@@ -72,15 +90,42 @@ fun AllInventoriesScreen(
     apiService: BotApiService,
     onBackClick: () -> Unit
 ) {
-    var allInventories by remember { mutableStateOf<Map<String, List<InventoryItem>>>(emptyMap()) }
-    var allStock by remember { mutableStateOf<Map<String, List<InventoryItem>>>(emptyMap()) }
-    var allResources by remember { mutableStateOf<List<String>>(emptyList()) }
-    var categories by remember { mutableStateOf<List<String>>(emptyList()) } // Стейт для збереження категорій
-    var itemToCategories by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) } // Стейт зв'язків предметів
-    var selectedCategory by remember { mutableStateOf<String?>(null) } // Вибрана категорія для фільтрації колонок
+    val cachedInventories = AppMemoryCache.inventoriesData
+    val cachedStock = AppMemoryCache.stockData
+    val cachedCategories = AppMemoryCache.categories
+    val cachedItemToCats = AppMemoryCache.itemToCategories
+    val hasCache = cachedInventories != null && cachedInventories.isNotEmpty()
+
     var dataSource by remember { mutableStateOf("inventory") } // Стейт джерела ("inventory", "stock", "both")
+
+    var allInventories by remember {
+        mutableStateOf<Map<String, List<InventoryItem>>>(
+            when (dataSource) {
+                "stock" -> cachedStock ?: emptyMap()
+                else -> cachedInventories ?: emptyMap()
+            }
+        )
+    }
+    var allStock by remember {
+        mutableStateOf<Map<String, List<InventoryItem>>>(
+            when (dataSource) {
+                "inventory" -> emptyMap()
+                else -> cachedStock ?: emptyMap()
+            }
+        )
+    }
+    var allResources by remember {
+        mutableStateOf<List<String>>(
+            if (hasCache) computeAllResources(cachedInventories ?: emptyMap(), cachedStock ?: emptyMap(), dataSource)
+            else emptyList()
+        )
+    }
+    var categories by remember { mutableStateOf<List<String>>(cachedCategories ?: emptyList()) }
+    var itemToCategories by remember { mutableStateOf<Map<String, List<String>>>(cachedItemToCats ?: emptyMap()) }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
     
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(!hasCache) }
+    var isRefreshing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -88,27 +133,78 @@ fun AllInventoriesScreen(
     // Отримуємо базовий URL з конфігурації
     val baseUrl = remember { ConnectionConfigManager(context).getHttpUrl().removeSuffix("/") }
 
+    fun applyDataFromSources(
+        inv: Map<String, List<InventoryItem>>,
+        st: Map<String, List<InventoryItem>>,
+        src: String
+    ) {
+        when (src) {
+            "both" -> {
+                allInventories = inv
+                allStock = st
+                allResources = computeAllResources(inv, st, "both")
+            }
+            "stock" -> {
+                allInventories = st
+                allStock = st
+                allResources = computeAllResources(inv, st, "stock")
+            }
+            else -> {
+                allInventories = inv
+                allStock = emptyMap()
+                allResources = computeAllResources(inv, st, "inventory")
+            }
+        }
+    }
+
     // Функція завантаження всіх інвентарів/складів та категорій
     val loadAllInventories: () -> Unit = {
         scope.launch {
-            isLoading = true
+            if (allInventories.isEmpty()) {
+                isLoading = true
+            } else {
+                isRefreshing = true
+            }
             errorMessage = null
 
+            // 1. Миттєвий пакетний запит (1 запит замість 60+!)
+            try {
+                val bulk = apiService.getAllInventories()
+                if (bulk.success) {
+                    AppMemoryCache.inventoriesData = bulk.inventories
+                    AppMemoryCache.stockData = bulk.stock
+                    AppMemoryCache.categories = bulk.categories
+                    AppMemoryCache.itemToCategories = bulk.itemToCategories
+                    AppMemoryCache.inventoriesTimestamp = bulk.timestamp
+
+                    categories = bulk.categories
+                    itemToCategories = bulk.itemToCategories
+                    applyDataFromSources(bulk.inventories, bulk.stock, dataSource)
+
+                    isLoading = false
+                    isRefreshing = false
+                    return@launch
+                }
+            } catch (bulkErr: Exception) {
+                android.util.Log.d("AllInventoriesScreen", "Bulk endpoint error, falling back to per-project: ${bulkErr.message}")
+            }
+
+            // 2. Фолбек на індивідуальні запити для старіших версій
             try {
                 // Паралельно завантажуємо категорії
                 try {
-                    val catResponse = apiService.getInventoryCategories() // Отримуємо категорії з сервера
-                    categories = catResponse.categories // Записуємо категорії
-                    itemToCategories = catResponse.itemToCategories // Записуємо зв'язки
+                    val catResponse = apiService.getInventoryCategories()
+                    categories = catResponse.categories
+                    itemToCategories = catResponse.itemToCategories
+                    AppMemoryCache.categories = catResponse.categories
+                    AppMemoryCache.itemToCategories = catResponse.itemToCategories
                 } catch (catEx: Exception) {
                     android.util.Log.e("AllInventoriesScreen", "Помилка завантаження категорій", catEx)
                 }
 
-                // Отримуємо список всіх проектів
-                val projectNames = apiService.getProjects()
+                val projectNames = apiService.getProjects().sortedWith(NaturalOrderComparator)
 
                 if (dataSource == "both") {
-                    // Завантажуємо інвентар та склад для всіх проектів
                     val results: List<Triple<String, List<InventoryItem>, List<InventoryItem>>?> = coroutineScope {
                         projectNames.map { projectName ->
                             async {
@@ -141,10 +237,13 @@ fun AllInventoriesScreen(
 
                     allInventories = inventories
                     allStock = stockMap
-                    allResources = resourcesSet.toList().sorted()
+                    allResources = resourcesSet.toList().sortedWith(NaturalOrderComparator)
+
+                    AppMemoryCache.inventoriesData = inventories
+                    AppMemoryCache.stockData = stockMap
                     isLoading = false
+                    isRefreshing = false
                 } else {
-                    // Паралельно завантажуємо інвентарі або склади для всіх проектів
                     val results: List<Pair<String, List<InventoryItem>>?> = coroutineScope {
                         projectNames.map { projectName ->
                             async {
@@ -171,13 +270,21 @@ fun AllInventoriesScreen(
 
                     allInventories = inventories
                     allStock = if (dataSource == "stock") inventories else emptyMap()
-                    allResources = resourcesSet.toList().sorted()
+                    allResources = resourcesSet.toList().sortedWith(NaturalOrderComparator)
+
+                    if (dataSource == "stock") {
+                        AppMemoryCache.stockData = inventories
+                    } else {
+                        AppMemoryCache.inventoriesData = inventories
+                    }
                     isLoading = false
+                    isRefreshing = false
                 }
 
             } catch (e: Exception) {
                 errorMessage = "Помилка завантаження: ${e.message}"
                 isLoading = false
+                isRefreshing = false
                 android.util.Log.e("AllInventoriesScreen", "Failed to load inventories", e)
             }
         }
@@ -185,6 +292,13 @@ fun AllInventoriesScreen(
 
     // Завантаження при першому відкритті та зміні джерела
     LaunchedEffect(dataSource) {
+        if (AppMemoryCache.inventoriesData != null) {
+            applyDataFromSources(
+                AppMemoryCache.inventoriesData ?: emptyMap(),
+                AppMemoryCache.stockData ?: emptyMap(),
+                dataSource
+            )
+        }
         loadAllInventories()
     }
 
@@ -714,14 +828,7 @@ fun AllInventoriesContent(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             val imageUrl = remember(resourcePath, baseUrl) {
-                                when {
-                                    resourcePath.startsWith("data:") -> resourcePath
-                                    resourcePath.startsWith("http://") || resourcePath.startsWith("https://") -> resourcePath
-                                    else -> {
-                                        val path = if (resourcePath.startsWith("/")) resourcePath else "/$resourcePath"
-                                        "$baseUrl$path"
-                                    }
-                                }
+                                ItemImageResolver.resolveImageUrl(resourcePath, context, baseUrl)
                             }
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
@@ -877,7 +984,7 @@ fun InventoryMatrix(
 
     // Всі проекти (унікальні назви проектів)
     val projectNames = remember(inventories, stockInventories) {
-        (inventories.keys + stockInventories.keys).distinct().sorted()
+        (inventories.keys + stockInventories.keys).distinct().sortedWith(NaturalOrderComparator)
     }
 
     Column(
@@ -998,16 +1105,9 @@ fun ResourceHeaderCell(
     width: Dp = 28.dp,
     onResourceClick: (Int) -> Unit
 ) {
-    // Формуємо повний URL для зображення
+    // Формуємо повний URL для зображення через ItemImageResolver
     val imageUrl = remember(resource, baseUrl) {
-        when {
-            resource.startsWith("data:") -> resource
-            resource.startsWith("http://") || resource.startsWith("https://") -> resource
-            else -> {
-                val path = if (resource.startsWith("/")) resource else "/$resource"
-                "$baseUrl$path"
-            }
-        }
+        ItemImageResolver.resolveImageUrl(resource, context, baseUrl)
     }
 
     Box(

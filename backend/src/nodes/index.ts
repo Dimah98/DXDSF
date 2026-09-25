@@ -37,6 +37,7 @@ import { textInputNodeHandler } from './TextInputNode';
 import { flowerPlanterNodeHandler } from './FlowerPlanterNode';
 import { deliveryNodeHandler } from './DeliveryNode';
 import { buildingPlacerNodeHandler } from './BuildingPlacerNode';
+import { worldNavigatorNodeHandler } from './WorldNavigatorNode';
 
 // Domain-specific plugins
 import { sunflowerLandPlugin } from '../plugins/sunflower-land';
@@ -87,6 +88,7 @@ const genericHandlers: Record<string, NodeHandler> = {
   flowerPlanterNode: flowerPlanterNodeHandler,
   deliveryNode: deliveryNodeHandler,
   buildingPlacerNode: buildingPlacerNodeHandler,
+  worldNavigatorNode: worldNavigatorNodeHandler,
   subEntryNode: async ({ context }: NodeHandlerParams): Promise<NodeResult> => ({ data: context }),
   subExitNode: async ({ context }: NodeHandlerParams): Promise<NodeResult> => ({ data: context }),
 };

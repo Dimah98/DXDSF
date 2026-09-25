@@ -6,6 +6,11 @@ interface UIState {
   closeConfigManager: () => void;
   setConfigManagerOpen: (open: boolean) => void;
 
+  isNpcDeliveriesOpen: boolean;
+  openNpcDeliveries: () => void;
+  closeNpcDeliveries: () => void;
+  setNpcDeliveriesOpen: (open: boolean) => void;
+
   unreadNotificationsCount: number;
   setUnreadNotificationsCount: (count: number) => void;
 
@@ -31,6 +36,11 @@ export const useUIStore = create<UIState>((set) => ({
   openConfigManager: () => set({ isConfigManagerOpen: true }),
   closeConfigManager: () => set({ isConfigManagerOpen: false }),
   setConfigManagerOpen: (open) => set({ isConfigManagerOpen: open }),
+
+  isNpcDeliveriesOpen: false,
+  openNpcDeliveries: () => set({ isNpcDeliveriesOpen: true }),
+  closeNpcDeliveries: () => set({ isNpcDeliveriesOpen: false }),
+  setNpcDeliveriesOpen: (open) => set({ isNpcDeliveriesOpen: open }),
 
   unreadNotificationsCount: 0,
   setUnreadNotificationsCount: (count) => set({ unreadNotificationsCount: count }),

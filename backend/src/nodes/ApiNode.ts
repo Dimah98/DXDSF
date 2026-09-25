@@ -2,32 +2,27 @@ import { Logger } from '../logger';
 import { NodeHandlerParams } from './types';
 import { inputValidator } from '../validation/InputValidator';
 import { sessions } from '../browserManager';
-import { PROJECTS_DIR } from '../constants';
-import * as fs from 'fs'; // Імпортуємо модуль файлової системи для збереження файлів
-import * as path from 'path'; // Імпортуємо модуль path для роботи зі шляхами файлів
-import { writeJsonAtomic } from '../utils/fileUtils';
+import { saveProjectSaveData } from '../utils/saveStorage';
 
 const logger = new Logger('ApiNode');
 
-// Функція для збереження відповіді API у файл інвентарю проекту
+// Функція для збереження відповіді API у сховище проекту
 const saveResponseToProject = async (
   projectName: string,
   responseJson: unknown,
   saveToProject: boolean,
   logToClient: (msg: string, type?: 'info' | 'success' | 'error' | 'debug') => void
 ) => {
-  if (saveToProject && responseJson) { // Перевіряємо чи увімкнено опцію та чи є дані для збереження
-    const inventoryFilePath = path.join(PROJECTS_DIR, `${projectName}_save.json`); // Шлях до збереженого файлу проекту
+  if (saveToProject && responseJson) {
     try {
-      await fs.promises.mkdir(PROJECTS_DIR, { recursive: true }); // Створюємо папку проектів якщо вона не існує
-      await writeJsonAtomic(inventoryFilePath, responseJson); // Атомарно записуємо JSON дані у файл
-      logToClient(`💾 JSON збережено в проект: ${projectName}_save.json`, 'success'); // Повідомляємо клієнта про успішне збереження та назву файлу
-      logger.info(`Saved API response JSON to project`, { projectName, path: inventoryFilePath }); // Логуємо подію в бекенді
-    } catch (saveErr) { // Перехоплюємо помилки запису
-      logger.error(`Failed to save API response to inventory file`, saveErr instanceof Error ? saveErr : new Error(String(saveErr))); // Логуємо помилку
-      logToClient(`⚠️ Не вдалося зберегти JSON в проект`, 'error'); // Виводимо помилку в консоль клієнта
-    } // Кінець блоку спроби
-  } // Кінець перевірки
+      await saveProjectSaveData(projectName, responseJson);
+      logToClient(`💾 Дані гри збережено в SQLite: ${projectName}`, 'success');
+      logger.info(`Saved API response JSON to SQLite for project`, { projectName });
+    } catch (saveErr) {
+      logger.error(`Failed to save API response to SQLite`, saveErr instanceof Error ? saveErr : new Error(String(saveErr)));
+      logToClient(`⚠️ Не вдалося зберегти JSON в проект`, 'error');
+    }
+  }
 };
 
 export const apiNodeHandler = async ({ currentNode, ws, logToClient, context, projectName }: NodeHandlerParams) => {

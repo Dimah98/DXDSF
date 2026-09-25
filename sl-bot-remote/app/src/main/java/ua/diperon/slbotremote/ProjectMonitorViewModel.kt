@@ -88,6 +88,9 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
     private val _streamDeviceHeight = MutableStateFlow(720)
     val streamDeviceHeight: StateFlow<Int> = _streamDeviceHeight.asStateFlow()
 
+    private val _selectedElementInfo = MutableStateFlow<BotWsMessage.SelectorInfoPicked?>(null)
+    val selectedElementInfo: StateFlow<BotWsMessage.SelectorInfoPicked?> = _selectedElementInfo.asStateFlow()
+
     private val _activeExecutingNodeId = MutableStateFlow<String?>(null)
     val activeExecutingNodeId: StateFlow<String?> = _activeExecutingNodeId.asStateFlow()
 
@@ -203,6 +206,10 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
                         message.deviceWidth?.let { _streamDeviceWidth.value = it }
                         message.deviceHeight?.let { _streamDeviceHeight.value = it }
                         decodeAndSetFrame(message.frameBase64)
+                    }
+                    is BotWsMessage.SelectorInfoPicked -> {
+                        Log.d(TAG, "Selector info picked: ${message.selector} (${message.tag})")
+                        _selectedElementInfo.value = message
                     }
                     is BotWsMessage.NodeExecuting -> {
                         _activeExecutingNodeId.value = message.nodeId
@@ -1022,6 +1029,25 @@ class ProjectMonitorViewModel(application: Application) : AndroidViewModel(appli
         fetchContainers()
     }
 
+    fun pickSelectorByCoords(x: Int, y: Int) {
+        val projName = _projectName.value
+        if (projName.isBlank()) return
+        webSocketClient.pickSelectorByCoords(projName, x, y)
+    }
+
+    fun highlightSelector(selector: String) {
+        if (selector.isBlank()) return
+        webSocketClient.highlightSelector(selector)
+    }
+
+    fun clearHighlight() {
+        webSocketClient.clearHighlight()
+    }
+
+    fun clearSelectedElement() {
+        _selectedElementInfo.value = null
+        clearHighlight()
+    }
 
     fun onExit() {
         Log.d(TAG, "Leaving screen, releasing connections")

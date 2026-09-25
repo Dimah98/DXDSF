@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 // Імпортуємо іконки з бібліотеки lucide-react для нашого UI інтерфейсу
 // Імпортуємо іконки з бібліотеки lucide-react для нашого UI інтерфейсу (Copy — для копіювання нод)
 import { Save, FilePlus, ScrollText, Settings, X, Search, Trash2, Play, Clock, CalendarClock, Monitor, Wifi, User, ChevronRight, TrendingUp, Copy, Sparkles, ChevronDown, Eye } from 'lucide-react';
@@ -432,6 +432,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
         name !== 'notifications' &&
         !name.endsWith('_layout') &&
         !name.endsWith('_save') &&
+        !name.endsWith('_vars') &&
         !name.endsWith('_stats') &&
         !name.endsWith('_logs') &&
         !name.endsWith('_inventory')
@@ -476,23 +477,58 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
   // Перезапускаємо ефект при зміні стану відкритості або функції завантаження проектів
   }, [isOpen, fetchProjects, fetchITBrowserProfiles]);
 
-  // При зміні вибраного проекту — завантажуємо його налаштування браузера
+  const saveTimeoutRef = useRef<any>(null);
+
+  // При зміні вибраного проекту — завантажуємо його налаштування браузера (з localStorage + бекенду)
   useEffect(() => {
-    // Формуємо унікальний ключ для отримання налаштувань проекту з localStorage
-    const key = `sfl_browser_${selectedProject || 'default'}`;
-    // Читаємо збережене значення з пам'яті браузера
+    const proj = selectedProject || 'default';
+    const key = `sfl_browser_${proj}`;
     const saved = localStorage.getItem(key);
-    // Оновлюємо стейт налаштувань, заповнюючи profileDir за замовчуванням порожнім рядком, якщо налаштувань немає
-    setBrowserSettings(saved ? JSON.parse(saved) : { width: 1280, height: 720, profile: '', profileDir: '', proxy: '', photoDebug: true, snapToGrid: true });
-  // Перезапускаємо ефект щоразу при зміні selectedProject
+    const initialBs = saved ? JSON.parse(saved) : { width: 1280, height: 720, profile: '', profileDir: '', proxy: '', photoDebug: true, snapToGrid: true };
+    setBrowserSettings(initialBs);
+
+    // Завантажуємо збережені налаштування з бекенду для синхронізації
+    if (selectedProject) {
+      fetch(`/api/projects/${encodeURIComponent(selectedProject)}/settings`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.success && data.browserSettings) {
+            setBrowserSettings((prev: any) => {
+              const merged = { ...prev, ...data.browserSettings };
+              localStorage.setItem(key, JSON.stringify(merged));
+              return merged;
+            });
+          }
+        })
+        .catch(() => {});
+    }
   }, [selectedProject]);
 
-  // Збереження налаштувань браузера
+  // Збереження налаштувань браузера (localStorage + бекенд)
   const saveBrowserSettings = (newSettings: any) => {
     const updated = { ...browserSettings, ...newSettings };
     setBrowserSettings(updated);
-    const key = `sfl_browser_${selectedProject || 'default'}`;
+    const proj = selectedProject || 'default';
+    const key = `sfl_browser_${proj}`;
     localStorage.setItem(key, JSON.stringify(updated));
+
+    if (selectedProject) {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        fetch(`/api/projects/${encodeURIComponent(selectedProject)}/settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+          },
+          body: JSON.stringify({ browserSettings: updated })
+        }).catch(err => console.warn('Failed to save browser settings to backend', err));
+      }, 350);
+    }
   };
 
   // Видалення проекту
@@ -747,10 +783,20 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                       if (onOpenVisibleBrowser) {
                         onOpenVisibleBrowser(p);
                       } else {
+                        const savedBs = localStorage.getItem(`sfl_browser_${p}`);
+                        const parsedBs = savedBs ? JSON.parse(savedBs) : {};
                         fetch(`/api/browser/open/${encodeURIComponent(p)}?forceHeaded=true`, {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ forceHeaded: true })
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+                          },
+                          body: JSON.stringify({
+                            forceHeaded: true,
+                            browserSettings: parsedBs,
+                            width: parsedBs.width,
+                            height: parsedBs.height
+                          })
                         }).catch(() => {});
                       }
                       onClose();
@@ -1044,8 +1090,16 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                     try {
                       await fetch(`/api/browser/open/${encodeURIComponent(selectedProject)}?forceHeaded=true`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ forceHeaded: true })
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+                        },
+                        body: JSON.stringify({
+                          forceHeaded: true,
+                          browserSettings,
+                          width: browserSettings.width,
+                          height: browserSettings.height
+                        })
                       });
                     } catch (_) {}
                   }}

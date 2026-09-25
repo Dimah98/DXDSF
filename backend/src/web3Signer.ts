@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PROJECTS_DIR } from './constants';
+import { getDbProjectVariables, getProjectContent } from './db/schema';
 
 export const PROJECT_PRIVATE_KEYS: Record<string, string> = {
   SF: '0xe773e490658fd8d1fa2263c6dc70549b8f7e2e7b200db72b28ede58a8548ac58',
@@ -203,6 +204,31 @@ export function getProjectPrivateKey(projectName: string): string | null {
   if (PROJECT_PRIVATE_KEYS[projectName]) {
     return PROJECT_PRIVATE_KEYS[projectName];
   }
+  // 1. Спочатку швидко перевіряємо SQLite project_variables
+  try {
+    const dbVars = getDbProjectVariables(projectName);
+    if (dbVars && dbVars.walletPrivateKey) return dbVars.walletPrivateKey as string;
+  } catch (_) {}
+
+  // 2. Перевіряємо SQLite content
+  try {
+    const dbProj = getProjectContent(projectName);
+    if (dbProj && dbProj.content) {
+      const data = JSON.parse(dbProj.content);
+      const key = data.walletPrivateKey || data.browserSettings?.walletPrivateKey || data.variables?.walletPrivateKey;
+      if (key) return key;
+    }
+  } catch (_) {}
+
+  // 3. Фолбек на диск: файл змінних _vars.json
+  try {
+    const varsPath = path.join(PROJECTS_DIR, `${projectName}_vars.json`);
+    if (fs.existsSync(varsPath)) {
+      const vData = JSON.parse(fs.readFileSync(varsPath, 'utf8').replace(/^\uFEFF/, ''));
+      if (vData && vData.walletPrivateKey) return vData.walletPrivateKey;
+    }
+  } catch (_) {}
+
   try {
     const pPath = path.join(PROJECTS_DIR, `${projectName}.json`);
     if (fs.existsSync(pPath)) {

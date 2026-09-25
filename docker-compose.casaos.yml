@@ -22,6 +22,7 @@ services:
       - /DATA/AppData/SF/sf_server_deploy/backend/data:/app/backend/data
       - /DATA/AppData/SF/sf_server_deploy/backend/projects:/app/backend/projects
       - /DATA/AppData/SF/sf_server_deploy/profiles:/app/profiles
+      - /DATA/AppData/SF/sf_server_deploy/im:/app/im:ro
       - /DATA/AppData/SF/sf_server_deploy/backend/src:/app/backend/src
     shm_size: '2gb'
     networks:

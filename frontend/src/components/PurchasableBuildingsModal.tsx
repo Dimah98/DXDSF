@@ -231,12 +231,18 @@ export const PurchasableBuildingsModal: React.FC<PurchasableBuildingsModalProps>
                       {/* Картинка будівлі */}
                       <div className="relative w-16 h-16 rounded-xl bg-slate-950/60 border border-white/10 flex items-center justify-center p-1.5 flex-shrink-0">
                         <img
-                          src={`/im/${b.image}.png`}
+                          src={`/api/im/${encodeURI(b.image)}.png`}
                           alt={b.name}
                           className="max-w-full max-h-full object-contain pixelated"
                           onError={(e) => {
-                            // Fallback якщо немає картинки
-                            (e.target as HTMLElement).style.display = 'none';
+                            const img = e.currentTarget;
+                            if (!img.dataset.retried) {
+                              img.dataset.retried = '1';
+                              img.src = `/im/${encodeURI(b.image)}.png`;
+                              return;
+                            }
+                            img.onerror = null;
+                            img.style.display = 'none';
                           }}
                         />
                         <span className="absolute bottom-0.5 right-1 text-[9px] font-mono text-gray-400 bg-black/60 px-1 rounded">

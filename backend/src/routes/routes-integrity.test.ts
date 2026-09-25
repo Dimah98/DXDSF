@@ -11,6 +11,7 @@ import * as projectDataController from '../controllers/projectDataController';
 import * as notificationsController from '../controllers/notificationsController';
 import * as browserController from '../controllers/browserController';
 import * as mediaController from '../controllers/mediaController';
+import * as npcDeliveriesController from '../controllers/npcDeliveriesController';
 import * as projectRunner from '../runner/ProjectRunner';
 import * as massLaunchRunner from '../runner/MassLaunchRunner';
 import * as wsModule from '../websocket';
@@ -107,6 +108,13 @@ describe('Decomposed Routes & Controllers Integrity', () => {
     expect(typeof mediaController.getImages).toBe('function');
     expect(typeof mediaController.getScreenshots).toBe('function');
     expect(typeof mediaController.deleteScreenshot).toBe('function');
+  });
+
+  it('should export all npc deliveries controller handlers', () => {
+    expect(typeof npcDeliveriesController.getNpcDeliveries).toBe('function');
+    expect(typeof npcDeliveriesController.getDeliverySettings).toBe('function');
+    expect(typeof npcDeliveriesController.saveDeliverySettings).toBe('function');
+    expect(typeof npcDeliveriesController.testDeliveryConfig).toBe('function');
   });
 
   it('should export ProjectRunner methods & singleton queue manager', () => {

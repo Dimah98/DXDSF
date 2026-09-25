@@ -3,6 +3,9 @@ import path from 'path';
 import { ConfigRule, SavedConfig } from './ConfigStore';
 import { PROJECTS_DIR } from '../constants';
 import { writeJsonAtomic } from '../utils/fileUtils';
+import { getDbProjectSave, getDbProjectVariables } from '../db/schema';
+import { getProjectSaveData, saveProjectSaveData } from '../utils/saveStorage';
+import { loadProjectVariables, saveProjectVariables } from '../utils/variableStorage';
 
 const pathTokenCache = new Map<string, string[]>();
 const MAX_PATH_CACHE_SIZE = 1000;
@@ -144,6 +147,9 @@ export function getProjectFilePath(projectName: string, fileRef: string): string
   }
   if (fileRef === '(stats)') {
     return path.join(PROJECTS_DIR, `${projectName}_stats.json`);
+  }
+  if (fileRef === '(vars)') {
+    return path.join(PROJECTS_DIR, `${projectName}_vars.json`);
   }
   if (!path.isAbsolute(fileRef)) {
     return path.join(PROJECTS_DIR, fileRef);
@@ -446,6 +452,20 @@ export function loadConfigFiles(
 
   const fileCache = new Map<string, any>();
   for (const fileRef of allFiles) {
+    if (fileRef === '(save)') {
+      const dbSave = getDbProjectSave(projectName);
+      if (dbSave) {
+        fileCache.set(fileRef, dbSave);
+        continue;
+      }
+    } else if (fileRef === '(vars)') {
+      const dbVars = getDbProjectVariables(projectName);
+      if (dbVars) {
+        fileCache.set(fileRef, dbVars);
+        continue;
+      }
+    }
+
     const filePath = getProjectFilePath(projectName, fileRef);
     try {
       if (fs.existsSync(filePath)) {
@@ -481,6 +501,20 @@ export async function loadConfigFilesAsync(
 
   const fileCache = new Map<string, any>();
   for (const fileRef of allFiles) {
+    if (fileRef === '(save)') {
+      const dbSave = await getProjectSaveData(projectName);
+      if (dbSave) {
+        fileCache.set(fileRef, dbSave);
+        continue;
+      }
+    } else if (fileRef === '(vars)') {
+      const dbVars = await loadProjectVariables(projectName);
+      if (dbVars) {
+        fileCache.set(fileRef, dbVars);
+        continue;
+      }
+    }
+
     const filePath = getProjectFilePath(projectName, fileRef);
     try {
       const content = await fs.promises.readFile(filePath, 'utf-8');
@@ -507,6 +541,19 @@ export function saveConfigFiles(
   logToClient: (msg: string, type?: any) => void
 ) {
   for (const fileRef of filesToSave) {
+    if (fileRef === '(save)') {
+      saveProjectSaveData(projectName, fileCache.get(fileRef))
+        .then(() => logToClient(`💾 Збереження гри оновлено у SQLite`, 'success'))
+        .catch((e: any) => logToClient(`❌ Помилка запису збереження: ${e.message}`, 'error'));
+      continue;
+    }
+    if (fileRef === '(vars)') {
+      saveProjectVariables(projectName, fileCache.get(fileRef))
+        .then(() => logToClient(`💾 Змінні оновлено у SQLite`, 'success'))
+        .catch((e: any) => logToClient(`❌ Помилка запису змінних: ${e.message}`, 'error'));
+      continue;
+    }
+
     const filePath = getProjectFilePath(projectName, fileRef);
     writeJsonAtomic(filePath, fileCache.get(fileRef))
       .then(() => {
@@ -525,6 +572,25 @@ export async function saveConfigFilesAsync(
   logToClient: (msg: string, type?: any) => void
 ): Promise<void> {
   for (const fileRef of filesToSave) {
+    if (fileRef === '(save)') {
+      try {
+        await saveProjectSaveData(projectName, fileCache.get(fileRef));
+        logToClient(`💾 Збереження гри оновлено у SQLite`, 'success');
+      } catch (e: any) {
+        logToClient(`❌ Помилка запису збереження: ${e.message}`, 'error');
+      }
+      continue;
+    }
+    if (fileRef === '(vars)') {
+      try {
+        await saveProjectVariables(projectName, fileCache.get(fileRef));
+        logToClient(`💾 Змінні оновлено у SQLite`, 'success');
+      } catch (e: any) {
+        logToClient(`❌ Помилка запису змінних: ${e.message}`, 'error');
+      }
+      continue;
+    }
+
     const filePath = getProjectFilePath(projectName, fileRef);
     try {
       await writeJsonAtomic(filePath, fileCache.get(fileRef));

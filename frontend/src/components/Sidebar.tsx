@@ -89,6 +89,7 @@ const Sidebar = ({
         name !== 'notifications' &&
         !name.endsWith('_layout') &&
         !name.endsWith('_save') &&
+        !name.endsWith('_vars') &&
         !name.endsWith('_stats') &&
         !name.endsWith('_logs') &&
         !name.endsWith('_inventory')

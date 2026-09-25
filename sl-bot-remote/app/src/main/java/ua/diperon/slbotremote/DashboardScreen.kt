@@ -779,11 +779,17 @@ fun ProjectItemCard(
 
                             if (targetRun != null) {
                                 val remainingMs = targetRun - currentTime
-                                if (remainingMs > 0) {
+                                val timeText = if (remainingMs > 0) {
                                     val totalMinutes = (remainingMs + 59999) / 60000
                                     val hours = totalMinutes / 60
                                     val minutes = totalMinutes % 60
-                                    val timeText = String.format(Locale.US, "%d:%02d", hours, minutes)
+                                    String.format(Locale.US, "%d:%02d", hours, minutes)
+                                } else if (remainingMs > -3600000L) {
+                                    "0:00"
+                                } else {
+                                    null
+                                }
+                                if (timeText != null) {
                                     Text(
                                         text = timeText,
                                         style = MaterialTheme.typography.bodyMedium,

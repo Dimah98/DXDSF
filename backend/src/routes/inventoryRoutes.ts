@@ -3,12 +3,14 @@ import {
   getInventoryOverview,
   getInventoryCategories,
   saveInventoryCategories,
-  getProjectInventory
+  getProjectInventory,
+  getAllProjectsInventories
 } from '../controllers/inventoryController';
 import { authMiddleware } from '../auth/AuthMiddleware';
 
 const router = Router();
 
+router.get('/api/all-inventories', authMiddleware, getAllProjectsInventories);
 router.get('/api/inventory/overview', authMiddleware, getInventoryOverview);
 router.get('/api/inventory/categories', authMiddleware, getInventoryCategories);
 router.post('/api/inventory/categories', authMiddleware, saveInventoryCategories);

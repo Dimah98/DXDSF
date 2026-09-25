@@ -3,6 +3,7 @@ import path from 'path';
 import { WebSocket } from 'ws';
 import { Logger } from '../logger';
 import { PROJECTS_DIR } from '../constants';
+import { loadProjectVariables } from '../utils/variableStorage';
 import { RunLogger } from '../RunLogger';
 import { BotEngine } from '../engine/BotEngine';
 import { nodeHandlers } from '../nodes';
@@ -10,7 +11,8 @@ import {
   isSessionBrowserAlive,
   connectToBrowser,
   injectPicker,
-  takeDebugSnapshot
+  takeDebugSnapshot,
+  isPhotoDebugEnabled
 } from '../browserManager';
 import {
   ensureBrowserSettings,
@@ -38,6 +40,12 @@ export async function handleClientMessage(
 
   wsLifecycle.updateActivity(ws as any);
   
+  // Скидаємо лічильник повідомлень за timestamp замість setInterval (зберігає CPU)
+  const now = Date.now();
+  if (now - ((ws as any)._msgResetTime || 0) > 1000) {
+    (ws as any)._msgCount = 0;
+    (ws as any)._msgResetTime = now;
+  }
   (ws as any)._msgCount = ((ws as any)._msgCount || 0) + 1;
   if ((ws as any)._msgCount > 100) {
     return;
@@ -122,8 +130,12 @@ export async function handleClientMessage(
               if (metadata.deviceHeight) (session as any)._deviceHeight = metadata.deviceHeight;
             }
             // Перевіряємо зворотний тиск буфера (Backpressure): якщо клієнт не встигає зчитувати,
-            // пропускаємо проміжний кадр, щоб уникнути витоку RAM та затримки відеопотоку
-            if ((ws as any).isStreaming && ws.readyState === 1 && ws.bufferedAmount < 256 * 1024) {
+            // пропускаємо проміжний кадр, але гарантуємо щонайменше 4 кадри/с навіть при високому пінг
+            const now = Date.now();
+            const lastSent = (ws as any)._lastFrameSentAt || 0;
+            const canSend = ws.bufferedAmount < 256 * 1024 || (now - lastSent > 250);
+            if ((ws as any).isStreaming && ws.readyState === 1 && canSend) {
+              (ws as any)._lastFrameSentAt = now;
               ws.send(JSON.stringify({ 
                 type: 'STREAM_FRAME', 
                 frame: data,
@@ -143,10 +155,10 @@ export async function handleClientMessage(
 
         await cdp.send('Page.startScreencast', {
           format: 'jpeg',
-          quality: (session.botSettings as any)?.streamQuality || 50,
+          quality: (session.botSettings as any)?.streamQuality || 45,
           maxWidth: 960,
           maxHeight: 540,
-          everyNthFrame: 1
+          everyNthFrame: 2
         });
         logger.info(`CDP Screencast started for project ${projectName}`);
       } catch (screencastErr) {
@@ -207,7 +219,7 @@ export async function handleClientMessage(
   if (data.type === 'LAUNCH_BROWSER') {
     if (data.settings) {
       session.botSettings = { ...session.botSettings, ...data.settings };
-      session.photoDebugEnabled = session.botSettings.photoDebug !== false;
+      session.photoDebugEnabled = isPhotoDebugEnabled(session);
     }
     const width = session.botSettings?.width || session.botSettings?.browserWidth || 1280;
     const height = session.botSettings?.height || session.botSettings?.browserHeight || 720;
@@ -1073,15 +1085,15 @@ export async function handleClientMessage(
         edges = edges || [];
       }
     }
-    if (settings) {
-      session.botSettings = { ...session.botSettings, ...settings };
-      session.photoDebugEnabled = session.botSettings.photoDebug !== false;
-    }
     try {
-      const width = settings?.width || settings?.browserWidth || 1280;
-      const height = settings?.height || settings?.browserHeight || 720;
-      
       await ensureBrowserSettings(projectName, session);
+      if (settings) {
+        session.botSettings = { ...session.botSettings, ...settings };
+        session.photoDebugEnabled = isPhotoDebugEnabled(session);
+      }
+      const width = Number(session.botSettings?.width || session.botSettings?.browserWidth || settings?.width || 1280);
+      const height = Number(session.botSettings?.height || session.botSettings?.browserHeight || settings?.height || 720);
+      
       const activePage = await connectToBrowser(
         session,
         width,
@@ -1106,11 +1118,9 @@ export async function handleClientMessage(
         ws.send(JSON.stringify({ type: 'BOT_FINISHED' }));
       } else {
         try {
-          const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
-          const fileContent = await fs.promises.readFile(projectPath, 'utf-8');
-          const saved = JSON.parse(fileContent);
-          if (saved.variables) {
-            session.globalVariables = { ...saved.variables };
+          const loadedVars = await loadProjectVariables(projectName);
+          if (loadedVars && Object.keys(loadedVars).length > 0) {
+            session.globalVariables = { ...loadedVars };
             logToClient(session, '📂 Змінні завантажено з проекту', 'debug');
           }
         } catch (loadErr) {

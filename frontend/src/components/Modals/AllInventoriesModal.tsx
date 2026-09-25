@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, RefreshCw, Loader2, Package } from 'lucide-react';
+import { getCleanImageUrl } from '../../utils/imageUtils';
 
 interface AllInventoriesModalProps {
   isOpen: boolean;
@@ -100,10 +101,19 @@ export const AllInventoriesModal: React.FC<AllInventoriesModalProps> = ({ isOpen
                       {filteredItems.sort((a, b) => b[1] - a[1]).map(([name, amount]) => (
                         <div key={name} className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-1.5 pr-3">
                           <img 
-                            src={`/api/im/${name}.png`} 
+                            src={getCleanImageUrl(`${name}.png`)} 
                             alt={name} 
                             className="w-6 h-6 object-contain"
-                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            onError={(e) => { 
+                              const img = e.currentTarget;
+                              if (!img.dataset.retried) {
+                                img.dataset.retried = '1';
+                                img.src = `${getCleanImageUrl(`${name.toLowerCase()}.png`)}?t=${Date.now()}`;
+                                return;
+                              }
+                              img.onerror = null;
+                              img.style.display = 'none'; 
+                            }}
                           />
                           <div className="flex flex-col">
                             <span className="text-[9px] text-white/50 uppercase leading-none">{name}</span>

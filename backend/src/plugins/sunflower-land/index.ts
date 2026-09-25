@@ -13,6 +13,7 @@ import { sequenceMemoryNodeHandler } from '../../nodes/SequenceMemoryNode';
 import { fruitRunnerNodeHandler } from '../../nodes/FruitRunnerNode';
 import { chickenRescueNodeHandler } from '../../nodes/ChickenRescueNode';
 import { captchaSolverNodeHandler } from '../../nodes/CaptchaNode';
+import { worldNavigatorNodeHandler } from '../../nodes/WorldNavigatorNode';
 
 /**
  * Sunflower Land domain plugin.
@@ -37,6 +38,7 @@ export const sunflowerLandPlugin: BotPlugin = {
     fruitRunnerNode: fruitRunnerNodeHandler,
     chickenRescueNode: chickenRescueNodeHandler,
     captchaSolverNode: captchaSolverNodeHandler,
+    worldNavigatorNode: worldNavigatorNodeHandler,
   },
 };
 

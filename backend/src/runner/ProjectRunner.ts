@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { writeJsonAtomic } from '../utils/fileUtils';
+import { loadProjectVariables, saveProjectVariables } from '../utils/variableStorage';
+import { getProjectContent } from '../db/schema';
 import { Logger } from '../logger';
 import { RunLogger } from '../RunLogger';
 import { BotEngine } from '../engine/BotEngine';
@@ -16,7 +18,8 @@ import {
   sessions,
   getOrCreateSession,
   takeDebugSnapshot,
-  connectToBrowser
+  connectToBrowser,
+  isPhotoDebugEnabled
 } from '../browserManager';
 import { ProjectSession, ExtendedWebSocket } from '../types';
 
@@ -114,13 +117,24 @@ export const enqueueWrite = (projectName: string, fn: () => Promise<void>): void
 // Функція для завантаження налаштувань браузера з файлу проекту
 export async function ensureBrowserSettings(projectName: string, session: ProjectSession) {
   try {
-    const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
-    const rawData = await fs.promises.readFile(projectPath, 'utf-8');
-    const projectData = JSON.parse(rawData);
+    let projectData: any = null;
+    const dbProject = getProjectContent(projectName);
+    if (dbProject && dbProject.content) {
+      try {
+        projectData = JSON.parse(dbProject.content);
+      } catch (_) {}
+    }
+
+    if (!projectData) {
+      const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+      const rawData = await fs.promises.readFile(projectPath, 'utf-8');
+      projectData = JSON.parse(rawData);
+    }
+
     const bs = projectData.browserSettings || projectData.settings || {};
     session.botSettings = { ...session.botSettings, ...bs };
   } catch (err) {
-    logger.warn(`Could not read project file for ${projectName} to ensure browser settings`, { error: String(err) });
+    logger.warn(`Could not read project data for ${projectName} to ensure browser settings`, { error: String(err) });
   }
 }
 
@@ -137,30 +151,10 @@ export const broadcastVariables = (session: ProjectSession) => {
 
   const timer = setTimeout(() => {
     enqueueWrite(session.projectName, async () => {
-      const projectPath = path.join(PROJECTS_DIR, `${session.projectName}.json`);
-      let fileExists = false;
       try {
-        fileExists = fs.existsSync(projectPath);
-      } catch (checkErr) {
-        logger.error(`Failed to check project file existence for variable save: ${session.projectName}`, checkErr instanceof Error ? checkErr : new Error(String(checkErr)), { path: projectPath });
-        return;
-      }
-      
-      if (fileExists) {
-        try {
-          const raw = await fs.promises.readFile(projectPath, 'utf-8');
-          let projectData: any;
-          try {
-            projectData = JSON.parse(raw);
-          } catch (parseErr) {
-            logger.error(`Failed to parse project file for variable save: ${session.projectName}`, parseErr instanceof Error ? parseErr : new Error(String(parseErr)));
-            return;
-          }
-          projectData.variables = session.globalVariables;
-          await writeJsonAtomic(projectPath, projectData);
-        } catch (fileErr) {
-          logger.error(`Failed to save variables for project ${session.projectName}`, fileErr instanceof Error ? fileErr : new Error(String(fileErr)));
-        }
+        await saveProjectVariables(session.projectName, session.globalVariables);
+      } catch (fileErr) {
+        logger.error(`Failed to save variables for project ${session.projectName}`, fileErr instanceof Error ? fileErr : new Error(String(fileErr)));
       }
     });
   }, 500);
@@ -171,7 +165,7 @@ export const broadcastVariables = (session: ProjectSession) => {
 // Функція плавного очікування, яка перевіряє чи бот сесії досі запущений
 // Розумна пауза з перевіркою прапорця зупинки
 export async function smartSleep(ms: number, ws?: any): Promise<void> {
-  const step = 100;
+  const step = 500;
   let remaining = ms;
   const projectName = ws?.projectName;
   const session = projectName ? sessions.get(projectName) : undefined;
@@ -333,30 +327,35 @@ export async function executeProjectInternal(
   session.nodeRuntimeState = new Map();
 
   try {
-    const filePath = path.join(PROJECTS_DIR, `${projectName}.json`);
-    
-    let fileExists = false;
-    try {
-      fileExists = fs.existsSync(filePath);
-    } catch (checkErr) {
-      logger.error(`Failed to check project file: ${projectName}`, checkErr instanceof Error ? checkErr : new Error(String(checkErr)));
-      session.isBotRunning = false;
-      return false;
-    }
+    let fileContent: string = '';
+    const dbProject = getProjectContent(projectName);
+    if (dbProject && dbProject.content) {
+      fileContent = dbProject.content;
+    } else {
+      const filePath = path.join(PROJECTS_DIR, `${projectName}.json`);
+      
+      let fileExists = false;
+      try {
+        fileExists = fs.existsSync(filePath);
+      } catch (checkErr) {
+        logger.error(`Failed to check project file: ${projectName}`, checkErr instanceof Error ? checkErr : new Error(String(checkErr)));
+        session.isBotRunning = false;
+        return false;
+      }
 
-    if (!fileExists) {
-      logger.warn(`Project file not found: ${filePath}`);
-      session.isBotRunning = false;
-      return false;
-    }
+      if (!fileExists) {
+        logger.warn(`Project file not found: ${filePath}`);
+        session.isBotRunning = false;
+        return false;
+      }
 
-    let fileContent: string;
-    try {
-      fileContent = await fs.promises.readFile(filePath, 'utf-8');
-    } catch (readErr) {
-      logger.error(`Failed to read project file: ${projectName}`, readErr instanceof Error ? readErr : new Error(String(readErr)));
-      session.isBotRunning = false;
-      return false;
+      try {
+        fileContent = await fs.promises.readFile(filePath, 'utf-8');
+      } catch (readErr) {
+        logger.error(`Failed to read project file: ${projectName}`, readErr instanceof Error ? readErr : new Error(String(readErr)));
+        session.isBotRunning = false;
+        return false;
+      }
     }
 
     let parsed: any;
@@ -370,9 +369,11 @@ export async function executeProjectInternal(
 
     const { nodes = [], edges = [], variables = {}, browserSettings = {}, settings = {} } = parsed;
 
-    session.globalVariables = variables || {};
+    const projectVars = await loadProjectVariables(projectName);
+    session.globalVariables = Object.keys(projectVars).length > 0 ? projectVars : (variables || {});
     const bs = browserSettings || settings || {};
     session.botSettings = { ...session.botSettings, ...bs, ...(overrideSettings || {}) };
+    session.photoDebugEnabled = isPhotoDebugEnabled(session);
 
     let matchingContainers: any[] = [];
     if (targetContainers && targetContainers.length > 0) {
@@ -404,8 +405,8 @@ export async function executeProjectInternal(
     const page = await withRetry(
       () => connectToBrowser(
         session,
-        session.botSettings?.width || session.botSettings?.browserWidth,
-        session.botSettings?.height || session.botSettings?.browserHeight,
+        Number(session.botSettings?.width || session.botSettings?.browserWidth || 1280),
+        Number(session.botSettings?.height || session.botSettings?.browserHeight || 720),
         session.botSettings?.profile,
         session.botSettings?.profileDir,
         session.botSettings?.proxy

@@ -1,4 +1,5 @@
 import { NodeHandlerParams } from './types';
+import { npcDeliveriesService } from '../services/npcDeliveriesService';
 
 interface DeliveryConfig {
   name?: string;
@@ -8,7 +9,7 @@ interface DeliveryConfig {
 
 export const deliveryNodeHandler = async ({
   currentNode, context, logToClient, activePage, smartSleep, ws,
-  globalVariables, broadcastVariables, nodeTitle, takeDebugSnapshot
+  globalVariables, broadcastVariables, nodeTitle, takeDebugSnapshot, projectName
 }: NodeHandlerParams) => {
   const {
     deliveries = [],
@@ -61,6 +62,27 @@ export const deliveryNodeHandler = async ({
     const isMarked = (d: DeliveryConfig): boolean => {
       const nName = norm(d.name || '');
       const nImage = norm(d.image || '');
+
+      // Перевіряємо в налаштуваннях доставок NPC
+      if (projectName) {
+        const checkResult = npcDeliveriesService.shouldDeliver(projectName, d.name || d.image, {}, logToClient);
+        if (checkResult.status === 'skip') {
+          logToClient(`🚫 Доставка "${d.name || d.image}" пропущена за налаштуваннями NPC.`, 'info');
+          return false;
+        }
+        if (checkResult.status === 'deliver') {
+          return true;
+        }
+        if (checkResult.status === 'config') {
+          if (checkResult.shouldDeliver) {
+            logToClient(`✅ Доставка "${d.name || d.image}" схвалена конфігурацією: ${checkResult.reason}`, 'info');
+            return true;
+          } else {
+            logToClient(`❌ Доставка "${d.name || d.image}" пропущена конфігурацією: ${checkResult.reason}`, 'info');
+            return false;
+          }
+        }
+      }
 
       for (const marked of markedDeliveries) {
         const nMarked = norm(marked);

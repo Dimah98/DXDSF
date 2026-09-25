@@ -70,6 +70,27 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   scanned_at   INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
   UNIQUE(project_name, item_name)
 );
+
+-- Project variables (isolated fast storage, replacing *_vars.json)
+CREATE TABLE IF NOT EXISTS project_variables (
+  project_name TEXT PRIMARY KEY,
+  variables    TEXT NOT NULL DEFAULT '{}',
+  updated_at   INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+);
+
+-- Project game saves (visitor/visited farm state, inventory, deliveries, replacing *_save.json)
+CREATE TABLE IF NOT EXISTS project_saves (
+  project_name TEXT PRIMARY KEY,
+  save_data    TEXT NOT NULL,
+  updated_at   INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+);
+
+-- Project layouts (building map & coords, replacing *_layout.json)
+CREATE TABLE IF NOT EXISTS project_layouts (
+  project_name TEXT PRIMARY KEY,
+  layout_data  TEXT NOT NULL,
+  updated_at   INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+);
 `;
 
 db.exec(BASE_SCHEMA);
@@ -105,6 +126,7 @@ try { db.exec('ALTER TABLE executions ADD COLUMN end_time INTEGER'); } catch {}
 try { db.exec('ALTER TABLE executions ADD COLUMN error TEXT'); } catch {}
 try { db.exec('ALTER TABLE executions ADD COLUMN snapshot TEXT'); } catch {}
 try { db.exec('ALTER TABLE execution_logs ADD COLUMN run_id TEXT'); } catch {}
+try { db.exec('ALTER TABLE projects ADD COLUMN content TEXT'); } catch {}
 
 // Indexes (created after columns are guaranteed to exist)
 try { db.exec('DROP INDEX IF EXISTS idx_exec_run_id;'); } catch {}
@@ -124,22 +146,59 @@ export { db };
 
 // ─── Project Helpers ──────────────────────────────────────────────────────
 
-export function upsertProject(name: string, jsonPath: string, createdAt?: number, updatedAt?: number) {
+export function upsertProject(name: string, jsonPath: string, createdAt?: number, updatedAt?: number, content?: string) {
   const now = Date.now();
   const created = createdAt || now;
   const updated = updatedAt || now;
   const stmt = db.prepare(`
-    INSERT INTO projects (name, json_path, created_at, updated_at)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO projects (name, json_path, created_at, updated_at, content)
+    VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(name) DO UPDATE SET
       json_path = excluded.json_path,
+      updated_at = excluded.updated_at,
+      content = COALESCE(excluded.content, projects.content)
+  `);
+  stmt.run(name, jsonPath, created, updated, content ?? null);
+}
+
+export function getProjectContent(name: string): { content: string; updated_at: number } | null {
+  try {
+    const row = db.prepare('SELECT content, updated_at FROM projects WHERE name = ?').get(name) as { content: string; updated_at: number } | undefined;
+    if (row && row.content) {
+      return row;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveProjectContent(name: string, content: string, jsonPath?: string, updatedAt?: number): void {
+  const now = updatedAt || Date.now();
+  const pathVal = jsonPath || '';
+  const stmt = db.prepare(`
+    INSERT INTO projects (name, json_path, created_at, updated_at, content)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(name) DO UPDATE SET
+      content = excluded.content,
       updated_at = excluded.updated_at
   `);
-  stmt.run(name, jsonPath, created, updated);
+  stmt.run(name, pathVal, now, now, content);
 }
 
 export function getProjects(): Array<{ id: number; name: string; json_path: string; created_at: number; updated_at: number }> {
-  const stmt = db.prepare('SELECT id, name, json_path, created_at, updated_at FROM projects ORDER BY name ASC');
+  const stmt = db.prepare(`
+    SELECT id, name, json_path, created_at, updated_at 
+    FROM projects 
+    WHERE name NOT IN ('categories', 'notifications', 'schedule', 'global_building_types', 'buildings_catalog_settings', 'configs', 'mass_launches', 'test_project_logger_runs')
+      AND name NOT LIKE '%_vars'
+      AND name NOT LIKE '%_save'
+      AND name NOT LIKE '%_layout'
+      AND name NOT LIKE '%_stats'
+      AND name NOT LIKE '%_logs'
+      AND name NOT LIKE '%_inventory'
+    ORDER BY name ASC
+  `);
   return stmt.all() as any[];
 }
 
@@ -149,12 +208,134 @@ export function deleteProject(name: string) {
     db.prepare('DELETE FROM execution_logs WHERE project_name = ?').run(name);
     db.prepare('DELETE FROM executions WHERE project_name = ?').run(name);
     db.prepare('DELETE FROM inventory_items WHERE project_name = ?').run(name);
+    db.prepare('DELETE FROM project_variables WHERE project_name = ?').run(name);
+    db.prepare('DELETE FROM project_saves WHERE project_name = ?').run(name);
+    db.prepare('DELETE FROM project_layouts WHERE project_name = ?').run(name);
     db.prepare('DELETE FROM projects WHERE name = ?').run(name);
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');
     throw err;
   }
+}
+
+// ─── Project Variables Helpers ────────────────────────────────────────────
+
+export function getDbProjectVariables(name: string): Record<string, unknown> | null {
+  try {
+    const row = db.prepare('SELECT variables FROM project_variables WHERE project_name = ?').get(name) as { variables: string } | undefined;
+    if (row && row.variables) {
+      return JSON.parse(row.variables);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveDbProjectVariables(name: string, variables: Record<string, unknown>, updatedAt?: number): void {
+  const now = updatedAt || Date.now();
+  const jsonStr = JSON.stringify(variables);
+  const stmt = db.prepare(`
+    INSERT INTO project_variables (project_name, variables, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(project_name) DO UPDATE SET
+      variables = excluded.variables,
+      updated_at = excluded.updated_at
+  `);
+  stmt.run(name, jsonStr, now);
+}
+
+export function deleteDbProjectVariables(name: string): void {
+  try {
+    db.prepare('DELETE FROM project_variables WHERE project_name = ?').run(name);
+  } catch {}
+}
+
+// ─── Project Saves Helpers ────────────────────────────────────────────────
+
+export function getDbProjectSave(name: string): any | null {
+  try {
+    const row = db.prepare('SELECT save_data FROM project_saves WHERE project_name = ?').get(name) as { save_data: string } | undefined;
+    if (row && row.save_data) {
+      return JSON.parse(row.save_data);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function getDbProjectSaveRow(name: string): { data: any; updated_at: number } | null {
+  try {
+    const row = db.prepare('SELECT save_data, updated_at FROM project_saves WHERE project_name = ?').get(name) as { save_data: string; updated_at: number } | undefined;
+    if (row && row.save_data) {
+      return { data: JSON.parse(row.save_data), updated_at: row.updated_at };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function getAllDbProjectSaves(): Array<{ project_name: string; save_data: string }> {
+  try {
+    return db.prepare('SELECT project_name, save_data FROM project_saves').all() as any[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveDbProjectSave(name: string, data: any, updatedAt?: number): void {
+  const now = updatedAt || Date.now();
+  const jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
+  const stmt = db.prepare(`
+    INSERT INTO project_saves (project_name, save_data, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(project_name) DO UPDATE SET
+      save_data = excluded.save_data,
+      updated_at = excluded.updated_at
+  `);
+  stmt.run(name, jsonStr, now);
+}
+
+export function deleteDbProjectSave(name: string): void {
+  try {
+    db.prepare('DELETE FROM project_saves WHERE project_name = ?').run(name);
+  } catch {}
+}
+
+// ─── Project Layouts Helpers ──────────────────────────────────────────────
+
+export function getDbProjectLayout(name: string): any | null {
+  try {
+    const row = db.prepare('SELECT layout_data FROM project_layouts WHERE project_name = ?').get(name) as { layout_data: string } | undefined;
+    if (row && row.layout_data) {
+      return JSON.parse(row.layout_data);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveDbProjectLayout(name: string, data: any, updatedAt?: number): void {
+  const now = updatedAt || Date.now();
+  const jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
+  const stmt = db.prepare(`
+    INSERT INTO project_layouts (project_name, layout_data, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(project_name) DO UPDATE SET
+      layout_data = excluded.layout_data,
+      updated_at = excluded.updated_at
+  `);
+  stmt.run(name, jsonStr, now);
+}
+
+export function deleteDbProjectLayout(name: string): void {
+  try {
+    db.prepare('DELETE FROM project_layouts WHERE project_name = ?').run(name);
+  } catch {}
 }
 
 // ─── Execution & Stats Helpers ────────────────────────────────────────────

@@ -140,7 +140,15 @@ export type NodeType =
   | 'rotatorNode'
   | 'nestedCheckNode'
   | 'textInputNode'
-  | 'escNode';
+  | 'escNode'
+  | 'browserResizeNode'
+  | 'roninWalletNode'
+  | 'islandArrangerNode'
+  | 'flowerPlanterNode'
+  | 'deliveryNode'
+  | 'buildingPlacerNode'
+  | 'worldNavigatorNode'
+  | (string & {});
 
 /**
  * Base interface for all nodes

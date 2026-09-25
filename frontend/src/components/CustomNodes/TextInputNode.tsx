@@ -77,7 +77,7 @@ const TextInputNode = memo(({ id, data }: any) => {
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-muted-foreground uppercase px-1 flex items-center justify-between">
               <span>Текст або шаблон:</span>
-              <HelpCircle size={10} className="text-muted-foreground" title="Якщо підключено порт 'Вхід тексту', значення береться з нього. Підтримує {змінні}." />
+              <span title="Якщо підключено порт 'Вхід тексту', значення береться з нього. Підтримує {змінні}."><HelpCircle size={10} className="text-muted-foreground" /></span>
             </label>
             <textarea
               value={text}
@@ -114,7 +114,7 @@ const TextInputNode = memo(({ id, data }: any) => {
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-muted-foreground uppercase px-1 flex items-center gap-1">
               <span>Затримка клавіш (мс):</span>
-              <HelpCircle size={10} className="text-muted-foreground" title="0 = миттєве заповнення (fill), >0 = посимвольне друкування" />
+              <span title="0 = миттєве заповнення (fill), >0 = посимвольне друкування"><HelpCircle size={10} className="text-muted-foreground" /></span>
             </label>
             <Input 
               type="number"

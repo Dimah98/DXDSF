@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Terminal, Camera, Trash2, Image as ImageIcon, Search, Bell, Bug, Maximize2, Minimize2, Grid, LayoutGrid } from 'lucide-react';
+import { Terminal, Camera, Trash2, X, Image as ImageIcon, Search, Bell, Bug, Maximize2, Minimize2, Grid, LayoutGrid } from 'lucide-react';
 import { NotificationsPanel } from './NotificationsPanel';
 import { useUIStore } from '../store/useUIStore';
 
@@ -121,7 +121,7 @@ export const ConsolePane: React.FC<ConsolePaneProps> = ({
                   onClick={() => setSelectedFullImage(null)}
                   className="p-1.5 hover:bg-white/10 rounded-lg text-white/60 hover:text-white transition-colors"
                 >
-                  <Trash2 size={16} className="hidden" /> ✕
+                  <X size={16} />
                 </button>
               </div>
             </div>

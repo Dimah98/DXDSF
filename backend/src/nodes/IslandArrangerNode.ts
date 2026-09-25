@@ -2,6 +2,8 @@ import { NodeHandlerParams } from './types';
 import { PROJECTS_DIR } from '../constants';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getProjectSaveData } from '../utils/saveStorage';
+import { getDbProjectLayout } from '../db/schema';
 
 const BUILDING_SIZES: Record<string, [number, number]> = {
   // Будівлі
@@ -45,11 +47,21 @@ export const islandArrangerNodeHandler = async ({
     let globalBuildingTypes = {};
 
     try {
-      saveData = JSON.parse(await fs.promises.readFile(saveFilePath, 'utf-8'));
-      layoutRaw = JSON.parse(await fs.promises.readFile(layoutFilePath, 'utf-8'));
+      saveData = await getProjectSaveData(projectName);
+      if (!saveData && fs.existsSync(saveFilePath)) {
+        saveData = JSON.parse(await fs.promises.readFile(saveFilePath, 'utf-8'));
+      }
+      layoutRaw = getDbProjectLayout(projectName);
+      if (!layoutRaw && fs.existsSync(layoutFilePath)) {
+        layoutRaw = JSON.parse(await fs.promises.readFile(layoutFilePath, 'utf-8'));
+      }
+
+      if (!saveData || !layoutRaw) {
+        throw new Error('Дані збереження або макету не знайдено');
+      }
     } catch (err: any) {
-      logToClient(`❌ Відсутній або пошкоджений файл _save.json чи _layout.json: ${err.message}`, 'error');
-      return { data: { ...context, error: 'Missing layout or save file' }, nextHandle: ['error'] };
+      logToClient(`❌ Відсутні дані збереження або макету для ${projectName}: ${err.message}`, 'error');
+      return { data: { ...context, error: 'Missing layout or save data' }, nextHandle: ['error'] };
     }
 
     try {

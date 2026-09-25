@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'; // Імпортуємо хуки React для керування станом та ефектами
 import './InventoryOverview.css'; // Імпортуємо файл стилів для компонента
+import { getCleanImageUrl, handleImageErrorWithCacheBust, MINI_QUESTION_SVG } from '../utils/imageUtils';
 
 interface ResourceMetadata { // Описуємо структуру метаданих ресурсу
   image: string; // URL зображення ресурсу
@@ -339,7 +340,12 @@ const InventoryOverview = ({ currentView, setCurrentView }: any) => { // Осн�
                     title={`Натисніть, щоб додати ${resourceName} до категорій`}
                   >
                     <div className="inventory-overview__icon-wrapper" title={resourceName}>
-                      <img src={resource.image} alt={resourceName} className="inventory-overview__resource-icon" />
+                      <img 
+                        src={getCleanImageUrl(resource.image)} 
+                        alt={resourceName} 
+                        className="inventory-overview__resource-icon" 
+                        onError={(e) => handleImageErrorWithCacheBust(e, MINI_QUESTION_SVG)}
+                      />
                     </div>
                   </th>
                 );

@@ -21,7 +21,8 @@ export const notificationService = new NotificationService(PROJECTS_DIR, (projec
       message,
       notification
     };
-    wsLifecycle.broadcast(payload);
+    // Надсилаємо лише через activeSockets проекту (без wsLifecycle.broadcast,
+    // який відправляє ВСІМ клієнтам включно з іншими проектами — це був подвійний broadcast)
     const session = sessions.get(projectName);
     if (session && session.activeSockets) {
       const json = JSON.stringify(payload);

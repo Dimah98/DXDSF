@@ -58,6 +58,40 @@ export const sessions = new Map<string, ProjectSession>();
 // Фіксований унікальний UUID для розширення Ronin Wallet у Firefox (Camoufox)
 export const FIXED_RONIN_UUID = "bf680106-96a8-42ec-a070-07bf11c2e399";
 
+// Глобальний кеш для шляху до бінарника Camoufox — шукаємо тільки один раз
+let cachedCamoufoxExe: string | undefined = undefined;
+
+// Фонове очищення debug-зображень (раз на годину замість кожного кліку)
+let debugCleanupScheduled = false;
+function scheduleDebugCleanup(imagesDir: string): void {
+  if (debugCleanupScheduled) return;
+  debugCleanupScheduled = true;
+  
+  const cleanup = async () => {
+    try {
+      const files = await fs.promises.readdir(imagesDir);
+      const oneHourAgo = Date.now() - 3_600_000;
+      for (const f of files) {
+        if (f.startsWith('debug_') && f.endsWith('.png')) {
+          try {
+            const filePath = path.join(imagesDir, f);
+            const stats = await fs.promises.stat(filePath);
+            if (stats.mtimeMs < oneHourAgo) {
+              await fs.promises.unlink(filePath);
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  };
+  
+  // Перший запуск через 5 хвилин, далі кожну годину
+  setTimeout(() => {
+    cleanup();
+    setInterval(cleanup, 3_600_000);
+  }, 5 * 60 * 1000);
+}
+
 /**
  * Налаштування Firefox Enterprise Policies (policies.json) та distribution/extensions
  * для примусового автоматичного встановлення Ronin Wallet (force_installed) у Camoufox.
@@ -206,13 +240,13 @@ export function getOrCreateSession(projectName: string): ProjectSession {
       page: null,
       activeWs: null,
       isBotRunning: false,
-      botSettings: { photoDebug: true },
+      botSettings: { photoDebug: internalConfig.get('photoDebug') !== 0 },
       globalVariables: {},
       nodeRuntimeState: new Map(),
       lastActiveNodeId: null,
       lastActiveNodeTitle: null, // Початково заголовок активної ноди відсутній
       isStreaming: false,
-      photoDebugEnabled: true,
+      photoDebugEnabled: internalConfig.get('photoDebug') !== 0,
       currentlyRunningProfileDir: null,
       cdpPort: nextCdpPort++, // Призначаємо початковий порт
       createdAt: Date.now(),
@@ -300,86 +334,40 @@ export function attachNetworkInterception(session: ProjectSession) {
  * Скрипт обмеження FPS (за замовчуванням 20 кадрів/сек) для Canvas та requestAnimationFrame.
  * Знижує навантаження на процесор під час програмного рендерингу Phaser / Canvas у Xvfb на 60-70%.
  */
-export function getFpsLimiterScript(targetFps: number = 20): string {
+export function getFpsLimiterScript(_targetFps: number = 10, photoDebugActive: boolean = false): string {
+  if (!photoDebugActive) return '';
   return `
     (function() {
       try {
-        if (window.__fps_limiter_installed__) return;
-        window.__fps_limiter_installed__ = true;
-
-        var TARGET_FPS = ${targetFps};
-        var interval = 1000 / TARGET_FPS;
-        var lastTime = 0;
-        var origRAF = window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : null;
-        var origCAF = window.cancelAnimationFrame ? window.cancelAnimationFrame.bind(window) : null;
-        if (!origRAF) return;
-
-        var customIdMap = new Map();
-        var nextId = 1;
-
-        window.requestAnimationFrame = function(callback) {
-          var id = nextId++;
-          var now = performance.now();
-          var elapsed = now - lastTime;
-          var delay = Math.max(0, interval - elapsed);
-
-          var timerId = setTimeout(function() {
-            var rafId = origRAF(function(timestamp) {
-              lastTime = performance.now();
-              customIdMap.delete(id);
-              try {
-                callback(timestamp);
-              } catch (err) {
-                console.error('[FPS Limiter] Callback error:', err);
-              }
-            });
-            customIdMap.set(id, { type: 'raf', handle: rafId });
-          }, delay);
-
-          customIdMap.set(id, { type: 'timeout', handle: timerId });
-          return id;
-        };
-
-        if (origCAF) {
-          window.cancelAnimationFrame = function(id) {
-            var item = customIdMap.get(id);
-            if (item) {
-              if (item.type === 'timeout') {
-                clearTimeout(item.handle);
-              } else if (item.type === 'raf') {
-                origCAF(item.handle);
-              }
-              customIdMap.delete(id);
-            } else {
-              origCAF(id);
+        var updateBadge = function() {
+          try {
+            if (!document.getElementById('__sf_perf_badge__') && document.body) {
+              var badge = document.createElement('div');
+              badge.id = '__sf_perf_badge__';
+              badge.style.cssText = 'position:fixed;bottom:6px;left:6px;background:rgba(15,23,42,0.85);color:#4ade80;font-size:11px;font-family:monospace;padding:3px 8px;border-radius:4px;border:1px solid rgba(74,222,128,0.3);z-index:2147483646;pointer-events:none;box-shadow:0 2px 4px rgba(0,0,0,0.5);';
+              badge.textContent = '⚡ SF BOT | Фотодебаг: УВІМК';
+              document.body.appendChild(badge);
             }
-          };
+          } catch (_) {}
+        };
+        if (document.body) {
+          updateBadge();
+        } else {
+          document.addEventListener('DOMContentLoaded', updateBadge);
         }
-        console.log('[SF-Optimization] 20 FPS limiter successfully activated');
-      } catch (e) {}
+      } catch (_) {}
     })();
   `;
 }
 
 /**
- * Застосування комплексних оптимізацій продуктивності для контексту браузера:
- * 1. Блокування медіафайлів (аудіо/відео)
- * 2. Блокування трекерів, аналітики та телеметрії (Google Analytics, Sentry, Amplitude тощо)
- * 3. Обмеження частоти кадрів Canvas/Phaser до 20 FPS через requestAnimationFrame
+ * Застосування безпечних оптимізацій для контексту браузера:
+ * Блокування трекерів, аналітики та телеметрії (Google Analytics, Sentry, Amplitude тощо)
  */
 export async function attachOptimizations(session: ProjectSession) {
   if (!session.context) return;
 
-  // 1. Блокуємо важкі медіафайли (аудіо/відео: mp3, ogg, wav, webm, mp4, m4a, flac тощо)
-  try {
-    await session.context.route(/\.(mp3|ogg|wav|webm|mp4|m4a|aac|flac|avi|mkv|mov)(\?.*)?$/i, (route) => {
-      route.abort('blockedbyclient').catch(() => {});
-    });
-  } catch (mediaErr) {
-    logger.debug(`Failed to attach media blocking route for project ${session.projectName}`, { error: String(mediaErr) });
-  }
-
-  // 2. Блокуємо трекери, аналітику та сервіси збору телеметрії/помилок
+  // 1. Блокуємо трекери, аналітику та сервіси збору телеметрії/помилок
   try {
     const TRACKER_REGEX = /(google-analytics\.com|googletagmanager\.com|sentry\.io|amplitude\.com|mixpanel\.com|hotjar\.com|hotjar\.io|datadoghq\.com|segment\.io|segment\.com|posthog\.com|intercom\.io|clarity\.ms|doubleclick\.net|connect\.facebook\.net)/i;
     await session.context.route(TRACKER_REGEX, (route) => {
@@ -389,16 +377,18 @@ export async function attachOptimizations(session: ProjectSession) {
     logger.debug(`Failed to attach tracker blocking route for project ${session.projectName}`, { error: String(trackerErr) });
   }
 
-  // 3. Обмежуємо FPS (Canvas / Phaser) до 20 кадрів/сек
+  // 2. Індикатор фотодебагу за потреби
   try {
-    const fpsScript = getFpsLimiterScript(20);
-    await session.context.addInitScript({ content: fpsScript });
-    if (session.page) {
-      await session.page.evaluate(fpsScript).catch(() => {});
+    const isPhotoDebug = isPhotoDebugEnabled(session);
+    const fpsScript = getFpsLimiterScript(10, isPhotoDebug);
+    if (fpsScript) {
+      await session.context.addInitScript({ content: fpsScript });
+      if (session.page) {
+        await session.page.evaluate(fpsScript).catch(() => {});
+      }
     }
-    logger.info(`Attached 20 FPS limiter and resource blockers for project ${session.projectName}`);
-  } catch (fpsErr) {
-    logger.warn(`Failed to attach FPS limiter for project ${session.projectName}`, { error: String(fpsErr) });
+  } catch (optErr) {
+    logger.debug(`Failed to attach photo debug badge for project ${session.projectName}`, { error: String(optErr) });
   }
 }
 
@@ -587,11 +577,28 @@ async function connectOverCDP(session: ProjectSession, port: number, proxyUser?:
 }
 
 // Функція для зміни розміру вікна браузера конкретної сторінки
-async function resizeBrowserWindow(session: ProjectSession, targetPage: Page, width: number, height: number) {
+export async function resizeBrowserWindow(session: ProjectSession, targetPage: Page, width: number, height: number): Promise<void> {
   try {
     await targetPage.setViewportSize({ width, height });
     (session as any)._deviceWidth = width;
     (session as any)._deviceHeight = height;
+
+    if (session.context && typeof (session.context as any).newCDPSession === 'function') {
+      try {
+        const cdp = await (session.context as any).newCDPSession(targetPage);
+        await cdp.send('Browser.setWindowBounds', {
+          windowId: 1,
+          bounds: { width, height, windowState: 'normal' }
+        }).catch(() => {});
+      } catch (_) {}
+    }
+
+    try {
+      await targetPage.evaluate(({ w, h }) => {
+        try { window.resizeTo(w, h); } catch (_) {}
+      }, { w: width, h: height }).catch(() => {});
+    } catch (_) {}
+
     logger.debug(`Resized browser viewport to ${width}x${height} for project ${session.projectName}`);
   } catch (e) {
     logger.warn(`Failed to resize browser window for project ${session.projectName}`, { error: String(e) });
@@ -735,7 +742,11 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     const isHeadless = !forceHeaded && (internalConfig.get('headless') === 1 || session.botSettings?.headless === true);
 
     // Firefox launch args для Camoufox
-    const firefoxArgs: string[] = [];
+    const firefoxArgs: string[] = [
+      `-width=${width}`,
+      `-height=${height}`,
+      `--window-size=${width},${height}`
+    ];
 
     // Об'єкт конфігурації проксі для Playwright
     let proxyConfig: { server: string; username?: string; password?: string } | undefined = undefined;
@@ -789,12 +800,13 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
       return undefined;
     };
 
-    let camoufoxExe: string | undefined = undefined;
+    let camoufoxExe: string | undefined = cachedCamoufoxExe;
 
-    // 1. Спробуємо запитати у самого Python модуля Camoufox
-    try {
-      const { execSync } = require('child_process');
-      const pyCmd = `python3 -c "
+    if (!camoufoxExe) {
+      // 1. Спробуємо запитати у самого Python модуля Camoufox
+      try {
+        const { execSync } = require('child_process');
+        const pyCmd = `python3 -c "
 try:
     from camoufox.utils import launch_options
     opts = launch_options()
@@ -815,39 +827,45 @@ except Exception:
     except Exception:
         pass
 " 2>/dev/null`;
-      const detected = execSync(pyCmd).toString().trim();
-      if (detected && fs.existsSync(detected) && fs.statSync(detected).isFile()) {
-        try { fs.chmodSync(detected, 0o755); } catch (_) {}
-        camoufoxExe = detected;
-      }
-    } catch (_) {}
+        const detected = execSync(pyCmd).toString().trim();
+        if (detected && fs.existsSync(detected) && fs.statSync(detected).isFile()) {
+          try { fs.chmodSync(detected, 0o755); } catch (_) {}
+          camoufoxExe = detected;
+        }
+      } catch (_) {}
 
-    // 2. Якщо не знайдено — шукаємо рекурсивно у відомих папках
-    if (!camoufoxExe) {
-      const searchDirs = [
-        '/root/.cache/camoufox',
-        '/root/.cache',
-        path.join(process.env.HOME || '/root', '.cache', 'camoufox'),
-        '/usr/local/bin'
-      ];
-      for (const d of searchDirs) {
-        const found = findExecutableInDir(d);
-        if (found && found !== '/usr/local/bin/camoufox') {
-          camoufoxExe = found;
-          break;
+      // 2. Якщо не знайдено — шукаємо рекурсивно у відомих папках
+      if (!camoufoxExe) {
+        const searchDirs = [
+          '/root/.cache/camoufox',
+          '/root/.cache',
+          path.join(process.env.HOME || '/root', '.cache', 'camoufox'),
+          '/usr/local/bin'
+        ];
+        for (const d of searchDirs) {
+          const found = findExecutableInDir(d);
+          if (found && found !== '/usr/local/bin/camoufox') {
+            camoufoxExe = found;
+            break;
+          }
         }
       }
-    }
 
-    // 3. Якщо все ще не знайдено — спробуємо запустити camoufox fetch на льоту
-    if (!camoufoxExe) {
-      logger.warn(`Camoufox binary not found in cache. Attempting 'python3 -m camoufox fetch'...`);
-      try {
-        const { execSync } = require('child_process');
-        execSync('python3 -m camoufox fetch', { stdio: 'inherit' });
-        camoufoxExe = findExecutableInDir('/root/.cache/camoufox');
-      } catch (fetchErr) {
-        logger.error(`Failed to auto-fetch Camoufox`, fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr)));
+      // 3. Якщо все ще не знайдено — спробуємо запустити camoufox fetch на льоту
+      if (!camoufoxExe) {
+        logger.warn(`Camoufox binary not found in cache. Attempting 'python3 -m camoufox fetch'...`);
+        try {
+          const { execSync } = require('child_process');
+          execSync('python3 -m camoufox fetch', { stdio: 'inherit' });
+          camoufoxExe = findExecutableInDir('/root/.cache/camoufox');
+        } catch (fetchErr) {
+          logger.error(`Failed to auto-fetch Camoufox`, fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr)));
+        }
+      }
+
+      // Зберігаємо знайдений шлях у глобальний кеш
+      if (camoufoxExe) {
+        cachedCamoufoxExe = camoufoxExe;
       }
     }
 
@@ -912,12 +930,10 @@ except Exception:
         'xpinstall.whitelist.required': false,
         'extensions.webextensions.restrictedDomains': '',
         // --- Оптимізації для слабких процесорів (Intel Pentium / 2 ядра) ---
-        'layout.frame_rate': 15, // Знижує частоту Canvas/Phaser рендерингу з 60 до 15 FPS (економить до 75% CPU!)
-        'layout.animation.frame-rate': 15,
-        'media.volume_scale': '0.0', // Повне вимкнення звуку та декодування аудіо
+        'media.volume_scale': '0.0', // Повне вимкнення звуку та декодування аудіо (безпечно для рушія гри)
         'media.autoplay.default': 5, // Блокування автовідтворення аудіо/відео
         'media.autoplay.blocking_policy': 2,
-        'ui.prefersReducedMotion': 1, // Зменшення CSS-анімацій
+        'accessibility.force_disabled': 1, // Повне вимкнення підсистеми доступності (заощаджує 10-15% CPU)
         'dom.ipc.processCount': 1, // Зниження кількості фонових процесів контенту
         'browser.cache.disk.enable': false, // Вимкнення дискового кешу (знижує I/O навантаження)
         'browser.cache.memory.capacity': 32768, // Обмеження RAM-кешу до 32 МБ
@@ -1057,9 +1073,12 @@ except Exception:
   try {
     const roninScript = getRoninInjectionScript(session.projectName);
     await session.page.addInitScript({ content: roninScript });
-    const fpsScript = getFpsLimiterScript(20);
-    await session.page.addInitScript({ content: fpsScript });
-    await session.page.evaluate(fpsScript).catch(() => {});
+    const isPhotoDebug = isPhotoDebugEnabled(session);
+    const fpsScript = getFpsLimiterScript(10, isPhotoDebug);
+    if (fpsScript) {
+      await session.page.addInitScript({ content: fpsScript });
+      await session.page.evaluate(fpsScript).catch(() => {});
+    }
   } catch (_) {}
   // Змінюємо розмір вікна сторінки
   try {
@@ -1071,7 +1090,14 @@ except Exception:
   
   // Додаємо обробники для виводу логів браузера в консоль сервера
   try {
-    session.page.on('console', msg => logger.debug(`[BROWSER-${session.projectName}] ${msg.text()}`));
+    session.page.on('console', msg => {
+      const txt = msg.text();
+      if (txt.includes('[SF-Optimization]')) {
+        logger.info(`[BROWSER-${session.projectName}] ${txt}`);
+      } else {
+        logger.debug(`[BROWSER-${session.projectName}] ${txt}`);
+      }
+    });
     session.page.on('pageerror', err => logger.error(`[BROWSER-${session.projectName}] Page error`, err instanceof Error ? err : new Error(String(err))));
   } catch (handlerErr) {
     logger.warn(`Failed to attach page event handlers for project ${session.projectName}`, { error: String(handlerErr) });
@@ -1350,10 +1376,27 @@ export async function injectPicker(session: ProjectSession, targetPage: Page, no
   }
 }
 
+/**
+ * Перевіряє чи увімкнено фотодебаг (скріншоти дій) для сесії.
+ * Враховує як глобальне налаштування (internal_config.json -> photoDebug), так і налаштування сесії.
+ */
+export function isPhotoDebugEnabled(session?: ProjectSession): boolean {
+  // 1. Якщо у глобальних налаштуваннях (internal_config.json) фотодебаг вимкнено (0) — скріншоти ЗАБОРОНЕНІ
+  if (internalConfig.get('photoDebug') === 0) {
+    return false;
+  }
+  // 2. Якщо в налаштуваннях конкретної сесії або проекту явно вимкнено
+  if (session) {
+    if (session.photoDebugEnabled === false) return false;
+    if (session.botSettings && (session.botSettings.photoDebug === false || (session.botSettings.photoDebug as any) === 0)) return false;
+  }
+  return true;
+}
+
 // Функція для створення дебаг-скріншоту конкретної сесії проекту
 export async function takeDebugSnapshot(session: ProjectSession, nodeId: string, nodeTitle: string, highlight?: any) {
   // Якщо браузер не живий або фотодебаг вимкнений, виходимо
-  if (!isSessionBrowserAlive(session) || !session.page || !session.photoDebugEnabled) return;
+  if (!isSessionBrowserAlive(session) || !session.page || !isPhotoDebugEnabled(session)) return;
   try {
     // Створюємо папку для скріншотів, якщо вона не існує
     const imagesDir = path.join(__dirname, '../images/debug');
@@ -1366,26 +1409,8 @@ export async function takeDebugSnapshot(session: ProjectSession, nodeId: string,
       return; // Не можемо продовжити без папки
     }
 
-    // Автоочистка старих debug-файлів
-    const oneHourAgo = Date.now() - 3_600_000;
-    try {
-      const files = fs.readdirSync(imagesDir);
-      files
-        .filter(f => f.startsWith('debug_') && f.endsWith('.png'))
-        .forEach(f => {
-          try {
-            const filePath = path.join(imagesDir, f);
-            const stats = fs.statSync(filePath);
-            if (stats.mtimeMs < oneHourAgo) {
-              fs.unlinkSync(filePath);
-            }
-          } catch (fileErr) {
-            logger.debug(`Failed to clean up debug image ${f}`, { error: String(fileErr) });
-          }
-        });
-    } catch (cleanupErr) {
-      logger.warn(`Failed to clean up old debug images for project ${session.projectName}`, { error: String(cleanupErr) });
-    }
+    // Фонове очищення старих debug-файлів (раз на годину, а не на кожен клік)
+    scheduleDebugCleanup(imagesDir);
 
     // Формуємо назву файлу (додано projectName для фільтрації)
     const sanitizedProjectName = session.projectName.replace(/[^a-zA-Z0-9_-]/g, '_');

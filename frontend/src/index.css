@@ -357,3 +357,13 @@ input[type="range"] {
   /* Ноди ширші для читабельності */
   .react-flow__node { touch-action: none; }
 }
+
+/* Приховати scrollbar, зберігаючи прокрутку */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

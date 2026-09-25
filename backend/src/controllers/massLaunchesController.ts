@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import fs from 'fs';
-import path from 'path';
 import { Logger } from '../logger';
 import { PROJECTS_DIR } from '../constants';
 import { MassLaunchStore } from '../scheduler/MassLaunchStore';
 import { ConfigStore } from '../configs/ConfigStore';
 import { evaluateConfig, loadConfigFiles, resolvePath } from '../configs/ConfigEvaluator';
 import { enrichMassLaunches, parseTimeInfo } from '../runner/MassLaunchRunner';
+import { getProjectSaveData } from '../utils/saveStorage';
 
 const logger = new Logger('MassLaunchesController');
 
@@ -72,7 +72,7 @@ export async function previewMassLaunchTime(req: Request, res: Response): Promis
       if (!f.endsWith('.json')) return false;
       const name = f.replace('.json', '');
       if (name === 'categories' || name === 'global_building_types') return false;
-      if (name.endsWith('_layout') || name.endsWith('_save')) return false;
+      if (name.endsWith('_layout') || name.endsWith('_save') || name.endsWith('_vars')) return false;
       if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
       if (name.includes('schedule') || name.includes('notifications')) return false;
       return true;
@@ -106,8 +106,12 @@ export async function previewMassLaunchTime(req: Request, res: Response): Promis
     }> = [];
 
     for (const p of targetProjects) {
-      const savePath = path.join(PROJECTS_DIR, `${p}_save.json`);
-      if (!fs.existsSync(savePath)) {
+      let saveData: any = null;
+      try {
+        saveData = await getProjectSaveData(p);
+      } catch (_) {}
+
+      if (!saveData) {
         projectTimes.push({
           projectName: p,
           rawVal: null,
@@ -123,8 +127,6 @@ export async function previewMassLaunchTime(req: Request, res: Response): Promis
       }
 
       try {
-        const fileContent = await fs.promises.readFile(savePath, 'utf-8');
-        const saveData = JSON.parse(fileContent);
         const resolved = resolvePath(saveData, jsonPath);
 
         if (!resolved.exists || resolved.value === undefined || resolved.value === null || resolved.value === '') {

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { writeJsonAtomic } from '../utils/fileUtils';
+import { loadProjectVariables, saveProjectVariables } from '../utils/variableStorage';
 import { Logger } from '../logger';
 import { PROJECTS_DIR, SAVE_PATH } from '../constants';
 import { inputValidator } from '../validation/InputValidator';
@@ -9,11 +10,16 @@ import { RunLogger } from '../RunLogger';
 import {
   sessions,
   getOrCreateSession,
-  isSessionBrowserAlive
+  isSessionBrowserAlive,
+  resizeBrowserWindow
 } from '../browserManager';
 import {
   upsertProject,
-  deleteProject
+  deleteProject,
+  getProjects as getDbProjects,
+  getProjectContent,
+  saveProjectContent,
+  getDbProjectSaveRow
 } from '../db/schema';
 import {
   startProject,
@@ -63,12 +69,37 @@ async function getCachedJson(filePath: string): Promise<{ data: any; mtimeMs: nu
 
 export async function getProjects(_req: Request, res: Response): Promise<void> {
   try {
+    const dbProjects = getDbProjects();
+    if (dbProjects && dbProjects.length > 0) {
+      const names = dbProjects
+        .map(p => p.name)
+        .filter(name =>
+          name !== 'categories' &&
+          name !== 'global_building_types' &&
+          name !== 'buildings_catalog_settings' &&
+          name !== 'schedule' &&
+          name !== 'notifications' &&
+          name !== 'configs' &&
+          name !== 'mass_launches' &&
+          name !== 'test_project_logger_runs' &&
+          !name.endsWith('_vars') &&
+          !name.endsWith('_save') &&
+          !name.endsWith('_layout') &&
+          !name.endsWith('_stats') &&
+          !name.endsWith('_logs') &&
+          !name.endsWith('_inventory')
+        );
+      names.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+      res.json(names);
+      return;
+    }
+
     const files = await fs.promises.readdir(PROJECTS_DIR);
     const projectFiles = files.filter(f => {
       if (!f.endsWith('.json')) return false;
       const name = f.replace('.json', '');
-      if (name === 'categories' || name === 'global_building_types' || name === 'buildings_catalog_settings') return false;
-      if (name.endsWith('_layout') || name.endsWith('_save')) return false;
+      if (name === 'categories' || name === 'global_building_types' || name === 'buildings_catalog_settings' || name === 'configs' || name === 'mass_launches' || name === 'test_project_logger_runs') return false;
+      if (name.endsWith('_layout') || name.endsWith('_save') || name.endsWith('_vars')) return false;
       if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
       if (name.includes('schedule') || name.includes('notifications') || name.includes('buildings_catalog_settings')) return false;
       return true;
@@ -77,7 +108,7 @@ export async function getProjects(_req: Request, res: Response): Promise<void> {
     projectNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
     res.json(projectNames);
   } catch (err: any) { 
-    logger.error('Failed to read projects directory', err instanceof Error ? err : new Error(String(err)), { path: PROJECTS_DIR });
+    logger.error('Failed to get projects list', err instanceof Error ? err : new Error(String(err)));
     res.status(500).json({ success: false, error: 'Failed to load project list. Please try again later.' }); 
   }
 }
@@ -94,21 +125,38 @@ export async function getProject(req: Request, res: Response, next: NextFunction
       return;
     }
 
-    const projectPath = path.join(PROJECTS_DIR, `${name}.json`);
-    if (!fs.existsSync(projectPath)) {
-      res.status(404).json({ success: false, error: 'Project not found' });
-      return;
+    // 1. Спочатку перевіряємо SQLite
+    const dbProject = getProjectContent(name);
+    let projectData: any = null;
+
+    if (dbProject && dbProject.content) {
+      try {
+        projectData = JSON.parse(dbProject.content);
+      } catch (_) {}
     }
 
-    const fileContent = await fs.promises.readFile(projectPath, 'utf-8');
-    const projectData = JSON.parse(fileContent);
+    // 2. Fallback на диск, якщо в SQLite ще немає
+    if (!projectData) {
+      const projectPath = path.join(PROJECTS_DIR, `${name}.json`);
+      if (!fs.existsSync(projectPath)) {
+        res.status(404).json({ success: false, error: 'Project not found' });
+        return;
+      }
+      const fileContent = await fs.promises.readFile(projectPath, 'utf-8');
+      projectData = JSON.parse(fileContent);
+      try {
+        saveProjectContent(name, fileContent, projectPath);
+      } catch (_) {}
+    }
+
+    const loadedVars = await loadProjectVariables(name);
 
     res.json({
       success: true,
       data: {
         nodes: Array.isArray(projectData.nodes) ? projectData.nodes : [],
         edges: Array.isArray(projectData.edges) ? projectData.edges : [],
-        variables: projectData.variables || {}
+        variables: Object.keys(loadedVars).length > 0 ? loadedVars : (projectData.variables || {})
       },
       error: null
     });
@@ -121,13 +169,25 @@ export async function getProject(req: Request, res: Response, next: NextFunction
 export async function getProjectContainers(req: Request, res: Response): Promise<void> {
   try {
     const { projectName } = req.params;
-    const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
-    if (!fs.existsSync(projectPath)) {
-      res.status(404).json({ success: false, error: 'Project not found' });
-      return;
+    let projectData: any = null;
+
+    const dbProject = getProjectContent(projectName);
+    if (dbProject && dbProject.content) {
+      try {
+        projectData = JSON.parse(dbProject.content);
+      } catch (_) {}
     }
-    const content = await fs.promises.readFile(projectPath, 'utf-8');
-    const projectData = JSON.parse(content);
+
+    if (!projectData) {
+      const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
+      if (!fs.existsSync(projectPath)) {
+        res.status(404).json({ success: false, error: 'Project not found' });
+        return;
+      }
+      const content = await fs.promises.readFile(projectPath, 'utf-8');
+      projectData = JSON.parse(content);
+    }
+
     const nodes = Array.isArray(projectData.nodes) ? projectData.nodes : [];
     const containers: string[] = [];
     for (const node of nodes) {
@@ -214,40 +274,54 @@ export async function loadProject(req: Request, res: Response): Promise<void> {
     const session = getOrCreateSession(name);
     const projectPath = path.join(PROJECTS_DIR, `${name}.json`);
     
-    let pathToRead: string | null = null;
-    try {
-      if (fs.existsSync(projectPath)) {
-        pathToRead = projectPath;
-      } else if (fs.existsSync(SAVE_PATH)) {
-        pathToRead = SAVE_PATH;
+    let projectData: any = null;
+
+    // 1. Спочатку перевіряємо SQLite
+    const dbProject = getProjectContent(name);
+    if (dbProject && dbProject.content) {
+      try {
+        projectData = JSON.parse(dbProject.content);
+      } catch (_) {}
+    }
+
+    // 2. Fallback на диск, якщо в SQLite ще немає
+    if (!projectData) {
+      let pathToRead: string | null = null;
+      try {
+        if (fs.existsSync(projectPath)) {
+          pathToRead = projectPath;
+        } else if (fs.existsSync(SAVE_PATH)) {
+          pathToRead = SAVE_PATH;
+        }
+      } catch (err) {
+        logger.error('Failed to check file existence', err instanceof Error ? err : new Error(String(err)), { projectPath, savePath: SAVE_PATH });
       }
-    } catch (err) {
-      logger.error('Failed to check file existence', err instanceof Error ? err : new Error(String(err)), { projectPath, savePath: SAVE_PATH });
+      
+      if (!pathToRead) {
+        logger.info('No project file found, returning empty structure', { projectName: name });
+        res.json({ nodes: [], edges: [], variables: {} });
+        return;
+      }
+      
+      try {
+        const fileContent = await fs.promises.readFile(pathToRead, 'utf-8');
+        projectData = JSON.parse(fileContent);
+      } catch (parseErr) {
+        logger.error(`Failed to read or parse project file`, parseErr instanceof Error ? parseErr : new Error(String(parseErr)), { path: pathToRead });
+        res.status(500).json({ success: false, error: 'Failed to load project. The project file may be corrupted.' });
+        return;
+      }
     }
     
-    if (!pathToRead) {
-      logger.info('No project file found, returning empty structure', { projectName: name });
-      res.json({ nodes: [], edges: [], variables: {} });
-      return;
-    }
-    
-    let projectData: any;
-    try {
-      const fileContent = await fs.promises.readFile(pathToRead, 'utf-8');
-      projectData = JSON.parse(fileContent);
-    } catch (parseErr) {
-      logger.error(`Failed to read or parse project file`, parseErr instanceof Error ? parseErr : new Error(String(parseErr)), { path: pathToRead });
-      res.status(500).json({ success: false, error: 'Failed to load project. The project file may be corrupted.' });
-      return;
-    }
-    
-    const rawVars = projectData.variables;
+    const loadedVars = await loadProjectVariables(name);
+    const rawVars = Object.keys(loadedVars).length > 0 ? loadedVars : projectData.variables;
     if (rawVars && typeof rawVars === 'object') {
       if ('lastProject' in rawVars && 'variables' in rawVars) {
         session.globalVariables = rawVars.variables || {};
       } else {
         session.globalVariables = rawVars;
       }
+      projectData.variables = session.globalVariables;
       const msg = JSON.stringify({ type: 'GLOBAL_VARIABLES_UPDATE', variables: session.globalVariables });
       if (session.activeWs && session.activeWs.readyState === 1) {
         session.activeWs.send(msg);
@@ -299,17 +373,33 @@ export async function saveProject(req: Request, res: Response): Promise<void> {
     const filePath = path.join(PROJECTS_DIR, `${name}.json`);
 
     let existingSettings: any = {};
-    try {
-      if (fs.existsSync(filePath)) {
-        const existingContent = await fs.promises.readFile(filePath, 'utf-8');
-        existingSettings = JSON.parse(existingContent);
+    const dbProject = getProjectContent(name);
+    if (dbProject && dbProject.content) {
+      try {
+        existingSettings = JSON.parse(dbProject.content);
+      } catch (_) {}
+    }
+    if (!existingSettings || Object.keys(existingSettings).length === 0) {
+      try {
+        if (fs.existsSync(filePath)) {
+          const existingContent = await fs.promises.readFile(filePath, 'utf-8');
+          existingSettings = JSON.parse(existingContent);
+        }
+      } catch (e) {
+        logger.warn(`Failed to read existing project file`, { projectName: name, error: String(e) });
       }
-    } catch (e) {
-      logger.warn(`Failed to read existing project file`, { projectName: name, error: String(e) });
     }
 
     const launchSettings = data.launchSettings || existingSettings.launchSettings || {};
-    const browserSettings = data.browserSettings || existingSettings.browserSettings || {};
+    const existingBs = existingSettings.browserSettings || existingSettings.settings || {};
+    const incomingBs = data.browserSettings || {};
+    const browserSettings = { ...existingBs, ...incomingBs };
+    if (existingBs.width && (!incomingBs.width || (data.isAutoSave && incomingBs.width === 1280 && existingBs.width !== 1280))) {
+      browserSettings.width = existingBs.width;
+    }
+    if (existingBs.height && (!incomingBs.height || (data.isAutoSave && incomingBs.height === 720 && existingBs.height !== 720))) {
+      browserSettings.height = existingBs.height;
+    }
 
     const projectData = {
       nodes: data.nodes || [],
@@ -319,7 +409,17 @@ export async function saveProject(req: Request, res: Response): Promise<void> {
       browserSettings,
       updatedAt: Date.now()
     };
+
+    const projectJsonStr = JSON.stringify(projectData, null, 2);
+
+    // 1. Миттєво та надійно зберігаємо в SQLite
+    try {
+      saveProjectContent(name, projectJsonStr, filePath, projectData.updatedAt);
+    } catch (dbErr) {
+      logger.warn('Failed to save project content in SQLite', { projectName: name, error: String(dbErr) });
+    }
     
+    // 2. Зберігаємо файл на диск
     try {
       await writeJsonAtomic(filePath, projectData);
       fileJsonCache.delete(filePath);
@@ -330,8 +430,15 @@ export async function saveProject(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // 3. Зберігаємо змінні у SQLite та окремий легкий файл _vars.json
     try {
-      upsertProject(name, filePath, undefined, projectData.updatedAt);
+      await saveProjectVariables(name, vars);
+    } catch (varSaveErr) {
+      logger.warn(`Failed to save separate project variables for ${name}`, { error: String(varSaveErr) });
+    }
+
+    try {
+      upsertProject(name, filePath, undefined, projectData.updatedAt, projectJsonStr);
     } catch (dbErr) {
       logger.warn('Failed to upsert project in SQLite', { projectName: name, error: String(dbErr) });
     }
@@ -351,6 +458,143 @@ export async function saveProject(req: Request, res: Response): Promise<void> {
   }
 }
 
+export async function getProjectSettings(req: Request, res: Response): Promise<void> {
+  try {
+    const { name } = req.params;
+    const validation = inputValidator.validateProjectName(name);
+    if (!validation.isValid) {
+      res.status(400).json({ success: false, error: validation.error });
+      return;
+    }
+
+    let projectData: any = null;
+    const dbProject = getProjectContent(name);
+    if (dbProject && dbProject.content) {
+      try {
+        projectData = JSON.parse(dbProject.content);
+      } catch (_) {}
+    }
+
+    if (!projectData) {
+      const projectPath = path.join(PROJECTS_DIR, `${name}.json`);
+      if (fs.existsSync(projectPath)) {
+        const fileContent = await fs.promises.readFile(projectPath, 'utf-8');
+        projectData = JSON.parse(fileContent);
+      }
+    }
+
+    if (!projectData) {
+      res.json({
+        success: true,
+        browserSettings: { width: 1280, height: 720 },
+        launchSettings: { mode: 'single' }
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      browserSettings: projectData.browserSettings || projectData.settings || {},
+      launchSettings: projectData.launchSettings || {}
+    });
+  } catch (err: any) {
+    logger.error(`Failed to get settings for project ${req.params.name}`, err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to get project settings' });
+  }
+}
+
+export async function updateProjectSettings(req: Request, res: Response): Promise<void> {
+  try {
+    const { name } = req.params;
+    const validation = inputValidator.validateProjectName(name);
+    if (!validation.isValid) {
+      res.status(400).json({ success: false, error: validation.error });
+      return;
+    }
+
+    const { browserSettings, launchSettings } = req.body;
+
+    let projectData: any = null;
+    const filePath = path.join(PROJECTS_DIR, `${name}.json`);
+
+    const dbProject = getProjectContent(name);
+    if (dbProject && dbProject.content) {
+      try {
+        projectData = JSON.parse(dbProject.content);
+      } catch (_) {}
+    }
+
+    if (!projectData) {
+      if (fs.existsSync(filePath)) {
+        const fileContent = await fs.promises.readFile(filePath, 'utf-8');
+        projectData = JSON.parse(fileContent);
+      } else {
+        projectData = {
+          nodes: [],
+          edges: [],
+          variables: {},
+          launchSettings: {},
+          browserSettings: {}
+        };
+      }
+    }
+
+    if (browserSettings && typeof browserSettings === 'object') {
+      projectData.browserSettings = {
+        ...(projectData.browserSettings || {}),
+        ...browserSettings
+      };
+    }
+
+    if (launchSettings && typeof launchSettings === 'object') {
+      projectData.launchSettings = {
+        ...(projectData.launchSettings || {}),
+        ...launchSettings
+      };
+    }
+
+    projectData.updatedAt = Date.now();
+    const projectJsonStr = JSON.stringify(projectData, null, 2);
+
+    // Зберігаємо в SQLite
+    try {
+      saveProjectContent(name, projectJsonStr, filePath, projectData.updatedAt);
+    } catch (dbErr) {
+      logger.warn('Failed to save project settings in SQLite', { projectName: name, error: String(dbErr) });
+    }
+
+    // Зберігаємо файл на диск
+    try {
+      await writeJsonAtomic(filePath, projectData);
+      fileJsonCache.delete(filePath);
+    } catch (writeErr) {
+      logger.warn('Failed to save project settings to file', { projectName: name, error: String(writeErr) });
+    }
+
+    // Оновлюємо активну сесію та розмір браузера на льоту, якщо браузер вже відкритий
+    const session = sessions.get(name);
+    if (session) {
+      if (projectData.browserSettings) {
+        session.botSettings = { ...session.botSettings, ...projectData.browserSettings };
+      }
+      if (isSessionBrowserAlive(session) && session.page) {
+        const w = Number(projectData.browserSettings?.width || projectData.browserSettings?.browserWidth || 1280);
+        const h = Number(projectData.browserSettings?.height || projectData.browserSettings?.browserHeight || 720);
+        await resizeBrowserWindow(session, session.page, w, h);
+      }
+    }
+
+    res.json({
+      success: true,
+      browserSettings: projectData.browserSettings,
+      launchSettings: projectData.launchSettings
+    });
+  } catch (err: any) {
+    logger.error(`Failed to update settings for project ${req.params.name}`, err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Failed to update project settings' });
+  }
+}
+
 export async function deleteProjectHandler(req: Request, res: Response): Promise<void> {
   try {
     const name = req.params.name;
@@ -367,26 +611,24 @@ export async function deleteProjectHandler(req: Request, res: Response): Promise
     let fileExists = false;
     try {
       fileExists = fs.existsSync(filePath);
-    } catch (err) {
-      logger.error('Failed to check project file existence', err instanceof Error ? err : new Error(String(err)), { path: filePath });
-      res.status(500).json({ success: false, error: 'Failed to check project existence. Please try again.' });
-      return;
-    }
+    } catch (_) {}
     
-    if (!fileExists) {
+    const dbProject = getProjectContent(name);
+    if (!fileExists && !dbProject) {
       res.status(404).json({ success: false, error: 'Project not found' });
       return;
     }
     
     try {
-      await fs.promises.unlink(filePath);
+      if (fileExists) {
+        await fs.promises.unlink(filePath);
+      }
       fileJsonCache.delete(filePath);
       fileJsonCache.delete(path.join(PROJECTS_DIR, `${name}_save.json`));
+      fileJsonCache.delete(path.join(PROJECTS_DIR, `${name}_vars.json`));
       logger.info('Project file deleted', { projectName: name });
     } catch (deleteErr) {
-      logger.error('Failed to delete project file', deleteErr instanceof Error ? deleteErr : new Error(String(deleteErr)), { path: filePath });
-      res.status(500).json({ success: false, error: 'Failed to delete project. Please try again.' });
-      return;
+      logger.warn('Failed to delete project file', { path: filePath, error: String(deleteErr) });
     }
     
     try {
@@ -403,6 +645,16 @@ export async function deleteProjectHandler(req: Request, res: Response): Promise
       }
     } catch (statsErr) {
       logger.warn('Failed to delete stats file', { path: statsPath, error: String(statsErr) });
+    }
+
+    const varsPath = path.join(PROJECTS_DIR, `${name}_vars.json`);
+    try {
+      if (fs.existsSync(varsPath)) {
+        await fs.promises.unlink(varsPath);
+        logger.info('Project vars file deleted', { projectName: name });
+      }
+    } catch (varsErr) {
+      logger.warn('Failed to delete vars file', { path: varsPath, error: String(varsErr) });
     }
     
     sessions.delete(name);
@@ -520,13 +772,27 @@ export async function copyNodes(req: Request, res: Response): Promise<void> {
     }
 
     const sourcePath = path.join(PROJECTS_DIR, `${sourceProject}.json`);
-    if (!fs.existsSync(sourcePath)) {
+    let sourceData: any = null;
+
+    // 1. Спочатку перевіряємо SQLite для джерельного проекту
+    const dbSource = getProjectContent(sourceProject);
+    if (dbSource && dbSource.content) {
+      try {
+        sourceData = JSON.parse(dbSource.content);
+      } catch (_) {}
+    }
+
+    // 2. Якщо в SQLite немає, читаємо з файлу
+    if (!sourceData && fs.existsSync(sourcePath)) {
+      const sourceContent = await fs.promises.readFile(sourcePath, 'utf-8');
+      sourceData = JSON.parse(sourceContent);
+    }
+
+    if (!sourceData) {
       res.status(404).json({ success: false, error: `Джерельний проект «${sourceProject}» не знайдено` });
       return;
     }
 
-    const sourceContent = await fs.promises.readFile(sourcePath, 'utf-8');
-    const sourceData = JSON.parse(sourceContent);
     const rawNodes = sourceData.nodes || [];
     const edges = sourceData.edges || [];
 
@@ -541,16 +807,45 @@ export async function copyNodes(req: Request, res: Response): Promise<void> {
       try {
         const targetPath = path.join(PROJECTS_DIR, `${target}.json`);
         let targetData: any = {};
-        if (fs.existsSync(targetPath)) {
-          const targetContent = await fs.promises.readFile(targetPath, 'utf-8');
-          targetData = JSON.parse(targetContent);
+
+        // Читаємо цільовий проект з SQLite або диска для збереження інших полів (settings, variables тощо)
+        const dbTarget = getProjectContent(target);
+        if (dbTarget && dbTarget.content) {
+          try {
+            targetData = JSON.parse(dbTarget.content);
+          } catch (_) {}
+        }
+        if (!targetData || Object.keys(targetData).length === 0) {
+          if (fs.existsSync(targetPath)) {
+            const targetContent = await fs.promises.readFile(targetPath, 'utf-8');
+            targetData = JSON.parse(targetContent);
+          }
         }
 
         targetData.nodes = nodes;
         targetData.edges = edges;
-        targetData.updatedAt = new Date().toISOString();
+        targetData.updatedAt = Date.now();
 
+        const targetJsonStr = JSON.stringify(targetData, null, 2);
+
+        // 1. Обов'язково оновлюємо SQLite (критично для loadProject!)
+        try {
+          saveProjectContent(target, targetJsonStr, targetPath, targetData.updatedAt);
+          upsertProject(target, targetPath, undefined, targetData.updatedAt, targetJsonStr);
+        } catch (dbErr) {
+          logger.warn(`Failed to update project ${target} in SQLite`, { error: String(dbErr) });
+        }
+
+        // 2. Оновлюємо файл на диску
         await writeJsonAtomic(targetPath, targetData);
+        fileJsonCache.delete(targetPath);
+
+        // 3. Оновлюємо активну сесію, якщо проект зараз у пам'яті
+        const session = sessions.get(target);
+        if (session && session.activeWs && session.activeWs.readyState === 1) {
+          session.activeWs.send(JSON.stringify({ type: 'PROJECT_UPDATED', projectName: target }));
+        }
+
         updated++;
         logger.info(`Successfully copied nodes from ${sourceProject} to ${target}`);
       } catch (err: any) {
@@ -610,17 +905,44 @@ export async function runSequentialProjects(req: Request, res: Response): Promis
 
 export async function getProjectsOverview(_req: Request, res: Response): Promise<void> {
   try {
-    const files = await fs.promises.readdir(PROJECTS_DIR);
-    const projectFiles = files.filter(f => {
-      if (!f.endsWith('.json')) return false;
-      const name = f.replace('.json', '');
-      if (name === 'categories' || name === 'global_building_types') return false;
-      if (name.endsWith('_layout') || name.endsWith('_save')) return false;
-      if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
-      if (name.includes('schedule') || name.includes('notifications')) return false;
-      return true;
-    });
-    const projectNames = projectFiles.map(f => f.replace('.json', ''));
+    let projectNames: string[] = [];
+    try {
+      const dbProjects = getDbProjects();
+      if (dbProjects && dbProjects.length > 0) {
+        projectNames = dbProjects
+          .map(p => p.name)
+          .filter(name =>
+            name !== 'categories' &&
+            name !== 'global_building_types' &&
+            name !== 'buildings_catalog_settings' &&
+            name !== 'schedule' &&
+            name !== 'notifications' &&
+            name !== 'configs' &&
+            name !== 'mass_launches' &&
+            name !== 'test_project_logger_runs' &&
+            !name.endsWith('_vars') &&
+            !name.endsWith('_save') &&
+            !name.endsWith('_layout') &&
+            !name.endsWith('_stats') &&
+            !name.endsWith('_logs') &&
+            !name.endsWith('_inventory')
+          );
+      }
+    } catch (_) {}
+
+    if (projectNames.length === 0) {
+      const files = await fs.promises.readdir(PROJECTS_DIR);
+      const projectFiles = files.filter(f => {
+        if (!f.endsWith('.json')) return false;
+        const name = f.replace('.json', '');
+        if (name === 'categories' || name === 'global_building_types') return false;
+        if (name.endsWith('_layout') || name.endsWith('_save') || name.endsWith('_vars')) return false;
+        if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
+        if (name.includes('schedule') || name.includes('notifications')) return false;
+        return true;
+      });
+      projectNames = projectFiles.map(f => f.replace('.json', ''));
+    }
     projectNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
     let schedulesMap: Record<string, any> = {};
@@ -673,29 +995,51 @@ export async function getProjectsOverview(_req: Request, res: Response): Promise
         const isBrowserOpen = session ? isSessionBrowserAlive(session) : false;
 
         const sched = schedulesMap[name];
-        const nextRun = sched && sched.nextRun ? sched.nextRun : null;
-        const plannedNodeRun = sched && sched.plannedRuns && sched.plannedRuns[0] ? sched.plannedRuns[0].runAt : null;
+        const nextRun = sched && sched.nextRun ? Math.round(Number(sched.nextRun)) : null;
+        const plannedNodeRun = sched && sched.plannedRuns && sched.plannedRuns[0] ? Math.round(Number(sched.plannedRuns[0].runAt)) : null;
 
         let saveData: any = null;
         let projData: any = null;
         let lastSaveUpdate: number | null = null;
-        const savePath = path.join(PROJECTS_DIR, `${name}_save.json`);
-        const projPath = path.join(PROJECTS_DIR, `${name}.json`);
 
-        const cachedSave = await getCachedJson(savePath);
-        if (cachedSave) {
-          saveData = cachedSave.data;
-          lastSaveUpdate = Math.floor(cachedSave.mtimeMs);
+        // 1. Спершу перевіряємо SQLite
+        try {
+          const dbSaveRow = getDbProjectSaveRow(name);
+          if (dbSaveRow) {
+            saveData = dbSaveRow.data;
+            lastSaveUpdate = dbSaveRow.updated_at;
+          }
+          const dbProj = getProjectContent(name);
+          if (dbProj && dbProj.content) {
+            projData = JSON.parse(dbProj.content);
+            if (!lastSaveUpdate) {
+              lastSaveUpdate = dbProj.updated_at || null;
+            }
+            if (!saveData) saveData = projData;
+          }
+        } catch (_) {}
+
+        // 2. Фолбек на диск, якщо в базі немає
+        if (!saveData) {
+          const savePath = path.join(PROJECTS_DIR, `${name}_save.json`);
+          const cachedSave = await getCachedJson(savePath);
+          if (cachedSave) {
+            saveData = cachedSave.data;
+            lastSaveUpdate = Math.floor(cachedSave.mtimeMs);
+          }
         }
 
-        const cachedProj = await getCachedJson(projPath);
-        if (cachedProj) {
-          projData = cachedProj.data;
-          if (!lastSaveUpdate) {
-            lastSaveUpdate = Math.floor(cachedProj.mtimeMs);
-          }
-          if (!saveData) {
-            saveData = projData;
+        if (!projData) {
+          const projPath = path.join(PROJECTS_DIR, `${name}.json`);
+          const cachedProj = await getCachedJson(projPath);
+          if (cachedProj) {
+            projData = cachedProj.data;
+            if (!lastSaveUpdate) {
+              lastSaveUpdate = Math.floor(cachedProj.mtimeMs);
+            }
+            if (!saveData) {
+              saveData = projData;
+            }
           }
         }
 
@@ -848,7 +1192,7 @@ export async function getProjectsOverview(_req: Request, res: Response): Promise
           miniImages,
           completedDeliveries,
           completedDeliveryTypes,
-          lastSaveUpdate
+          lastSaveUpdate: lastSaveUpdate ? Math.round(Number(lastSaveUpdate)) : null
         };
       })
     );

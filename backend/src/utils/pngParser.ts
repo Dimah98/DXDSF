@@ -164,7 +164,9 @@ export async function parsePng(buf: Buffer): Promise<PngData | null> {
 
 // ─── PNG Encoder ─────────────────────────────────────────────────────────────
 
-import { deflateSync } from 'zlib';
+import { deflate } from 'zlib';
+
+const deflateAsync = promisify(deflate);
 
 const crcTable = new Uint32Array(256);
 for (let n = 0; n < 256; n++) {
@@ -195,9 +197,10 @@ function createChunk(type: string, data: Buffer): Buffer {
 }
 
 /**
- * Швидке кодування RGBA пікселів у валідний PNG буфер
+ * Асинхронне кодування RGBA пікселів у валідний PNG буфер.
+ * Використовує async deflate замість deflateSync — не блокує Event Loop.
  */
-export function encodePng(data: PngData): Buffer {
+export async function encodePng(data: PngData): Promise<Buffer> {
   const { width, height, pixels } = data;
   const rowBytes = width * 4;
   const rawData = Buffer.allocUnsafe(height * (1 + rowBytes));
@@ -208,7 +211,7 @@ export function encodePng(data: PngData): Buffer {
     pixels.copy(rawData, rawOffset + 1, y * rowBytes, (y + 1) * rowBytes);
   }
 
-  const compressed = deflateSync(rawData);
+  const compressed = await deflateAsync(rawData);
 
   // IHDR
   const ihdrData = Buffer.allocUnsafe(13);

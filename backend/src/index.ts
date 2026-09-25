@@ -40,25 +40,30 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-function createSmartImMiddleware(dir: string) {
+function createSmartImMiddleware(dirCandidates: string[]) {
   const fileCache = new Map<string, string>();
 
   const refreshCache = () => {
     try {
-      if (fs.existsSync(dir)) {
+      fileCache.clear();
+      for (const dir of dirCandidates) {
+        if (!fs.existsSync(dir)) continue;
         const files = fs.readdirSync(dir);
-        fileCache.clear();
         for (const file of files) {
           const lowerFile = file.toLowerCase();
           const nameWithoutExt = file.replace(/\.[^/.]+$/, '');
           const lowerNameNoExt = nameWithoutExt.toLowerCase();
           const norm = lowerNameNoExt.replace(/['"_\s-]/g, '');
+          const fullPath = path.join(dir, file);
 
-          if (!fileCache.has(lowerFile)) fileCache.set(lowerFile, file);
-          if (!fileCache.has(lowerNameNoExt)) fileCache.set(lowerNameNoExt, file);
-          if (!fileCache.has(norm)) fileCache.set(norm, file);
+          if (!fileCache.has(lowerFile)) fileCache.set(lowerFile, fullPath);
+          if (!fileCache.has(lowerNameNoExt)) fileCache.set(lowerNameNoExt, fullPath);
+          if (!fileCache.has(norm)) fileCache.set(norm, fullPath);
         }
       }
+      logger.info(`smartImMiddleware indexed ${fileCache.size} image references`, {
+        dirs: dirCandidates.filter(d => fs.existsSync(d))
+      });
     } catch (e) {
       logger.warn('Failed to index im directory', { error: String(e) });
     }
@@ -67,42 +72,94 @@ function createSmartImMiddleware(dir: string) {
   refreshCache();
 
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const rawName = decodeURIComponent(req.path.replace(/^\//, '')).trim();
+    let rawName = req.path.replace(/^\/+/, '').trim();
     if (!rawName) return next();
 
-    const exactPath = path.join(dir, rawName);
-    if (fs.existsSync(exactPath)) {
-      return res.sendFile(exactPath);
+    // Видаляємо дубльовані префікси типу "api/im/" або "im/"
+    rawName = rawName.replace(/^(api\/)?im\//i, '').replace(/^\/+/, '');
+
+    // Повністю розкодовуємо всі рівні кодування (%2520 -> %20 -> ' ')
+    while (rawName.includes('%')) {
+      try {
+        const nextDec = decodeURIComponent(rawName);
+        if (nextDec === rawName) break;
+        rawName = nextDec;
+      } catch {
+        break;
+      }
     }
 
+    // 1. Пряма перевірка в директоріях (з урахуванням можливих розширень)
+    const checkNames = [rawName];
+    if (!/\.[^/.]+$/.test(rawName)) {
+      checkNames.push(`${rawName}.png`, `${rawName}.webp`, `${rawName}.jpg`);
+    }
+
+    for (const dir of dirCandidates) {
+      if (!fs.existsSync(dir)) continue;
+      for (const cName of checkNames) {
+        const exactPath = path.join(dir, cName);
+        if (fs.existsSync(exactPath)) {
+          try {
+            if (fs.statSync(exactPath).isFile()) {
+              res.setHeader('Cache-Control', 'public, max-age=86400');
+              return res.sendFile(exactPath);
+            }
+          } catch {}
+        }
+      }
+    }
+
+    // 2. Fuzzy / case-insensitive пошук
     const lowerRaw = rawName.toLowerCase();
     const nameWithoutExt = rawName.replace(/\.[^/.]+$/, '');
     const lowerNameNoExt = nameWithoutExt.toLowerCase();
     const norm = lowerNameNoExt.replace(/['"_\s-]/g, '');
 
-    const matched = fileCache.get(lowerRaw) || 
+    let matchedPath = fileCache.get(lowerRaw) || 
+                      fileCache.get(lowerNameNoExt) || 
+                      fileCache.get(norm);
+
+    // Якщо не знайдено — можливо файл додано після старту сервера
+    if (!matchedPath) {
+      refreshCache();
+      matchedPath = fileCache.get(lowerRaw) || 
                     fileCache.get(lowerNameNoExt) || 
                     fileCache.get(norm);
+    }
 
-    if (matched) {
-      const matchPath = path.join(dir, matched);
-      if (fs.existsSync(matchPath)) {
-        return res.sendFile(matchPath);
-      }
+    if (matchedPath && fs.existsSync(matchedPath)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.sendFile(matchedPath);
     }
 
     next();
   };
 }
 
-const smartImMiddleware = createSmartImMiddleware(path.resolve(__dirname, '../../im'));
+const imCandidates = [
+  path.resolve(__dirname, '../../data/im'),
+  path.resolve(__dirname, '../data/im'),
+  path.resolve(__dirname, '../../im'),
+  path.resolve(__dirname, '../im'),
+  path.resolve(process.cwd(), 'data/im'),
+  path.resolve(process.cwd(), 'im'),
+];
+
+const smartImMiddleware = createSmartImMiddleware(imCandidates);
 
 // Статичні маршрути для медіа та зображень гри
 app.use('/api/images', express.static(path.join(__dirname, '../images')));
 app.use('/api/extensions', express.static(path.join(__dirname, '../data')));
 app.use('/api/extensions', express.static(path.join(__dirname, '../extensions')));
-app.use('/api/im', smartImMiddleware, express.static(path.resolve(__dirname, '../../im')));
-app.use('/im', smartImMiddleware, express.static(path.resolve(__dirname, '../../im')));
+app.use('/api/im', smartImMiddleware);
+app.use('/im', smartImMiddleware);
+for (const dir of imCandidates) {
+  if (fs.existsSync(dir)) {
+    app.use('/api/im', express.static(dir));
+    app.use('/im', express.static(dir));
+  }
+}
 app.use('/api/screenshots', express.static(PROJECTS_DIR));
 
 // Застосовуємо rate limiting для всіх /api/* ендпоінтів

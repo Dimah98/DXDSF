@@ -27,7 +27,7 @@ describe('FruitRunnerNode v2', () => {
       pixels[i * 4 + 2] = 117; // B
       pixels[i * 4 + 3] = 255; // A
     }
-    validPngBuffer = encodePng({ width: W, height: H, pixels });
+    validPngBuffer = await encodePng({ width: W, height: H, pixels });
   });
 
   it('should be defined as a function', () => {

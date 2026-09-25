@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 import { Logger } from '../logger';
 import { PROJECTS_DIR } from '../constants';
 import { MassLaunchStore } from '../scheduler/MassLaunchStore';
@@ -8,8 +7,39 @@ import { evaluateConfig, loadConfigFilesAsync, resolvePath } from '../configs/Co
 import { startProject } from './ProjectRunner';
 import { getOrCreateSession } from '../browserManager';
 import { schedulerService } from '../services';
+import { getProjectSaveData } from '../utils/saveStorage';
+import { getProjects as getDbProjects } from '../db/schema';
 
 const logger = new Logger('MassLaunchRunner');
+
+async function getAllProjectNames(): Promise<string[]> {
+  try {
+    const dbProjects = getDbProjects();
+    if (dbProjects && dbProjects.length > 0) {
+      return dbProjects.map(p => p.name);
+    }
+  } catch (_) {}
+
+  const files = await fs.promises.readdir(PROJECTS_DIR);
+  return files
+    .filter(f => f.endsWith('.json'))
+    .map(f => f.replace('.json', ''))
+    .filter(name =>
+      name !== 'categories' &&
+      name !== 'global_building_types' &&
+      name !== 'schedule' &&
+      name !== 'notifications' &&
+      name !== 'configs' &&
+      name !== 'mass_launches' &&
+      name !== 'test_project_logger_runs' &&
+      !name.endsWith('_layout') &&
+      !name.endsWith('_save') &&
+      !name.endsWith('_vars') &&
+      !name.endsWith('_stats') &&
+      !name.endsWith('_logs') &&
+      !name.endsWith('_inventory')
+    );
+}
 
 let massLaunchInterval: NodeJS.Timeout | null = null;
 
@@ -140,21 +170,7 @@ function runScheduledProject(projectName: string): void {
 
 // Допоміжна функція для збагачення масових запусків додатковою інформацією
 export async function enrichMassLaunches(launches: any[]) {
-  const files = await fs.promises.readdir(PROJECTS_DIR);
-  const allProjectNames = files
-    .filter(f => f.endsWith('.json'))
-    .map(f => f.replace('.json', ''))
-    .filter(name =>
-      name !== 'categories' &&
-      name !== 'global_building_types' &&
-      name !== 'schedule' &&
-      name !== 'notifications' &&
-      !name.endsWith('_layout') &&
-      !name.endsWith('_save') &&
-      !name.endsWith('_stats') &&
-      !name.endsWith('_logs') &&
-      !name.endsWith('_inventory')
-    );
+  const allProjectNames = await getAllProjectNames();
 
   return Promise.all(launches.map(async launch => {
     let matchingProjects = allProjectNames;
@@ -181,12 +197,11 @@ export async function enrichMassLaunches(launches: any[]) {
     const projectsWithTime: any[] = [];
     if (launch.mode === 'json_time' && launch.jsonPath) {
       for (const p of matchingProjects) {
-        const savePath = path.join(PROJECTS_DIR, `${p}_save.json`);
         let timeFormatted: string | null = null;
         let timestamp: number | null = null;
 
         try {
-          const data = await getCachedJson(savePath);
+          const data = await getProjectSaveData(p);
           if (data) {
             const resolved = resolvePath(data, launch.jsonPath);
             if (resolved.exists && resolved.value !== undefined && resolved.value !== null && resolved.value !== '') {
@@ -239,21 +254,7 @@ export async function checkAndRunMassLaunches() {
     const activeLaunches = rawLaunches.filter(l => l.enabled !== false);
     if (activeLaunches.length === 0) return;
 
-    const files = await fs.promises.readdir(PROJECTS_DIR);
-    const allProjectNames = files
-      .filter(f => f.endsWith('.json'))
-      .map(f => f.replace('.json', ''))
-      .filter(name =>
-        name !== 'categories' &&
-        name !== 'global_building_types' &&
-        name !== 'schedule' &&
-        name !== 'notifications' &&
-        !name.endsWith('_layout') &&
-        !name.endsWith('_save') &&
-        !name.endsWith('_stats') &&
-        !name.endsWith('_logs') &&
-        !name.endsWith('_inventory')
-      );
+    const allProjectNames = await getAllProjectNames();
 
     const now = new Date();
     const nowMs = now.getTime();
@@ -313,10 +314,8 @@ export async function checkAndRunMassLaunches() {
         let updatedProjectRuns = false;
 
         for (const projectName of matchingProjects) {
-          const savePath = path.join(PROJECTS_DIR, `${projectName}_save.json`);
-
           try {
-            const data = await getCachedJson(savePath);
+            const data = await getProjectSaveData(projectName);
             if (!data) continue;
 
             const resolved = resolvePath(data, launch.jsonPath);
@@ -367,7 +366,7 @@ export async function checkAndRunMassLaunches() {
 }
 
 // Запуск та зупинка фонового планувальника
-export function startMassLaunchScheduler(intervalMs: number = 10000): void {
+export function startMassLaunchScheduler(intervalMs: number = 60000): void {
   if (massLaunchInterval) return;
   massLaunchInterval = setInterval(checkAndRunMassLaunches, intervalMs);
   logger.info(`Mass launch scheduler started (interval: ${intervalMs}ms)`);

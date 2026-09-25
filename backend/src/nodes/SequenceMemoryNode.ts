@@ -842,7 +842,7 @@ export const sequenceMemoryNodeHandler = async ({
           drawRect(gridPx, basePng.width, basePng.height, x0, y0, x1, y1, 34, 197, 94, 2);
         }
 
-        const gridBuf = encodePng({ width: basePng.width, height: basePng.height, pixels: gridPx });
+        const gridBuf = await encodePng({ width: basePng.width, height: basePng.height, pixels: gridPx });
         await sendDebugPhoto(ws, '🎯 Розмітка: 9 предметів + 2 індикатори', currentNode.id, gridBuf);
       } catch (dbgErr) {
         logger.warn('Failed to send markup debug photo', { error: String(dbgErr) });
@@ -891,7 +891,7 @@ export const sequenceMemoryNodeHandler = async ({
             try {
               const winPx = Buffer.from(framePng.pixels);
               drawRect(winPx, framePng.width, framePng.height, rx, ry, rx + rw - 1, ry + rh - 1, 34, 197, 94, 3);
-              const winBuf = encodePng({ width: framePng.width, height: framePng.height, pixels: winPx });
+              const winBuf = await encodePng({ width: framePng.width, height: framePng.height, pixels: winPx });
               await sendDebugPhoto(ws, '🏆 Фінал: Перемога!', currentNode.id, winBuf);
             } catch {}
           }
@@ -917,7 +917,7 @@ export const sequenceMemoryNodeHandler = async ({
             try {
               const errPx = Buffer.from(framePng.pixels);
               drawRect(errPx, framePng.width, framePng.height, rx, ry, rx + rw - 1, ry + rh - 1, 239, 68, 68, 3);
-              const errDebugBuf = encodePng({ width: framePng.width, height: framePng.height, pixels: errPx });
+              const errDebugBuf = await encodePng({ width: framePng.width, height: framePng.height, pixels: errPx });
               await sendDebugPhoto(ws, '⚠️ Помилка вводу!', currentNode.id, errDebugBuf);
             } catch {}
           }
@@ -967,7 +967,7 @@ export const sequenceMemoryNodeHandler = async ({
                 const cy = Math.round(ry + rh / 2);
                 drawCrosshair(flashPx, framePng.width, framePng.height, cx, cy, 8, 245, 158, 11, 2);
 
-                const flashBuf = encodePng({ width: framePng.width, height: framePng.height, pixels: flashPx });
+                const flashBuf = await encodePng({ width: framePng.width, height: framePng.height, pixels: flashPx });
                 await sendDebugPhoto(
                   ws,
                   `✨ Спалах: Предмет #${i + 1} (крок ${currentSequence.length})`,

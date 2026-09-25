@@ -6,7 +6,8 @@ import {
   Power, Play, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Code, Maximize2, Minimize2, RotateCcw, ArrowLeft, ArrowRight,
   CornerDownLeft, Move, Crosshair, Send, Globe,
-  Copy, ExternalLink, Search, RefreshCw, Check,
+  Copy, Search, RefreshCw, Check,
+  PanelRight, Shield, Eye, Image, FolderTree, Layers, Sparkles, AlertTriangle,
 } from 'lucide-react';
 import { copyToClipboard } from '../utils/clipboard';
 
@@ -51,21 +52,20 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
   const [isBrowserOpen, setIsBrowserOpen] = useState(false);
-  const [devToolsUrl, setDevToolsUrl] = useState<string | null>(null);
+  const [, setDevToolsUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Стан для перегляду коду сторінки та DOM інспектора
-  const [pageSourceData, setPageSourceData] = useState<{
-    projectName?: string;
-    url: string;
-    title: string;
-    html: string;
-    elements?: { tag: string; id: string; className: string; text: string; selector: string }[];
-  } | null>(null);
-  const [sourceSearch, setSourceSearch] = useState('');
-  const [sourceTab, setSourceTab] = useState<'html' | 'elements'>('html');
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [isLoadingSource, setIsLoadingSource] = useState(false);
+  // Стан для мобільної адаптації інспектора та інтерфейсу
+  const [mobileInspectorTab, setMobileInspectorTab] = useState<'split' | 'stream' | 'inspector'>('split');
+  const [isControlBarCollapsed, setIsControlBarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const [, setIsLoadingElements] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Стан бічного інспектора (Split-view екран браузера + код збоку)
   const [showSideInspector, setShowSideInspector] = useState(false);
@@ -213,20 +213,19 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
           if (data.elements && data.elements.length > 0) {
             setInteractiveElements(data.elements);
           }
-          setPageSourceData({
-            projectName: data.projectName || 'SF',
-            url: data.url || '',
-            title: data.title || '',
-            html: data.html || '',
-            elements: data.elements || []
-          });
-          setIsLoadingSource(false);
+          setIsLoadingElements(false);
         }
       } catch {}
     };
     ws.addEventListener('message', handleMessage);
     ws.send(JSON.stringify({ type: 'START_STREAM', nodeId }));
+    const timeoutTimer = setTimeout(() => {
+      if (!hasReceivedFrameRef.current) {
+        setLoading(false);
+      }
+    }, 7000);
     return () => {
+      clearTimeout(timeoutTimer);
       ws.removeEventListener('message', handleMessage);
       ws.send(JSON.stringify({ type: 'STOP_STREAM' }));
     };
@@ -526,10 +525,9 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
     }
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = (_e: React.TouchEvent) => {
     if (isMouseDownRef.current) {
       isMouseDownRef.current = false;
-      const activeRef = isFullscreen ? fullscreenContainerRef : containerRef;
       const coords = cursorPos || { x: 0, y: 0 };
       sendInteraction('mouseup', { ...coords, button: 'left' });
     }
@@ -661,7 +659,7 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
 
   // ─── Панель швидких клавіш та введення тексту ──────────────────────────────
   const renderControlBar = (isFull: boolean) => (
-    <div className={`flex flex-col gap-2 p-2.5 bg-black/85 backdrop-blur-md border-t border-white/10 text-white shrink-0 ${isFull ? 'z-20' : ''}`}>
+    <div className={`flex flex-col gap-1.5 sm:gap-2 p-2 sm:p-2.5 bg-black/85 backdrop-blur-md border-t border-white/10 text-white shrink-0 ${isFull ? 'z-20' : ''}`}>
       {/* Рядок 1: Форма введення тексту */}
       <div className="flex items-center gap-1.5">
         <form onSubmit={handleSendText} className="flex-1 flex items-center gap-1.5">
@@ -670,14 +668,14 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
               type="text"
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Введіть текст для передачі у браузер..."
-              className="w-full px-3 py-1.5 bg-white/10 border border-white/15 rounded-lg text-xs text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-sans"
+              placeholder="Текст для браузера..."
+              className="w-full px-2.5 sm:px-3 py-1 sm:py-1.5 bg-white/10 border border-white/15 rounded-lg text-xs text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-sans"
             />
           </div>
           <button
             type="submit"
             disabled={!textInput.trim()}
-            className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-lg text-xs font-bold text-white transition-all shadow-sm shrink-0"
+            className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-lg text-xs font-bold text-white transition-all shadow-sm shrink-0"
             title="Надіслати текст"
           >
             <Send size={12} />
@@ -703,6 +701,18 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
         >
           <Globe size={14} />
         </button>
+
+        {/* Кнопка згортання/розгортання клавіш на мобільних */}
+        <button
+          type="button"
+          onClick={() => setIsControlBarCollapsed(!isControlBarCollapsed)}
+          className={`sm:hidden p-1.5 rounded-lg text-xs transition-colors border ${
+            !isControlBarCollapsed ? 'bg-white/20 text-white border-white/30' : 'bg-white/5 border-white/10 text-white/60'
+          }`}
+          title="Показати/сховати клавіші"
+        >
+          <Keyboard size={14} />
+        </button>
       </div>
 
       {/* Рядок навігації за URL (якщо відкритий) */}
@@ -712,8 +722,8 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
             type="text"
             value={navUrl}
             onChange={(e) => setNavUrl(e.target.value)}
-            placeholder="Введіть URL (наприклад: https://sunflower-land.com/play/)"
-            className="flex-1 px-3 py-1 bg-white/10 border border-white/15 rounded-lg text-xs text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            placeholder="URL: https://sunflower-land.com/play/"
+            className="flex-1 px-2.5 sm:px-3 py-1 bg-white/10 border border-white/15 rounded-lg text-xs text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
           <button
             type="submit"
@@ -725,73 +735,105 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
       )}
 
       {/* Рядок 2: Швидкі клавіші та дії */}
-      <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
-        {/* Кнопки клавіш */}
-        <div className="flex items-center gap-1 flex-wrap">
-          <button onClick={() => sendInteraction('enter')} className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded font-mono font-bold text-[10px] text-white flex items-center gap-1" title="Натиснути Enter">
-            <CornerDownLeft size={10} /> Enter
-          </button>
-          <button onClick={() => sendInteraction('esc')} className="px-2 py-1 bg-rose-600/80 hover:bg-rose-600 rounded font-mono font-bold text-[10px] text-white" title="Натиснути ESC">
-            ESC
-          </button>
-          <button onClick={() => sendInteraction('tab')} className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded font-mono font-bold text-[10px] text-white/80" title="Натиснути Tab">
-            Tab
-          </button>
-          <button onClick={() => sendInteraction('backspace')} className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded font-mono font-bold text-[10px] text-white/80" title="Backspace">
-            ⌫ Backspace
-          </button>
-          <button onClick={() => sendInteraction('type_text', { text: ' ' })} className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded font-mono font-bold text-[10px] text-white/80" title="Пробіл">
-            Space
-          </button>
+      {(!isControlBarCollapsed || !isMobile) && (
+        <div className="flex items-center justify-between gap-1.5 text-[11px] overflow-x-auto no-scrollbar flex-nowrap shrink-0 pt-0.5">
+          {/* Кнопки клавіш */}
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={() => sendInteraction('enter')} className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded font-mono font-bold text-[10px] text-white flex items-center gap-1 shrink-0" title="Натиснути Enter">
+              <CornerDownLeft size={10} /> Enter
+            </button>
+            <button onClick={() => sendInteraction('esc')} className="px-2 py-1 bg-rose-600/80 hover:bg-rose-600 rounded font-mono font-bold text-[10px] text-white shrink-0" title="Натиснути ESC">
+              ESC
+            </button>
+            <button onClick={() => sendInteraction('tab')} className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded font-mono font-bold text-[10px] text-white/80 shrink-0" title="Натиснути Tab">
+              Tab
+            </button>
+            <button onClick={() => sendInteraction('backspace')} className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded font-mono font-bold text-[10px] text-white/80 shrink-0" title="Backspace">
+              ⌫ Backspace
+            </button>
+            <button onClick={() => sendInteraction('type_text', { text: ' ' })} className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded font-mono font-bold text-[10px] text-white/80 shrink-0" title="Пробіл">
+              Space
+            </button>
 
-          <div className="w-px h-4 bg-white/20 mx-0.5" />
+            <div className="w-px h-4 bg-white/20 mx-0.5 shrink-0" />
 
-          {/* Стрілки */}
-          <div className="flex items-center gap-0.5 bg-white/5 p-0.5 rounded-lg border border-white/10">
-            <button onClick={() => sendInteraction('keypress', { key: 'ArrowLeft' })} className="p-1 hover:bg-white/15 rounded text-white/80" title="Вліво"><ChevronLeft size={12} /></button>
-            <button onClick={() => sendInteraction('keypress', { key: 'ArrowUp' })} className="p-1 hover:bg-white/15 rounded text-white/80" title="Вгору"><ChevronUp size={12} /></button>
-            <button onClick={() => sendInteraction('keypress', { key: 'ArrowDown' })} className="p-1 hover:bg-white/15 rounded text-white/80" title="Вниз"><ChevronDown size={12} /></button>
-            <button onClick={() => sendInteraction('keypress', { key: 'ArrowRight' })} className="p-1 hover:bg-white/15 rounded text-white/80" title="Вправо"><ChevronRight size={12} /></button>
+            {/* Стрілки */}
+            <div className="flex items-center gap-0.5 bg-white/5 p-0.5 rounded-lg border border-white/10 shrink-0">
+              <button onClick={() => sendInteraction('keypress', { key: 'ArrowLeft' })} className="p-1 hover:bg-white/15 rounded text-white/80" title="Вліво"><ChevronLeft size={12} /></button>
+              <button onClick={() => sendInteraction('keypress', { key: 'ArrowUp' })} className="p-1 hover:bg-white/15 rounded text-white/80" title="Вгору"><ChevronUp size={12} /></button>
+              <button onClick={() => sendInteraction('keypress', { key: 'ArrowDown' })} className="p-1 hover:bg-white/15 rounded text-white/80" title="Вниз"><ChevronDown size={12} /></button>
+              <button onClick={() => sendInteraction('keypress', { key: 'ArrowRight' })} className="p-1 hover:bg-white/15 rounded text-white/80" title="Вправо"><ChevronRight size={12} /></button>
+            </div>
+          </div>
+
+          {/* Браузерні навігаційні кнопки */}
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={() => sendInteraction('go_back')} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white/80" title="Назад"><ArrowLeft size={12} /></button>
+            <button onClick={() => sendInteraction('go_forward')} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white/80" title="Вперед"><ArrowRight size={12} /></button>
+            <button onClick={() => sendInteraction('reload')} className="flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/20 rounded font-bold text-[10px] text-white/90" title="Оновити сторінку (F5)">
+              <RotateCcw size={11} />
+              <span className="hidden sm:inline">Оновити</span>
+            </button>
+            <button onClick={() => sendInteraction('scroll_up')} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white/70" title="Скрол вгору"><ChevronUp size={12} /></button>
+            <button onClick={() => sendInteraction('scroll_down')} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white/70" title="Скрол вниз"><ChevronDown size={12} /></button>
           </div>
         </div>
-
-        {/* Браузерні навігаційні кнопки */}
-        <div className="flex items-center gap-1">
-          <button onClick={() => sendInteraction('go_back')} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white/80" title="Назад"><ArrowLeft size={12} /></button>
-          <button onClick={() => sendInteraction('go_forward')} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white/80" title="Вперед"><ArrowRight size={12} /></button>
-          <button onClick={() => sendInteraction('reload')} className="flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/20 rounded font-bold text-[10px] text-white/90" title="Оновити сторінку (F5)">
-            <RotateCcw size={11} />
-            <span className="hidden sm:inline">Оновити</span>
-          </button>
-          <button onClick={() => sendInteraction('scroll_up')} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white/70" title="Скрол вгору"><ChevronUp size={12} /></button>
-          <button onClick={() => sendInteraction('scroll_down')} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white/70" title="Скрол вниз"><ChevronDown size={12} /></button>
-        </div>
-      </div>
+      )}
     </div>
   );
 
   // ─── Бічна панель інспектора коду (Split-View) ─────────────────────────────
   const renderSideInspector = () => (
-    <div className="w-full md:w-96 lg:w-[440px] flex flex-col bg-[#0b0f19] text-white shrink-0 border-t md:border-t-0 md:border-l border-white/10 overflow-hidden animate-in slide-in-from-right-3 duration-200">
+    <div className={`w-full md:w-96 lg:w-[440px] flex flex-col bg-[#0b0f19] text-white shrink-0 border-t md:border-t-0 md:border-l border-white/10 overflow-hidden animate-in slide-in-from-right-3 duration-200 ${
+      mobileInspectorTab === 'stream' ? 'hidden md:flex' : 'flex-1 md:flex-none'
+    }`}>
       {/* Заголовок */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-900/90 border-b border-white/10 shrink-0 gap-2">
-        <div className="flex items-center gap-2">
-          <PanelRight size={15} className="text-amber-400 shrink-0" />
-          <span className="text-xs font-bold uppercase tracking-wider text-amber-300">Інспектор коду</span>
+      <div className="flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-white/10 shrink-0 gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <PanelRight size={14} className="text-amber-400 shrink-0" />
+          <span className="text-xs font-bold uppercase tracking-wider text-amber-300 truncate">Інспектор</span>
+
+          {/* Мобільні таби */}
+          <div className="flex md:hidden bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/60 shrink-0 ml-0.5">
+            <button
+              onClick={() => setMobileInspectorTab('split')}
+              className={`px-1.5 py-0.5 text-[9px] font-bold rounded transition-all ${
+                mobileInspectorTab === 'split' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-400'
+              }`}
+            >
+              Спліт
+            </button>
+            <button
+              onClick={() => setMobileInspectorTab('stream')}
+              className={`px-1.5 py-0.5 text-[9px] font-bold rounded transition-all ${
+                mobileInspectorTab === 'stream' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-400'
+              }`}
+            >
+              Екран
+            </button>
+            <button
+              onClick={() => setMobileInspectorTab('inspector')}
+              className={`px-1.5 py-0.5 text-[9px] font-bold rounded transition-all ${
+                mobileInspectorTab === 'inspector' ? 'bg-amber-500 text-black shadow-sm' : 'text-slate-400'
+              }`}
+            >
+              Код
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setIsInspectClickActive(!isInspectClickActive)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shadow-sm ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all border shadow-sm ${
               isInspectClickActive
                 ? 'bg-amber-500 text-black border-amber-400 font-extrabold'
                 : 'bg-white/10 text-white/70 hover:text-white border-white/10'
             }`}
-            title={isInspectClickActive ? "Клік на трансляцію вибирає елемент без спрацювання кліку в браузері (елементи та модалки не зникають). Натисніть щоб перейти в режим прямого керування" : "Пряме керування браузером. Натисніть щоб увімкнути безпечний вибір селекторів"}
+            title={isInspectClickActive ? "Клік на трансляцію вибирає елемент без спрацювання кліку в браузері. Натисніть для прямого керування" : "Пряме керування браузером. Натисніть для безпечного вибору"}
           >
             {isInspectClickActive ? <Shield size={11} className="text-black" /> : <Crosshair size={11} />}
-            <span>{isInspectClickActive ? 'Вибір (клік заблоковано)' : 'Керування'}</span>
+            <span className="hidden sm:inline">{isInspectClickActive ? 'Вибір' : 'Керування'}</span>
           </button>
 
           {selectedElementInfo && (
@@ -987,7 +1029,7 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
                             e.stopPropagation();
                             handleCopy(c.selector, `child-${idx}`);
                           }}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-amber-400 transition-opacity text-slate-400"
+                          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-0.5 hover:text-amber-400 transition-opacity text-slate-400"
                           title={copiedKey === `child-${idx}` ? "Скопійовано!" : "Скопіювати селектор"}
                         >
                           {copiedKey === `child-${idx}` ? <Check size={9} className="text-emerald-400" /> : <Copy size={9} />}
@@ -1027,7 +1069,7 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
                             e.stopPropagation();
                             handleCopy(p.selector, `parent-${idx}`);
                           }}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-amber-400 transition-opacity text-slate-400"
+                          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-0.5 hover:text-amber-400 transition-opacity text-slate-400"
                           title={copiedKey === `parent-${idx}` ? "Скопійовано!" : "Скопіювати селектор батька"}
                         >
                           {copiedKey === `parent-${idx}` ? <Check size={9} className="text-emerald-400" /> : <Copy size={9} />}
@@ -1148,7 +1190,7 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
                         e.stopPropagation();
                         handleCopy(el.selector, `interactive-${i}`);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-opacity shrink-0"
+                      className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-opacity shrink-0"
                       title={copiedKey === `interactive-${i}` ? "Скопійовано!" : "Скопіювати селектор"}
                     >
                       {copiedKey === `interactive-${i}` ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
@@ -1209,23 +1251,6 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
             </button>
 
             <button
-              onClick={() => {
-                setIsFullscreen(false);
-                if (pageSourceData) {
-                  setPageSourceData(null);
-                } else {
-                  setIsLoadingSource(true);
-                  ws?.send(JSON.stringify({ type: 'GET_PAGE_SOURCE' }));
-                }
-              }}
-              className="flex items-center gap-1 px-2.5 py-1 bg-blue-600/90 hover:bg-blue-600 rounded-lg text-[10px] font-black text-white uppercase"
-              title="Код сторінки (HTML & DOM інспектор)"
-            >
-              {isLoadingSource ? <Loader2 size={13} className="animate-spin" /> : <Code size={13} />}
-              <span className="hidden sm:inline">Код сторінки</span>
-            </button>
-
-            <button
               onClick={() => setIsFullscreen(false)}
               className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white/70 hover:text-white"
               title="Вийти з повноекранного режиму (ESC)"
@@ -1240,9 +1265,50 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
         </div>
 
         {/* Кадр на весь екран або спліт із бічною панеллю */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative bg-black">
-          <div className="flex-1 overflow-auto relative bg-black flex items-center justify-center min-w-0">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative bg-black min-h-0">
+          <div
+            className={`relative bg-black overflow-auto flex items-center justify-center min-w-0 ${
+              showSideInspector
+                ? mobileInspectorTab === 'inspector'
+                  ? 'hidden md:flex md:flex-1'
+                  : mobileInspectorTab === 'split'
+                  ? 'h-[36vh] md:h-auto md:flex-1 shrink-0'
+                  : 'flex-1'
+                : 'flex-1'
+            }`}
+          >
             {renderFrame(fullscreenContainerRef, true)}
+
+            {/* Мобільний floating chip для вибраного елемента у вкладці 'stream' */}
+            {showSideInspector && mobileInspectorTab === 'stream' && selectedElementInfo && (
+              <div className="md:hidden absolute bottom-2 left-2 right-2 z-30 bg-slate-950/95 border border-amber-500/60 rounded-xl p-2 shadow-2xl flex items-center justify-between gap-2 backdrop-blur-md animate-in slide-in-from-bottom-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold rounded">
+                      &lt;{selectedElementInfo.tag}&gt;
+                    </span>
+                    <span className="text-[10px] text-amber-200/90 font-mono truncate block">
+                      {selectedElementInfo.selector}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => handleCopy(selectedElementInfo.selector, 'floating-sel-full')}
+                    className="px-2 py-1 bg-amber-500 hover:bg-amber-400 text-black font-bold text-[10px] rounded-lg flex items-center gap-1"
+                  >
+                    {copiedKey === 'floating-sel-full' ? <Check size={11} /> : <Copy size={11} />}
+                    <span>Копія</span>
+                  </button>
+                  <button
+                    onClick={() => setMobileInspectorTab('inspector')}
+                    className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold rounded-lg border border-slate-700"
+                  >
+                    Код
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           {showSideInspector && renderSideInspector()}
         </div>
@@ -1253,210 +1319,18 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
     );
   }
 
-  // ─── 2. Модалка коду сторінки та DOM-інспектора ──────────────────────────────
-  if (pageSourceData) {
-    const s = sourceSearch.toLowerCase().trim();
-    const filteredElements = (pageSourceData.elements || []).filter(el => {
-      if (!s) return true;
-      return (
-        el.tag.toLowerCase().includes(s) ||
-        el.id.toLowerCase().includes(s) ||
-        el.className.toLowerCase().includes(s) ||
-        el.text.toLowerCase().includes(s) ||
-        el.selector.toLowerCase().includes(s)
-      );
-    });
-
-    const lines = pageSourceData.html.split('\n');
-    const filteredLines = s 
-      ? lines.map((l, i) => ({ line: l, num: i + 1 })).filter(item => item.line.toLowerCase().includes(s))
-      : lines.map((l, i) => ({ line: l, num: i + 1 }));
-
-    return (
-      <div 
-        className="fixed inset-0 z-[var(--z-stream-picker)] flex items-center justify-center bg-black/85 backdrop-blur-sm p-2 md:p-4 animate-in fade-in duration-200" 
-        onClick={() => setPageSourceData(null)}
-      >
-        <div 
-          className="relative w-full max-w-6xl h-[90vh] bg-[#0b0f19] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Верхня панель */}
-          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-white/10 shrink-0 gap-3 flex-wrap">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Code size={16} className="text-blue-400 shrink-0" />
-              <span className="font-bold text-xs uppercase tracking-wider text-white shrink-0">Код сторінки & Інспектор</span>
-              {pageSourceData.url && (
-                <span className="hidden md:inline-block text-[11px] text-slate-400 font-mono truncate max-w-xs bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60" title={pageSourceData.url}>
-                  {pageSourceData.url}
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap shrink-0">
-              {/* Пошук */}
-              <div className="relative">
-                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Пошук у коді..."
-                  value={sourceSearch}
-                  onChange={(e) => setSourceSearch(e.target.value)}
-                  className="bg-slate-950 border border-slate-700 text-slate-200 text-xs pl-7 pr-5 py-1 rounded-lg w-36 sm:w-48 focus:outline-none focus:border-blue-500 font-sans"
-                />
-                {sourceSearch && (
-                  <button 
-                    onClick={() => setSourceSearch('')}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs px-1"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Перемикач вкладок */}
-              <div className="flex bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/60">
-                <button
-                  onClick={() => setSourceTab('html')}
-                  className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-md transition-all ${
-                    sourceTab === 'html' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  HTML код
-                </button>
-                <button
-                  onClick={() => setSourceTab('elements')}
-                  className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-md transition-all ${
-                    sourceTab === 'elements' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Селектори ({pageSourceData.elements?.length || 0})
-                </button>
-              </div>
-
-              {/* Кнопка Скопіювати */}
-              <button
-                onClick={async () => {
-                  const ok = await copyToClipboard(pageSourceData.html);
-                  if (ok) {
-                    setCopiedCode(true);
-                    setTimeout(() => setCopiedCode(false), 2000);
-                  }
-                }}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
-                title="Скопіювати весь HTML код"
-              >
-                {copiedCode ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                <span className="hidden sm:inline">{copiedCode ? 'Скопійовано!' : 'Копіювати'}</span>
-              </button>
-
-              {/* Оновити */}
-              <button
-                onClick={() => {
-                  setIsLoadingSource(true);
-                  ws?.send(JSON.stringify({ type: 'GET_PAGE_SOURCE' }));
-                }}
-                disabled={isLoadingSource}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all"
-                title="Оновити поточний HTML з браузера"
-              >
-                <RefreshCw size={12} className={isLoadingSource ? 'animate-spin text-blue-400' : ''} />
-                <span className="hidden sm:inline">Оновити</span>
-              </button>
-
-              {/* Відкрити у новому вікні */}
-              <button
-                onClick={() => {
-                  window.open(`/api/browser/page-source/${pageSourceData.projectName || 'SF'}`, '_blank');
-                }}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-sm"
-                title="Відкрити HTML код сторінки у новій вкладці"
-              >
-                <ExternalLink size={12} />
-                <span className="hidden sm:inline">В окремому вікні</span>
-              </button>
-
-              {/* Закрити */}
-              <button 
-                onClick={() => setPageSourceData(null)} 
-                className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
-                title="Повернутися до трансляції (ESC)"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-
-          {/* Вміст */}
-          <div className="flex-1 overflow-auto bg-[#060911] p-4 text-xs font-mono select-text">
-            {sourceTab === 'html' ? (
-              <div className="space-y-0.5">
-                {sourceSearch && (
-                  <div className="mb-3 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded text-[11px] font-sans">
-                    Знайдено рядків: {filteredLines.length} із {lines.length}.
-                  </div>
-                )}
-                {filteredLines.map((item) => (
-                  <div key={item.num} className="flex hover:bg-slate-800/40 rounded px-1 group">
-                    <span className="w-12 shrink-0 text-slate-600 select-none text-right pr-3 font-mono">{item.num}</span>
-                    <span className="text-slate-300 break-all whitespace-pre-wrap flex-1">{item.line}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2 font-sans">
-                <div className="text-[11px] text-slate-400 mb-2">
-                  Клікніть «Скопіювати», щоб скопіювати готовий CSS селектор елемента для ноди:
-                </div>
-                {filteredElements.map((el, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-900/90 border border-slate-800 hover:border-blue-500/40 rounded-xl gap-3 transition-all">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded text-[10px] font-bold uppercase shrink-0">
-                        {el.tag}
-                      </span>
-                      {el.text && (
-                        <span className="text-slate-200 truncate text-xs max-w-[200px]">
-                          "{el.text}"
-                        </span>
-                      )}
-                      <code className="text-slate-400 text-[11px] truncate bg-slate-950 px-2 py-0.5 rounded border border-slate-800 font-mono">
-                        {el.selector}
-                      </code>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        const ok = await copyToClipboard(el.selector);
-                        if (ok) {
-                          alert(`Селектор скопійовано:\n${el.selector}`);
-                        }
-                      }}
-                      className="shrink-0 flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white rounded-lg text-[10px] font-bold uppercase transition-all"
-                    >
-                      <Copy size={11} />
-                      <span>Скопіювати</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // ─── 3. Звичайний режим трансляції ──────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-[var(--z-stream-picker)] flex items-center justify-center bg-black/85 backdrop-blur-sm p-2 md:p-4 animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-[var(--z-stream-picker)] flex items-center justify-center bg-black/85 backdrop-blur-sm p-0 sm:p-2 md:p-4 animate-in fade-in duration-200" onClick={onClose}>
       <div 
-        className={`relative w-full ${showSideInspector ? 'max-w-7xl' : 'max-w-5xl'} flex-col bg-[var(--interface-bg)] border border-[var(--interface-border)] backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl flex transition-all duration-300 max-h-[95vh]`}
+        className={`relative w-full ${showSideInspector ? 'max-w-7xl' : 'max-w-5xl'} h-[100dvh] sm:h-auto sm:max-h-[95vh] flex-col bg-[var(--interface-bg)] border-0 sm:border border-[var(--interface-border)] backdrop-blur-md rounded-none sm:rounded-2xl overflow-hidden shadow-2xl flex transition-all duration-300`}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex flex-col flex-1 h-full min-w-0">
           {/* Верхня панель */}
           <div className="flex flex-col border-b border-white/10 bg-white/5 shrink-0 backdrop-blur-md">
-            <div className="flex items-center justify-between px-4 py-2.5">
-              <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
                     if (isBrowserOpen) {
@@ -1473,7 +1347,7 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
                       ws?.send(JSON.stringify({ type: 'LAUNCH_BROWSER', settings }));
                     }
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm ${
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm ${
                     isBrowserOpen 
                       ? 'bg-rose-600/90 text-white hover:bg-rose-600' 
                       : 'bg-emerald-600/90 text-white hover:bg-emerald-600'
@@ -1485,11 +1359,11 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
                 </button>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 {/* Запис */}
                 <button
                   onClick={() => setIsRecording(!isRecording)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                  className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
                     isRecording ? 'bg-red-600 text-white shadow-lg shadow-red-500/30 animate-pulse' : 'bg-muted text-muted-foreground hover:bg-muted/80'
                   }`}
                 >
@@ -1499,9 +1373,9 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
 
                 {/* Zoom */}
                 <div className="flex items-center bg-white/5 border border-white/10 rounded-lg overflow-hidden">
-                  <button onClick={() => setZoom(z => Math.max(1, z - 0.25))} className="px-2 py-1.5 hover:bg-white/10 text-white/60 hover:text-white"><ZoomOut size={13} /></button>
-                  <button onClick={() => setZoom(1)} className="px-2 py-1.5 text-[10px] font-bold min-w-[42px] text-center hover:bg-white/10 border-x border-white/10 text-white/80">{Math.round(zoom * 100)}%</button>
-                  <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className="px-2 py-1.5 hover:bg-white/10 text-white/60 hover:text-white"><ZoomIn size={13} /></button>
+                  <button onClick={() => setZoom(z => Math.max(1, z - 0.25))} className="px-1.5 sm:px-2 py-1.5 hover:bg-white/10 text-white/60 hover:text-white"><ZoomOut size={13} /></button>
+                  <button onClick={() => setZoom(1)} className="px-1.5 sm:px-2 py-1.5 text-[10px] font-bold min-w-[36px] sm:min-w-[42px] text-center hover:bg-white/10 border-x border-white/10 text-white/80">{Math.round(zoom * 100)}%</button>
+                  <button onClick={() => setZoom(z => Math.min(4, z + 0.25))} className="px-1.5 sm:px-2 py-1.5 hover:bg-white/10 text-white/60 hover:text-white"><ZoomIn size={13} /></button>
                 </div>
 
                 {/* Fullscreen */}
@@ -1517,7 +1391,7 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
             </div>
 
             {/* Рядок режимів */}
-            <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2.5">
+            <div className="flex items-center gap-1.5 px-3 sm:px-4 pb-2 sm:pb-2.5 overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap">
               {MODES.map(m => (
                 <button
                   key={m.key}
@@ -1525,7 +1399,7 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
                     setMode(m.key);
                     if (m.key === 'pick') ws?.send(JSON.stringify({ type: 'ACTIVATE_PICKER', nodeId, pickType }));
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all shrink-0 ${
                     mode === m.key
                       ? `${m.color} text-white shadow-md scale-[1.03] ring-2 ring-offset-1 ring-offset-background ${m.color.replace('bg-', 'ring-')}`
                       : 'bg-muted text-muted-foreground hover:bg-muted/60 hover:text-foreground'
@@ -1538,7 +1412,7 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
                 </button>
               ))}
 
-              <div className="flex-1" />
+              <div className="hidden sm:block flex-1" />
 
               {/* Код збоку */}
               <button
@@ -1549,50 +1423,99 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
                     ws?.send(JSON.stringify({ type: 'GET_PAGE_SOURCE' }));
                   }
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm border ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm border shrink-0 ${
                   showSideInspector
                     ? 'bg-amber-500 text-black border-amber-400 font-extrabold shadow-md ring-2 ring-amber-400/50'
                     : 'bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border-amber-500/30'
                 }`}
-                title="Режим інспектора: екран браузера зліва, код та селектори збоку"
+                title="Режим інспектора: екран браузера та селектори коду"
               >
                 <PanelRight size={13} />
                 <span>Код збоку</span>
-              </button>
-
-              {/* Код сторінки */}
-              <button
-                onClick={() => {
-                  if (pageSourceData) {
-                    setPageSourceData(null);
-                  } else {
-                    setIsLoadingSource(true);
-                    ws?.send(JSON.stringify({ type: 'GET_PAGE_SOURCE' }));
-                  }
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all shadow-sm bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 hover:text-blue-300 border border-blue-500/30"
-                title="Відкрити код сторінки (HTML & DOM інспектор)"
-              >
-                {isLoadingSource ? <Loader2 size={12} className="animate-spin" /> : <Code size={12} />}
-                <span>Повний код</span>
               </button>
             </div>
           </div>
 
           {/* Основний блок: кадр трансляції + бічна панель (Split-View) */}
-          <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-[350px] max-h-[65vh]">
-            <div ref={scrollRef} className="relative flex-1 bg-black/40 overflow-auto touch-none backdrop-blur-sm flex items-center justify-center min-w-0">
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 relative">
+            <div
+              ref={scrollRef}
+              className={`relative bg-black/40 overflow-auto touch-none backdrop-blur-sm flex items-center justify-center min-w-0 transition-all ${
+                showSideInspector
+                  ? mobileInspectorTab === 'inspector'
+                    ? 'hidden md:flex md:flex-1'
+                    : mobileInspectorTab === 'split'
+                    ? 'h-[36vh] md:h-auto md:flex-1 shrink-0'
+                    : 'flex-1'
+                  : 'flex-1'
+              }`}
+            >
               {showSideInspector && (
-                <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/90 text-black font-bold text-[10px] rounded-lg shadow-lg pointer-events-none select-none">
+                <div className="absolute top-2 left-2 z-10 hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/90 text-black font-bold text-[10px] rounded-lg shadow-lg pointer-events-none select-none">
                   <Sparkles size={11} />
                   <span>{isInspectClickActive ? "Клікніть на об'єкт у браузері для вибору коду" : "Пряме керування сторінкою"}</span>
                 </div>
               )}
 
-              {loading && (
-                <div className="flex flex-col items-center gap-3 text-muted-foreground py-20">
-                  <Loader2 size={36} className="animate-spin text-primary" />
-                  <span className="text-[11px] font-bold uppercase tracking-widest">Підключення до трансляції...</span>
+              {/* Мобільний floating chip для вибраного елемента у вкладці 'stream' */}
+              {showSideInspector && mobileInspectorTab === 'stream' && selectedElementInfo && (
+                <div className="md:hidden absolute bottom-2 left-2 right-2 z-30 bg-slate-950/95 border border-amber-500/60 rounded-xl p-2 shadow-2xl flex items-center justify-between gap-2 backdrop-blur-md animate-in slide-in-from-bottom-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold rounded">
+                        &lt;{selectedElementInfo.tag}&gt;
+                      </span>
+                      <span className="text-[10px] text-amber-200/90 font-mono truncate block">
+                        {selectedElementInfo.selector}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleCopy(selectedElementInfo.selector, 'floating-sel')}
+                      className="px-2 py-1 bg-amber-500 hover:bg-amber-400 text-black font-bold text-[10px] rounded-lg flex items-center gap-1"
+                    >
+                      {copiedKey === 'floating-sel' ? <Check size={11} /> : <Copy size={11} />}
+                      <span>Копія</span>
+                    </button>
+                    <button
+                      onClick={() => setMobileInspectorTab('inspector')}
+                      className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold rounded-lg border border-slate-700"
+                    >
+                      Код
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!hasReceivedFrame && (
+                <div className="flex flex-col items-center gap-3 text-muted-foreground py-20 px-4 text-center">
+                  {loading ? (
+                    <>
+                      <Loader2 size={36} className="animate-spin text-primary" />
+                      <span className="text-[11px] font-bold uppercase tracking-widest">Підключення до трансляції...</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-1">
+                        <AlertTriangle size={24} />
+                      </div>
+                      <span className="text-sm font-bold text-slate-200">Очікування відеопотоку</span>
+                      <p className="text-xs text-slate-400 max-w-sm">
+                        Браузер проекту ще не надіслав кадр. Натисніть «Старт» вгорі або кнопку нижче:
+                      </p>
+                      <button
+                        onClick={() => {
+                          setLoading(true);
+                          ws?.send(JSON.stringify({ type: 'START_STREAM', nodeId }));
+                        }}
+                        className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-500/20 transition-all mt-1"
+                      >
+                        <RefreshCw size={13} />
+                        <span>Перепідключити потік</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 

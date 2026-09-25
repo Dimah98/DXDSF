@@ -12,7 +12,7 @@ import {
   RotateCcw, RefreshCw, RefreshCwOff, ShieldAlert, Cpu
 } from 'lucide-react';
 
-export const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string; fill?: string }>> = {
+const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string; fill?: string }>> = {
   Play, Globe, Scan, Search, CloudDownload, Database,
   GitFork, MousePointerClick, Crosshair, Keyboard,
   Camera, Layers, Monitor, Repeat, Move,

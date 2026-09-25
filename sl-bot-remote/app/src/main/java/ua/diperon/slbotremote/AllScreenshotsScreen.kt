@@ -218,8 +218,7 @@ fun AllScreenshotsScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black)
-                .clickable { fullscreenImageIndex = null },
+                .background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
             HorizontalPager(
@@ -229,17 +228,24 @@ fun AllScreenshotsScreen(
                 val projectName = projectsWithThisFile[index]
                 val imageUrl = "$baseUrl/api/screenshots/${projectName}_screenshots/$selectedFilename?t=$refreshTimestamp"
 
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(imageUrl)
-                        .crossfade(true)
-                        .diskCachePolicy(coil.request.CachePolicy.DISABLED)
-                        .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
-                        .build(),
-                    contentDescription = "Screenshot image",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize()
-                )
+                ZoomableBox(
+                    modifier = Modifier.fillMaxSize(),
+                    minScale = 1f,
+                    maxScale = 5f,
+                    showControls = true
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(imageUrl)
+                            .crossfade(true)
+                            .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                            .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                            .build(),
+                        contentDescription = "Screenshot image",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
 
             // Кнопка закриття

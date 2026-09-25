@@ -484,9 +484,14 @@ fun ConnectionSettingsScreen(
                         Button(
                             onClick = {
                                 if (hostInput.isNotBlank() && portInput.isNotBlank() && ipAddressInput.isNotBlank()) {
-                                    viewModel.saveSettings(hostInput, portInput, ipAddressInput, ipAddress2Input, activeIpAddress)
-                                    inventoryPrefs.saveInventoryOrder(inventoryOrderInput)
-                                    onSaveSuccess() // Повернення на головний екран при успіху
+                                    try {
+                                        viewModel.saveSettings(hostInput, portInput, ipAddressInput, ipAddress2Input, activeIpAddress)
+                                        inventoryPrefs.saveInventoryOrder(inventoryOrderInput)
+                                        onSaveSuccess() // Повернення на головний екран при успіху
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("ConnectionSettings", "Save settings error", e)
+                                        android.widget.Toast.makeText(context, "Помилка збереження: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                                    }
                                 }
                             },
                             enabled = hostInput.isNotBlank() && portInput.isNotBlank() && ipAddressInput.isNotBlank(), // Активна лише за наявності даних
