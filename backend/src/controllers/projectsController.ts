@@ -865,6 +865,125 @@ export async function copyNodes(req: Request, res: Response): Promise<void> {
   }
 }
 
+// Список назв проектів, які вважаються "системними" і не повинні отримувати спільні ноди
+const SYSTEM_PROJECT_NAMES = new Set([
+  '__shared__', 'default', 'categories', 'global_building_types',
+  'buildings_catalog_settings', 'schedule', 'notifications', 'configs',
+  'mass_launches', 'test_project_logger_runs'
+]);
+
+/**
+ * Синхронізує ноди з __shared__ у всі реальні проекти.
+ * POST /api/projects/sync-shared-nodes
+ * Body: { targetProjects?: string[] } — якщо не вказано, синхронізується з усіма проектами
+ */
+export async function syncSharedNodes(req: Request, res: Response): Promise<void> {
+  try {
+    const sharedPath = path.join(PROJECTS_DIR, '__shared__.json');
+    let sharedData: any = null;
+
+    // 1. Читаємо __shared__ з SQLite
+    const dbShared = getProjectContent('__shared__');
+    if (dbShared && dbShared.content) {
+      try { sharedData = JSON.parse(dbShared.content); } catch (_) {}
+    }
+
+    // 2. Fallback на диск
+    if (!sharedData && fs.existsSync(sharedPath)) {
+      try {
+        const content = await fs.promises.readFile(sharedPath, 'utf-8');
+        sharedData = JSON.parse(content);
+      } catch (_) {}
+    }
+
+    if (!sharedData) {
+      res.status(404).json({ success: false, error: 'Спільна схема __shared__ не знайдена' });
+      return;
+    }
+
+    const rawNodes = sharedData.nodes || [];
+    const edges = sharedData.edges || [];
+    const nodes = rawNodes.map((node: any) => cleanNodeForTarget(node));
+
+    // 3. Визначаємо цільові проекти
+    let targetProjects: string[] = req.body?.targetProjects;
+    if (!targetProjects || !Array.isArray(targetProjects) || targetProjects.length === 0) {
+      const dbProjects = getDbProjects();
+      if (dbProjects && dbProjects.length > 0) {
+        targetProjects = dbProjects.map(p => p.name).filter(n =>
+          !SYSTEM_PROJECT_NAMES.has(n) &&
+          !n.endsWith('_vars') && !n.endsWith('_save') && !n.endsWith('_layout') &&
+          !n.endsWith('_stats') && !n.endsWith('_logs') && !n.endsWith('_inventory')
+        );
+      } else {
+        const files = await fs.promises.readdir(PROJECTS_DIR);
+        targetProjects = files
+          .filter(f => f.endsWith('.json'))
+          .map(f => f.replace('.json', ''))
+          .filter(n =>
+            !SYSTEM_PROJECT_NAMES.has(n) &&
+            !n.endsWith('_vars') && !n.endsWith('_save') && !n.endsWith('_layout') &&
+            !n.endsWith('_stats') && !n.endsWith('_logs') && !n.endsWith('_inventory')
+          );
+      }
+    }
+
+    let updated = 0;
+    const errors: string[] = [];
+
+    for (const target of targetProjects) {
+      if (SYSTEM_PROJECT_NAMES.has(target)) continue;
+      try {
+        const targetPath = path.join(PROJECTS_DIR, `${target}.json`);
+        let targetData: any = {};
+
+        const dbTarget = getProjectContent(target);
+        if (dbTarget && dbTarget.content) {
+          try { targetData = JSON.parse(dbTarget.content); } catch (_) {}
+        }
+        if (!targetData || Object.keys(targetData).length === 0) {
+          if (fs.existsSync(targetPath)) {
+            const targetContent = await fs.promises.readFile(targetPath, 'utf-8');
+            targetData = JSON.parse(targetContent);
+          }
+        }
+
+        targetData.nodes = nodes;
+        targetData.edges = edges;
+        targetData.updatedAt = Date.now();
+
+        const targetJsonStr = JSON.stringify(targetData, null, 2);
+
+        try {
+          saveProjectContent(target, targetJsonStr, targetPath, targetData.updatedAt);
+          upsertProject(target, targetPath, undefined, targetData.updatedAt, targetJsonStr);
+        } catch (dbErr) {
+          logger.warn(`syncSharedNodes: Failed to update ${target} in SQLite`, { error: String(dbErr) });
+        }
+
+        await writeJsonAtomic(targetPath, targetData);
+        fileJsonCache.delete(targetPath);
+
+        const session = sessions.get(target);
+        if (session && session.activeWs && session.activeWs.readyState === 1) {
+          session.activeWs.send(JSON.stringify({ type: 'PROJECT_UPDATED', projectName: target }));
+        }
+
+        updated++;
+        logger.info(`syncSharedNodes: Updated ${target}`);
+      } catch (err: any) {
+        logger.error(`syncSharedNodes: Failed to update ${target}`, err);
+        errors.push(target);
+      }
+    }
+
+    res.json({ success: true, updated, errors });
+  } catch (err: any) {
+    logger.error('syncSharedNodes endpoint error', err instanceof Error ? err : new Error(String(err)));
+    res.status(500).json({ success: false, error: 'Не вдалося синхронізувати спільні ноди.' });
+  }
+}
+
 export async function runSequentialProjects(req: Request, res: Response): Promise<void> {
   try {
     const { projectNames, projectSettings } = req.body;

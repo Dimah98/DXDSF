@@ -3,6 +3,8 @@ import type { Node, Edge } from '@xyflow/react';
 import { attachEdgeCallbacks } from '../utils/flowUtils';
 import { useUIStore } from '../store/useUIStore';
 
+const SHARED_PROJECT_NAME = '__shared__';
+
 interface UseProjectManagerProps {
   API_HOST: string;
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
@@ -13,6 +15,7 @@ interface UseProjectManagerProps {
   edgesRef: React.MutableRefObject<Edge[]>;
   globalVariablesRef: React.MutableRefObject<Record<string, any>>;
   addLog: (message: string, type?: 'info' | 'error' | 'success' | 'debug', data?: any) => void;
+  sharedNodesMode?: boolean;
 }
 
 export function useProjectManager({
@@ -24,7 +27,8 @@ export function useProjectManager({
   nodesRef,
   edgesRef,
   globalVariablesRef,
-  addLog
+  addLog,
+  sharedNodesMode = false
 }: UseProjectManagerProps) {
   const [activeProjectName, setActiveProjectName] = useState('default');
 
@@ -32,44 +36,104 @@ export function useProjectManager({
   const attachCallbacksRef = useRef(attachCallbacks);
   useEffect(() => { attachCallbacksRef.current = attachCallbacks; }, [attachCallbacks]);
 
+  // Ref для актуального значення sharedNodesMode
+  const sharedNodesModeRef = useRef(sharedNodesMode);
+  useEffect(() => { sharedNodesModeRef.current = sharedNodesMode; }, [sharedNodesMode]);
+
   const saveProject = useCallback(async (name: string = 'default') => {
     try {
       setActiveProjectName(name);
+      
+      // Якщо режим спільних нод — зберігаємо ноди в __shared__ та синхронізуємо з усіма проектами
+      if (sharedNodesModeRef.current) {
+        addLog(`Збереження спільної схеми нод...`, 'info');
+        
+        const savedLaunch = localStorage.getItem(`sfl_launch_settings_${SHARED_PROJECT_NAME}`);
+        const launchSettings = savedLaunch ? JSON.parse(savedLaunch) : { mode: 'single' };
+        const savedBrowser = localStorage.getItem(`sfl_browser_${SHARED_PROJECT_NAME}`);
+        const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {};
+        const savedGlobal = localStorage.getItem('sfl_global_settings_v4');
+        const globalSettings = savedGlobal ? JSON.parse(savedGlobal) : {};
+        const updatedBrowserSettings = {
+          ...browserSettings,
+          photoDebug: globalSettings.photoDebug !== false,
+          disableImages: globalSettings.disableImages === true,
+          headless: globalSettings.headless === true
+        };
+
+        // Зберігаємо ноди в __shared__
+        await fetch(`${API_HOST}/api/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: SHARED_PROJECT_NAME,
+            data: {
+              nodes: nodesRef.current,
+              edges: edgesRef.current,
+              variables: globalVariablesRef.current,
+              launchSettings,
+              browserSettings: updatedBrowserSettings
+            }
+          }),
+        });
+
+        // Синхронізуємо з усіма проектами
+        const syncRes = await fetch(`${API_HOST}/api/projects/sync-shared-nodes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const syncData = await syncRes.json();
+        
+        addLog(`Спільна схема збережена та синхронізована з ${syncData.updated || 0} проектами`, 'success');
+        
+        // Також зберігаємо settings поточного проекту (окремо від нод)
+        const savedLaunchCurrent = localStorage.getItem(`sfl_launch_settings_${name}`);
+        const launchSettingsCurrent = savedLaunchCurrent ? JSON.parse(savedLaunchCurrent) : { mode: 'single' };
+        const savedBrowserCurrent = localStorage.getItem(`sfl_browser_${name}`);
+        const browserSettingsCurrent = savedBrowserCurrent ? JSON.parse(savedBrowserCurrent) : {};
+        await fetch(`${API_HOST}/api/projects/${encodeURIComponent(name)}/settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ launchSettings: launchSettingsCurrent, browserSettings: { ...browserSettingsCurrent, ...updatedBrowserSettings } })
+        }).catch(() => {});
+        
+        // Зберігаємо логи поточного проекту
+        useUIStore.getState().requestSaveLogs(name);
+        window.dispatchEvent(new CustomEvent('sfl-save-logs', { detail: { projectName: name } }));
+        return;
+      }
+
+      // Звичайний режим — зберігаємо в поточний проект
       addLog(`Збереження проекту "${name}"...`, 'info');
       const savedLaunch = localStorage.getItem(`sfl_launch_settings_${name}`);
       const launchSettings = savedLaunch ? JSON.parse(savedLaunch) : { mode: 'single' };
-      const savedBrowser = localStorage.getItem(`sfl_browser_${name}`); // Зчитування збережених налаштувань браузера проекту
-      const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {}; // Декодування налаштувань або пустий об'єкт
+      const savedBrowser = localStorage.getItem(`sfl_browser_${name}`);
+      const browserSettings = savedBrowser ? JSON.parse(savedBrowser) : {};
+      const savedGlobal = localStorage.getItem('sfl_global_settings_v4');
+      const globalSettings = savedGlobal ? JSON.parse(savedGlobal) : {};
+      const updatedBrowserSettings = {
+        ...browserSettings,
+        photoDebug: globalSettings.photoDebug !== false,
+        disableImages: globalSettings.disableImages === true,
+        headless: globalSettings.headless === true
+      };
 
-      // Зчитуємо глобальні налаштування для отримання photoDebug та disableImages
-      const savedGlobal = localStorage.getItem('sfl_global_settings_v4'); // Отримання глобальних налаштувань
-      // Декодуємо глобальні налаштування або використовуємо порожній об'єкт
-      const globalSettings = savedGlobal ? JSON.parse(savedGlobal) : {}; // Декодування налаштувань або пустий об'єкт
-
-      // Об'єднуємо поточні налаштування браузера з глобальними прапорцями
-      const updatedBrowserSettings = { // Оновлений об'єкт налаштувань браузера
-        ...browserSettings, // Копіювання існуючих налаштувань браузера проекту
-        photoDebug: globalSettings.photoDebug !== false, // Встановлення глобального прапорця фотодебагу
-        disableImages: globalSettings.disableImages === true, // Встановлення глобального прапорця вимкнення зображень
-        headless: globalSettings.headless === true // Встановлення глобального прапорця невидимого режиму браузера
-      }; // Завершення об'єднання налаштувань
-
-      await fetch(`${API_HOST}/api/save`, { // Відправлення запиту збереження на сервер
-        method: 'POST', // Метод POST
-        headers: { 'Content-Type': 'application/json' }, // Встановлення JSON заголовка
-        body: JSON.stringify({ // Серіалізація об'єкта даних
-          name, // Назва проекту для збереження
-          data: { // Дані проекту
-            nodes: nodesRef.current, // Поточні ноди проекту з референсу
-            edges: edgesRef.current, // Поточні ребра проекту з референсу
-            variables: globalVariablesRef.current, // Змінні проекту з референсу
-            launchSettings, // Параметри запуску проекту
-            browserSettings: updatedBrowserSettings // Оновлені налаштування браузера проекту
-          } // Кінець об'єкта даних
-        }), // Кінець тіла запиту
-      }); // Кінець fetch запиту
+      await fetch(`${API_HOST}/api/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          data: {
+            nodes: nodesRef.current,
+            edges: edgesRef.current,
+            variables: globalVariablesRef.current,
+            launchSettings,
+            browserSettings: updatedBrowserSettings
+          }
+        }),
+      });
       
-      // Відправляємо подію для збереження поточних логів
       useUIStore.getState().requestSaveLogs(name);
       window.dispatchEvent(new CustomEvent('sfl-save-logs', { detail: { projectName: name } }));
       
@@ -84,6 +148,61 @@ export function useProjectManager({
     try {
       setActiveProjectName(name);
       addLog(`Завантаження проекту "${name}"...`, 'info');
+      
+      // Якщо режим спільних нод — завантажуємо ноди з __shared__, а налаштування з поточного проекту
+      if (sharedNodesModeRef.current) {
+        // Завантажуємо налаштування поточного проекту (settings, variables)
+        const res = await fetch(`${API_HOST}/api/load?name=${encodeURIComponent(name)}`);
+        if (res.ok) {
+          const text = await res.text();
+          if (text) {
+            const data = JSON.parse(text);
+            if (data.variables) setGlobalVariables(data.variables);
+            if (data.launchSettings) localStorage.setItem(`sfl_launch_settings_${name}`, JSON.stringify(data.launchSettings));
+            if (data.browserSettings) localStorage.setItem(`sfl_browser_${name}`, JSON.stringify(data.browserSettings));
+          }
+        }
+        
+        // Завантажуємо ноди з __shared__
+        const sharedRes = await fetch(`${API_HOST}/api/load?name=${encodeURIComponent(SHARED_PROJECT_NAME)}`);
+        if (!sharedRes.ok) {
+          // Якщо __shared__ ще не існує — використовуємо ноди поточного проекту
+          addLog(`Спільна схема ще не створена. Використовуються ноди проекту "${name}"`, 'info');
+          const fallbackRes = await fetch(`${API_HOST}/api/load?name=${encodeURIComponent(name)}`);
+          if (fallbackRes.ok) {
+            const fallbackText = await fallbackRes.text();
+            if (fallbackText) {
+              const fallbackData = JSON.parse(fallbackText);
+              setNodes(attachCallbacksRef.current(fallbackData.nodes || []));
+              const rawEdges = (fallbackData.edges || []).map((edge: any) => ({
+                ...edge, animated: false,
+                style: { ...edge.style, strokeWidth: 1.5, opacity: 0.4 }
+              }));
+              setEdges(attachEdgeCallbacks(rawEdges, setEdges));
+            }
+          }
+          addLog(`Проект "${name}" завантажено (звичайний режим)`, 'success');
+          return;
+        }
+        
+        const sharedText = await sharedRes.text();
+        if (!sharedText) {
+          addLog(`Спільна схема порожня`, 'info');
+          return;
+        }
+        
+        const sharedData = JSON.parse(sharedText);
+        setNodes(attachCallbacksRef.current(sharedData.nodes || []));
+        const rawEdges = (sharedData.edges || []).map((edge: any) => ({
+          ...edge, animated: false,
+          style: { ...edge.style, strokeWidth: 1.5, opacity: 0.4 }
+        }));
+        setEdges(attachEdgeCallbacks(rawEdges, setEdges));
+        addLog(`Проект "${name}" + спільна схема нод завантажено`, 'success');
+        return;
+      }
+
+      // Звичайний режим
       const res = await fetch(`${API_HOST}/api/load?name=${encodeURIComponent(name)}`);
       
       if (!res.ok) {
@@ -99,22 +218,16 @@ export function useProjectManager({
       
       if (data.variables) setGlobalVariables(data.variables);
       
-      // Перевіряємо чи є налаштування запуску у завантажених даних проекту
       if (data.launchSettings) {
-        // Зберігаємо налаштування запуску в localStorage для поточного проекту
         localStorage.setItem(`sfl_launch_settings_${name}`, JSON.stringify(data.launchSettings));
       }
       
-      // Перевіряємо чи є налаштування браузера у завантажених даних проекту
       if (data.browserSettings) {
-        // Зберігаємо налаштування браузера в localStorage для поточного проекту
         localStorage.setItem(`sfl_browser_${name}`, JSON.stringify(data.browserSettings));
       }
 
-      // Використовуємо ref для attachCallbacks — стабільна залежність
       setNodes(attachCallbacksRef.current(data.nodes || []));
       
-      // Відновлюємо стилі та колбеки ребер через уніфіковану утиліту
       const rawEdges = (data.edges || []).map((edge: any) => ({
         ...edge,
         animated: false,

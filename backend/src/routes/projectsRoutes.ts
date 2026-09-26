@@ -15,6 +15,7 @@ import {
   runMultipleProjects,
   stopMultipleProjects,
   copyNodes,
+  syncSharedNodes,
   runSequentialProjects
 } from '../controllers/projectsController';
 import { authMiddleware } from '../auth/AuthMiddleware';
@@ -48,6 +49,7 @@ router.delete('/api/projects/:name', authMiddleware, csrfMiddleware, deleteProje
 router.post('/api/projects/run-multiple', authMiddleware, csrfMiddleware, runMultipleRateLimiter, runMultipleProjects);
 router.post('/api/projects/stop-multiple', authMiddleware, csrfMiddleware, stopMultipleProjects);
 router.post('/api/projects/copy-nodes', authMiddleware, copyNodes);
+router.post('/api/projects/sync-shared-nodes', authMiddleware, syncSharedNodes);
 router.post('/api/projects/run-sequential', authMiddleware, runSequentialProjects);
 
 export default router;

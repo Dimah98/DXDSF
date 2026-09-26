@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Globe, Map as MapIcon, Package, Camera, Truck, CalendarClock, LayoutGrid,
-  ChevronRight, ChevronLeft, Square, Play, Boxes, Images, SlidersHorizontal, Eye, Hammer, PackageCheck
+  ChevronRight, ChevronLeft, Square, Play, Boxes, Images, SlidersHorizontal, Eye, Hammer, PackageCheck, Link2
 } from 'lucide-react';
+
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -311,9 +312,17 @@ const NodeEditor = ({ currentView: _currentView, setCurrentView }: NodeEditorPro
     return saved !== null ? saved === 'true' : true;
   });
 
+  const [sharedNodesMode, setSharedNodesMode] = useState(() => {
+    return localStorage.getItem('sfl_shared_nodes_mode') === 'true';
+  });
+
   useEffect(() => {
     localStorage.setItem('sfl_screenshot_sidebar_collapsed', String(isScreenshotSidebarCollapsed));
   }, [isScreenshotSidebarCollapsed]);
+
+  useEffect(() => {
+    localStorage.setItem('sfl_shared_nodes_mode', String(sharedNodesMode));
+  }, [sharedNodesMode]);
 
   useEffect(() => {
     const handler = () => setIsNpcDeliveriesOpen(true);
@@ -600,7 +609,7 @@ const NodeEditor = ({ currentView: _currentView, setCurrentView }: NodeEditorPro
 
   useWebSocket({ WS_HOST, wsRef, setNodes, nodesRef, subNodeCallbacksRef, setGlobalVariables, addLog, setIsBotRunning, attachCallbacks, setDebugImages });
 
-  const { saveProject, loadProject, onClear } = useProjectManager({ API_HOST, setNodes, setEdges, attachCallbacks, setGlobalVariables, nodesRef, edgesRef, globalVariablesRef, addLog });
+  const { saveProject, loadProject, onClear } = useProjectManager({ API_HOST, setNodes, setEdges, attachCallbacks, setGlobalVariables, nodesRef, edgesRef, globalVariablesRef, addLog, sharedNodesMode });
 
   // Ефект для синхронізації змінної currentProject з адресою (URL) сторінки
   useEffect(() => {
@@ -962,6 +971,25 @@ const NodeEditor = ({ currentView: _currentView, setCurrentView }: NodeEditorPro
                     >
                       <PackageCheck size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
+                    <button
+                      onClick={() => {
+                        const next = !sharedNodesMode;
+                        setSharedNodesMode(next);
+                        if (next) {
+                          // При вмиканні — перезавантажуємо ноди з __shared__ (або поточного проекту якщо __shared__ немає)
+                          loadProject(currentProject);
+                        }
+                      }}
+                      className={`p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border ${
+                        sharedNodesMode
+                          ? 'bg-orange-500/30 text-orange-300 border-orange-400/60 hover:bg-orange-500/40 shadow-orange-500/30 ring-1 ring-orange-400/50'
+                          : 'bg-orange-500/10 text-orange-400/60 border-orange-500/20 hover:bg-orange-500/20'
+                      }`}
+                      title={sharedNodesMode ? 'Спільні ноди: УВІМКНЕНО — збереження синхронізується в усі проекти' : 'Спільні ноди: ВИМКНЕНО — натисніть щоб увімкнути єдину схему нод для всіх проектів'}
+                    >
+                      <Link2 size={16} className="md:w-[18px] md:h-[18px]" />
+                    </button>
+
                     <button
                       onClick={() => setCurrentView('scheduler')}
                       className="p-2 md:p-2.5 rounded-xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 border bg-[var(--accent-orange)]/20 text-[var(--accent-orange)] border-[var(--accent-orange)]/40 hover:bg-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/20"
