@@ -738,6 +738,27 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
     // Формуємо повний шлях до userData профілю
     const activeUserData = path.join(CAMOUFOX_PROFILES_DIR, activeProfileDir);
 
+    // Скидаємо збережене в prefs.js блокування картинок, якщо disableImages вимкнено
+    try {
+      const prefsFile = path.join(activeUserData, 'prefs.js');
+      if (fs.existsSync(prefsFile)) {
+        const prefsContent = await fs.promises.readFile(prefsFile, 'utf-8');
+        if (prefsContent.includes('permissions.default.image')) {
+          const targetValue = disableImages ? 2 : 1;
+          const updatedContent = prefsContent.replace(
+            /user_pref\(\s*["']permissions\.default\.image["']\s*,\s*\d+\s*\);?/g,
+            `user_pref("permissions.default.image", ${targetValue});`
+          );
+          if (updatedContent !== prefsContent) {
+            await fs.promises.writeFile(prefsFile, updatedContent, 'utf-8');
+            logger.info(`Updated permissions.default.image to ${targetValue} in ${prefsFile}`);
+          }
+        }
+      }
+    } catch (prefErr) {
+      logger.debug(`Could not update prefs.js for ${session.projectName}`, { error: String(prefErr) });
+    }
+
     // Перевіряємо чи увімкнено невидимий режим
     const isHeadless = !forceHeaded && (internalConfig.get('headless') === 1 || session.botSettings?.headless === true);
 
@@ -937,7 +958,7 @@ except Exception:
         'dom.ipc.processCount': 1, // Зниження кількості фонових процесів контенту
         'browser.cache.disk.enable': false, // Вимкнення дискового кешу (знижує I/O навантаження)
         'browser.cache.memory.capacity': 32768, // Обмеження RAM-кешу до 32 МБ
-        ...(disableImages ? { 'permissions.default.image': 2 } : {})
+        'permissions.default.image': disableImages ? 2 : 1
       },
     });
   };

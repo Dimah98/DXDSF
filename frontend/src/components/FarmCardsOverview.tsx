@@ -28,6 +28,7 @@ export interface FarmCardData {
   experience: number;
   islandType: string;
   islandExpansions: number;
+  season?: string;
   deliveries: {
     coins: number;
     flower: number;
@@ -160,6 +161,13 @@ const DEFAULT_SETTINGS: CardSettings = {
 };
 
 const SETTINGS_STORAGE_KEY = 'sf_farm_cards_settings';
+
+const SEASON_UKRAINIAN: Record<string, string> = {
+  spring: 'Весна',
+  summer: 'Літо',
+  autumn: 'Осінь',
+  winter: 'Зима'
+};
 
 // Допоміжні функції форматування часу
 function formatRemaining(ms: number): string {
@@ -412,7 +420,7 @@ export const FarmCardsOverview: React.FC<FarmCardsOverviewProps> = ({ setCurrent
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {[
                 { key: 'showTitleHeader', label: '1. Назва проекту, Lvl, тип та розширення острова' },
-                { key: 'showDeliveriesActivity', label: '2. Доставки (Coins/Flower/Ticket), допомога гравцям, міні-ігри' },
+                { key: 'showDeliveriesActivity', label: '2. Доставки за сьогодні (Coins/Flower/Ticket), допомога гравцям, міні-ігри' },
                 { key: 'showCrops', label: '3. Рослини на грядках та сумарний урожай із таймером' },
                 { key: 'showSeasonalCropSeeds', label: '4. Насіння рослин поточного сезону в інвентарі' },
                 { key: 'showFruitTrees', label: '5. Фруктові дерева (квадрати зі зборами, урожаєм та рамкою)' },
@@ -548,21 +556,21 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
               {/* Грошові (жовтий) */}
               <span
                 className="px-1.5 py-0.5 rounded text-[10px] font-bold badge-delivery-coins"
-                title="Доставлено замовлень монет (Coins)"
+                title="Виконано грошових замовлень за сьогодні (Coins / SFL)"
               >
                 🪙 {card.deliveries.coins}
               </span>
               {/* Flower (фіолетовий) */}
               <span
                 className="px-1.5 py-0.5 rounded text-[10px] font-bold badge-delivery-flower"
-                title="Доставлено квіткових замовлень (FLOWER)"
+                title="Виконано квіткових замовлень за сьогодні (Flower)"
               >
                 🌸 {card.deliveries.flower}
               </span>
               {/* Треті (синій / квитки) */}
               <span
                 className="px-1.5 py-0.5 rounded text-[10px] font-bold badge-delivery-ticket"
-                title="Доставлено замовлень квитків / SFL"
+                title="Виконано замовлень квитків / івентів за сьогодні (Ticket)"
               >
                 🎫 {card.deliveries.ticket}
               </span>
@@ -632,7 +640,7 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
         <div className="farm-card-section">
           <div className="farm-card-section-title">
             <Sparkles size={11} className="text-emerald-400" />
-            <span>Насіння сезону</span>
+            <span>Насіння сезону {card.season && SEASON_UKRAINIAN[card.season.toLowerCase()] ? `(${SEASON_UKRAINIAN[card.season.toLowerCase()]})` : ''}</span>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -809,7 +817,7 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
         <div className="farm-card-section">
           <div className="farm-card-section-title">
             <span className="text-purple-400">🌷</span>
-            <span>Насіння квітів сезону</span>
+            <span>Насіння квітів {card.season && SEASON_UKRAINIAN[card.season.toLowerCase()] ? `(${SEASON_UKRAINIAN[card.season.toLowerCase()]})` : ''}</span>
           </div>
 
           <div className="flex flex-wrap gap-1.5">

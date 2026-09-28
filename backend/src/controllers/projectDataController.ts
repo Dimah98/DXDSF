@@ -258,6 +258,56 @@ export async function getAllProjectsDeliveries(_req: Request, res: Response): Pr
   }
 }
 
+const FLOWER_NPCS = new Set(['miranda', 'poppy', 'raven', 'finn', 'flora', 'florence']);
+const FLOWER_ITEMS_REGEX = /(balloon flower|pansy|cosmos|carnation|lotus|daffodil|edelweiss|gladiolus|lavender|clover|anemone|primrose|dahlia|marigold|camellia|hyacinth|hibiscus|poppy)/i;
+
+function isDeliveredToday(completedAt?: number | null): boolean {
+  if (!completedAt) return false;
+  const date = new Date(completedAt);
+  const now = new Date();
+  return (
+    date.toISOString().split('T')[0] === now.toISOString().split('T')[0] ||
+    date.toLocaleDateString() === now.toLocaleDateString() ||
+    Math.abs(now.getTime() - completedAt) < 24 * 3600 * 1000
+  );
+}
+
+function classifyDeliveryOrder(order: any): 'coins' | 'flower' | 'ticket' {
+  const from = (order.from || '').toLowerCase();
+  const reward = order.reward || {};
+  const rewardItems = Object.keys(reward.items || {});
+  const isTicketReward = rewardItems.some(name => /ticket|scroll|feather/i.test(name));
+
+  // 1. Квитки / Chores / Івентові (Pumpkin Pete тощо)
+  if (from.includes('pete') || from === 'hank' || isTicketReward) {
+    return 'ticket';
+  }
+
+  // 2. Квіткові NPC або замовлення з квітами
+  const itemNames = Object.keys(order.items || {});
+  const isFlowerItem = itemNames.some(name => FLOWER_ITEMS_REGEX.test(name));
+  if (FLOWER_NPCS.has(from) || isFlowerItem) {
+    return 'flower';
+  }
+
+  // 3. Грошові (Coins / SFL)
+  return 'coins';
+}
+
+const SEASON_CROPS_MAP: Record<string, string[]> = {
+  spring: ['Sunflower', 'Rhubarb', 'Carrot', 'Cabbage', 'Soybean', 'Cauliflower', 'Parsnip', 'Eggplant', 'Corn', 'Radish', 'Wheat'],
+  summer: ['Sunflower', 'Potato', 'Zucchini', 'Yam', 'Soybean', 'Pepper', 'Broccoli', 'Corn', 'Onion', 'Radish', 'Wheat'],
+  autumn: ['Sunflower', 'Pumpkin', 'Carrot', 'Cabbage', 'Beetroot', 'Parsnip', 'Eggplant', 'Artichoke', 'Wheat'],
+  winter: ['Sunflower', 'Potato', 'Yam', 'Cabbage', 'Beetroot', 'Onion', 'Turnip', 'Kale', 'Barley', 'Wheat']
+};
+
+const SEASON_FLOWERS_MAP: Record<string, string[]> = {
+  spring: ['Sunpetal Seed', 'Bloom Seed', 'Lily Seed'],
+  summer: ['Gladiolus Seed', 'Edelweiss Seed'],
+  autumn: ['Lavender Seed', 'Clover Seed'],
+  winter: ['Lotus Seed', 'Daffodil Seed']
+};
+
 /**
  * Отримує повну інформацію для карточок усіх проектів ферми
  * (14 інформаційних блоків: рівні, доставки, грядки, дерева, ресурси, інструменти, квіти, страви, компостери, великі фрукти, риболовля, покращення островів)
@@ -287,19 +337,38 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
         const inventory: Record<string, number> = farm.inventory || {};
         const stock: Record<string, number> = farm.stock || {};
         const bumpkin = farm.bumpkin || {};
-        const farmActivity: Record<string, number> = farm.farmActivity || {};
 
-        // 1. Назва проекту, Lvl, острів
+        // 1. Назва проекту, Lvl, острів, сезон
         const experience = typeof bumpkin.experience === 'number' ? bumpkin.experience : parseFloat(String(bumpkin.experience || 0)) || 0;
         const level = getBumpkinLevel(experience);
         const islandType = farm.island?.type || 'basic';
         const islandExpansions = inventory['Basic Land'] || farm.island?.previousExpansions || 0;
+        const farmSeason = (
+          farm.season?.season ||
+          rawSave.season?.season ||
+          farm.island?.type ||
+          'spring'
+        ).toLowerCase();
 
-        // 2. Доставки за типами, допомога гравцям, міні-ігри
+        // 2. Доставки за типами, виконані СЬОГОДНІ
+        let coinsDeliveredToday = 0;
+        let flowerDeliveredToday = 0;
+        let ticketDeliveredToday = 0;
+
+        const orders = farm.delivery?.orders || [];
+        for (const order of orders) {
+          if (order && order.completedAt && isDeliveredToday(order.completedAt)) {
+            const cat = classifyDeliveryOrder(order);
+            if (cat === 'coins') coinsDeliveredToday++;
+            else if (cat === 'flower') flowerDeliveredToday++;
+            else if (cat === 'ticket') ticketDeliveredToday++;
+          }
+        }
+
         const deliveries = {
-          coins: farmActivity['Coins Order Delivered'] || 0,
-          flower: farmActivity['FLOWER Order Delivered'] || 0,
-          ticket: farmActivity['Ticket Order Delivered'] || 0,
+          coins: coinsDeliveredToday,
+          flower: flowerDeliveredToday,
+          ticket: ticketDeliveredToday,
         };
 
         const helpedPlayers = {
@@ -362,38 +431,46 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
           count: data.count,
         }));
 
-        // 4 & 9. Насіння рослин та квітів поточного сезону в інвентарі
-        const flowerSeedNames = new Set([
-          'Sunpetal Seed', 'Bloom Seed', 'Lily Seed', 'Edelweiss Seed', 'Gladiolus Seed', 'Lavender Seed', 'Clover Seed'
-        ]);
-        const fruitSeedNames = new Set([
-          'Apple Seed', 'Orange Seed', 'Blueberry Seed', 'Banana Plant', 'Tomato Seed', 'Lemon Seed'
-        ]);
-
+        // 4 & 9. Насіння рослин та квітів поточного сезону в інвентарі (тільки залишок count > 0)
+        const seasonCrops = SEASON_CROPS_MAP[farmSeason] || SEASON_CROPS_MAP.spring;
         const seasonalCropSeeds: { name: string; count: number }[] = [];
-        const seasonalFlowerSeeds: { name: string; count: number }[] = [];
 
-        const inSeasonSeeds = Object.keys(stock).filter(k => k.endsWith(' Seed') || k.endsWith(' Plant'));
-        for (const sName of inSeasonSeeds) {
-          const invCount = Number(inventory[sName]) || 0;
-          if (flowerSeedNames.has(sName)) {
-            seasonalFlowerSeeds.push({ name: sName, count: invCount });
-          } else if (!fruitSeedNames.has(sName)) {
-            seasonalCropSeeds.push({ name: sName, count: invCount });
+        for (const cropName of seasonCrops) {
+          const seedName = `${cropName} Seed`;
+          const count = Number(inventory[seedName]) || 0;
+          if (count > 0) {
+            seasonalCropSeeds.push({ name: seedName, count });
           }
         }
 
-        // Якщо stock не завантажений, дивимося всі наявні насіння
+        // Fallback: якщо насіння офіційного сезону не знайдено, але в інвентарі є будь-яке насіння культур
         if (seasonalCropSeeds.length === 0) {
           for (const [k, v] of Object.entries(inventory)) {
             const numVal = Number(v) || 0;
-            if ((k.endsWith(' Seed') || k.endsWith(' Plant')) && !flowerSeedNames.has(k) && !fruitSeedNames.has(k) && numVal > 0) {
+            if (k.endsWith(' Seed') && !k.endsWith('Flower Seed') && numVal > 0) {
               seasonalCropSeeds.push({ name: k, count: numVal });
             }
           }
         }
+
+        // Квіти поточного сезону в інвентарі
+        const seasonFlowers = SEASON_FLOWERS_MAP[farmSeason] || [];
+        const seasonalFlowerSeeds: { name: string; count: number }[] = [];
+
+        for (const flowerSeed of seasonFlowers) {
+          const count = Number(inventory[flowerSeed]) || 0;
+          if (count > 0) {
+            seasonalFlowerSeeds.push({ name: flowerSeed, count });
+          }
+        }
+
+        // Fallback: якщо за поточним сезоном квіткових насінин немає, але є інші насіння квітів > 0
         if (seasonalFlowerSeeds.length === 0) {
-          for (const sName of Array.from(flowerSeedNames)) {
+          const allFlowerSeeds = [
+            'Sunpetal Seed', 'Bloom Seed', 'Lily Seed', 'Edelweiss Seed',
+            'Gladiolus Seed', 'Lavender Seed', 'Clover Seed'
+          ];
+          for (const sName of allFlowerSeeds) {
             const count = Number(inventory[sName]) || 0;
             if (count > 0) {
               seasonalFlowerSeeds.push({ name: sName, count });
@@ -655,6 +732,7 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
           experience,
           islandType,
           islandExpansions,
+          season: farmSeason,
           deliveries,
           helpedPlayers,
           minigames: {
