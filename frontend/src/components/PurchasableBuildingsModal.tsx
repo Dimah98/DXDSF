@@ -385,10 +385,10 @@ export const PurchasableBuildingsModal: React.FC<PurchasableBuildingsModalProps>
                       <span className="text-[9px] text-gray-400 block">Зображення:</span>
                       <input
                         type="text"
-                        value={item.image || ''}
+                        value={item.image ?? item.buildingImage ?? ''}
                         onChange={(e) => {
                           const val = e.target.value;
-                          setEditableCatalog(prev => prev.map((x, i) => i === idx ? { ...x, image: val } : x));
+                          setEditableCatalog(prev => prev.map((x, i) => i === idx ? { ...x, image: val, buildingImage: val } : x));
                         }}
                         placeholder="file_name"
                         className="w-full bg-[#1e293b] text-gray-200 text-xs px-2 py-1 rounded border border-gray-700 focus:outline-none focus:border-amber-500"

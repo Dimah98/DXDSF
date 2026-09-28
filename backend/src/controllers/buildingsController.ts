@@ -88,10 +88,14 @@ export const saveBuildingsCatalogHandler = async (req: Request, res: Response) =
     if (Array.isArray(rawList)) {
       rawList.forEach((item: any) => {
         if (!item || !item.name) return;
-        const bImg = item.buildingImage || item.image;
+        // Користувач у модалці редагує поле "Зображення:" (item.image) або buildingImage
+        const rawImg = item.image !== undefined ? item.image : item.buildingImage;
+        const trimmedImg = rawImg != null ? String(rawImg).trim() : '';
+        const bImg = trimmedImg ? (trimmedImg.toLowerCase().endsWith('.png') ? trimmedImg : `${trimmedImg}.png`) : undefined;
+
         settingsToSave[item.name] = {
           ...(settingsToSave[item.name] || {}),
-          buildingImage: bImg ? String(bImg).trim() : undefined,
+          buildingImage: bImg,
           categoryImage: item.categoryImage ? String(item.categoryImage).trim() : undefined,
           shopImage: item.shopImage ? String(item.shopImage).trim() : undefined,
           mapImage: item.mapImage || `${item.name}.png`,
