@@ -308,6 +308,218 @@ const SEASON_FLOWERS_MAP: Record<string, string[]> = {
   winter: ['Lotus Seed', 'Daffodil Seed']
 };
 
+interface ExpansionReq {
+  level: number;
+  coins?: number;
+  resources: Record<string, number>;
+}
+
+const BASIC_EXPANSIONS: Record<number, ExpansionReq> = {
+  4: { level: 1, resources: { Wood: 3 } },
+  5: { level: 1, resources: { Wood: 5 }, coins: 0.25 },
+  6: { level: 2, resources: { Stone: 1 }, coins: 60 },
+  7: { level: 5, resources: { Stone: 5, Iron: 1 }, coins: 100 },
+  8: { level: 8, resources: { Iron: 3, Gold: 1 }, coins: 200 },
+  9: { level: 11, resources: { Wood: 100, Stone: 40, Iron: 5 }, coins: 300 },
+};
+
+const SPRING_EXPANSIONS: Record<number, ExpansionReq> = {
+  5: { level: 11, resources: { Wood: 20 }, coins: 100 },
+  6: { level: 13, resources: { Wood: 10, Stone: 5, Gold: 2 }, coins: 200 },
+  7: { level: 16, resources: { Wood: 30, Stone: 20, Iron: 5, Gem: 15 }, coins: 300 },
+  8: { level: 20, resources: { Wood: 20, Crimstone: 1, Gem: 15 }, coins: 400 },
+  9: { level: 23, resources: { Wood: 50, Gold: 5, Gem: 15 }, coins: 500 },
+  10: { level: 25, resources: { Stone: 10, Crimstone: 3, Gem: 15 }, coins: 500 },
+  11: { level: 27, resources: { Wood: 100, Stone: 25, Gold: 5, Crimstone: 1, Gem: 15 }, coins: 500 },
+  12: { level: 29, resources: { Wood: 50, Iron: 5, Crimstone: 3, Gem: 30 }, coins: 500 },
+  13: { level: 32, resources: { Wood: 50, Stone: 25, Iron: 10, Gold: 10, Gem: 30 }, coins: 500 },
+  14: { level: 36, resources: { Wood: 100, Stone: 10, Crimstone: 5, Gem: 30 }, coins: 500 },
+  15: { level: 40, resources: { Wood: 150, Stone: 10, Iron: 10, Gold: 5, Crimstone: 5, Gem: 30 }, coins: 500 },
+  16: { level: 43, resources: { Wood: 100, Stone: 10, Gold: 5, Crimstone: 8, Gem: 30 }, coins: 500 },
+};
+
+const DESERT_EXPANSIONS: Record<number, ExpansionReq> = {
+  5: { level: 40, resources: { Wood: 50, Stone: 10, Iron: 5, Gold: 5 }, coins: 500 },
+  6: { level: 40, resources: { Wood: 100, Stone: 20, Iron: 10, Gold: 5 }, coins: 500 },
+  7: { level: 41, resources: { Wood: 150, Stone: 20, Iron: 10, Gold: 5, Gem: 15 }, coins: 500 },
+  8: { level: 42, resources: { Wood: 150, Stone: 10, Iron: 5, Gold: 5, Crimstone: 3, Oil: 5, Gem: 30 }, coins: 500 },
+  9: { level: 43, resources: { Wood: 50, Stone: 5, Iron: 5, Gold: 5, Crimstone: 6, Oil: 5, Gem: 30 }, coins: 500 },
+  10: { level: 44, resources: { Wood: 100, Stone: 50, Iron: 10, Gold: 5, Crimstone: 12, Oil: 10, Gem: 45 }, coins: 384 },
+  11: { level: 45, resources: { Wood: 150, Stone: 75, Iron: 10, Gold: 5, Crimstone: 15, Oil: 30, Gem: 45 }, coins: 768 },
+  12: { level: 47, resources: { Wood: 100, Stone: 100, Iron: 5, Gold: 10, Crimstone: 18, Oil: 30, Gem: 45 }, coins: 1536 },
+  13: { level: 50, resources: { Wood: 200, Stone: 50, Iron: 15, Gold: 10, Crimstone: 21, Oil: 40, Gem: 45 }, coins: 3072 },
+  14: { level: 53, resources: { Wood: 200, Stone: 100, Iron: 15, Gold: 10, Crimstone: 24, Oil: 50, Gem: 45 }, coins: 3840 },
+  15: { level: 56, resources: { Wood: 300, Stone: 50, Iron: 20, Gold: 10, Crimstone: 27, Oil: 75, Gem: 45 }, coins: 3840 },
+  16: { level: 58, resources: { Wood: 250, Stone: 125, Iron: 15, Gold: 15, Crimstone: 30, Oil: 100, Gem: 60 }, coins: 3840 },
+  17: { level: 60, resources: { Wood: 350, Stone: 75, Iron: 20, Gold: 10, Crimstone: 33, Oil: 125, Gem: 60 }, coins: 5760 },
+  18: { level: 63, resources: { Wood: 400, Stone: 125, Iron: 25, Gold: 15, Crimstone: 36, Oil: 150, Gem: 75 }, coins: 5760 },
+  19: { level: 65, resources: { Wood: 450, Stone: 150, Iron: 30, Gold: 20, Crimstone: 39, Oil: 200, Gem: 60 }, coins: 7680 },
+  20: { level: 68, resources: { Wood: 525, Stone: 200, Iron: 35, Gold: 30, Crimstone: 42, Oil: 250, Gem: 60 }, coins: 7680 },
+  21: { level: 70, resources: { Wood: 550, Stone: 150, Iron: 30, Gold: 25, Crimstone: 45, Oil: 350, Gem: 60 }, coins: 9600 },
+  22: { level: 72, resources: { Wood: 600, Stone: 200, Iron: 35, Gold: 30, Crimstone: 48, Oil: 450, Gem: 75 }, coins: 9600 },
+  23: { level: 73, resources: { Wood: 650, Stone: 250, Iron: 40, Gold: 35, Crimstone: 51, Oil: 500, Gem: 75 }, coins: 9600 },
+  24: { level: 74, resources: { Wood: 700, Stone: 300, Iron: 50, Gold: 45, Crimstone: 54, Oil: 550, Gem: 75 }, coins: 11520 },
+  25: { level: 75, resources: { Wood: 750, Stone: 350, Iron: 50, Gold: 50, Crimstone: 60, Oil: 650, Gem: 75 }, coins: 13440 },
+};
+
+function calculateIslandProgression(
+  islandType: string,
+  level: number,
+  expansionsCountRaw: any,
+  inventory: Record<string, any>
+) {
+  const expansionsCount = Number(expansionsCountRaw) || 0;
+  const RESOURCE_PRIORITY = ['Crimstone', 'Sunstone', 'Oil', 'Gold', 'Iron', 'Stone', 'Wood', 'Gem'];
+
+  const pickPrimaryResource = (resMap: Record<string, number>) => {
+    for (const res of RESOURCE_PRIORITY) {
+      if (resMap[res] !== undefined && resMap[res] > 0) {
+        return { name: res, required: resMap[res], current: Number(inventory[res]) || 0 };
+      }
+    }
+    const firstKey = Object.keys(resMap)[0];
+    if (firstKey) {
+      return { name: firstKey, required: resMap[firstKey], current: Number(inventory[firstKey]) || 0 };
+    }
+    return { name: '', required: 0, current: 0 };
+  };
+
+  const buildTooltip = (target: string, reqLvl: number, resMap: Record<string, number>, coins?: number) => {
+    const parts = [target, `Lvl: ${reqLvl}`];
+    if (coins) parts.push(`Coins: ${coins}`);
+    for (const [rName, rAmt] of Object.entries(resMap)) {
+      parts.push(`${rName}: ${Number(inventory[rName]) || 0}/${rAmt}`);
+    }
+    return parts.join(' | ');
+  };
+
+  if (islandType === 'basic') {
+    const nextLand = Math.max(4, expansionsCount + 1);
+    if (expansionsCount < 9 && BASIC_EXPANSIONS[nextLand]) {
+      const req = BASIC_EXPANSIONS[nextLand];
+      const prim = pickPrimaryResource(req.resources);
+      const isLvlOk = level >= req.level;
+      const allResOk = Object.entries(req.resources).every(([rName, rAmt]) => (Number(inventory[rName]) || 0) >= Number(rAmt));
+      return {
+        targetLabel: `🏝️ Basic L${nextLand}`,
+        currentLevel: level,
+        requiredLevel: req.level,
+        resourceName: prim.name,
+        currentResource: prim.current,
+        requiredResource: prim.required,
+        nextIslandType: 'spring',
+        tooltip: buildTooltip(`Basic Land ${nextLand}`, req.level, req.resources, req.coins),
+        isMaxLevel: false,
+        isLastUpgrade: false,
+        canUpgrade: isLvlOk && allResOk,
+      };
+    }
+    const goldCount = Number(inventory['Gold']) || 0;
+    const canUpgrade = level >= 10 && goldCount >= 10;
+    return {
+      targetLabel: '🏝️ → Spring',
+      currentLevel: level,
+      requiredLevel: 10,
+      resourceName: 'Gold',
+      currentResource: goldCount,
+      requiredResource: 10,
+      nextIslandType: 'spring',
+      tooltip: `Покращення острова: Basic → Spring (Lvl 10, Gold: ${goldCount}/10)`,
+      isMaxLevel: false,
+      isLastUpgrade: false,
+      canUpgrade,
+    };
+  }
+
+  if (islandType === 'spring') {
+    const nextLand = Math.max(5, expansionsCount + 1);
+    if (expansionsCount < 16 && SPRING_EXPANSIONS[nextLand]) {
+      const req = SPRING_EXPANSIONS[nextLand];
+      const prim = pickPrimaryResource(req.resources);
+      const isLvlOk = level >= req.level;
+      const allResOk = Object.entries(req.resources).every(([rName, rAmt]) => (Number(inventory[rName]) || 0) >= Number(rAmt));
+      return {
+        targetLabel: `🏝️ Spring L${nextLand}`,
+        currentLevel: level,
+        requiredLevel: req.level,
+        resourceName: prim.name,
+        currentResource: prim.current,
+        requiredResource: prim.required,
+        nextIslandType: 'desert',
+        tooltip: buildTooltip(`Spring Land ${nextLand}`, req.level, req.resources, req.coins),
+        isMaxLevel: false,
+        isLastUpgrade: false,
+        canUpgrade: isLvlOk && allResOk,
+      };
+    }
+    const crimCount = Number(inventory['Crimstone']) || 0;
+    const canUpgrade = level >= 40 && crimCount >= 20;
+    return {
+      targetLabel: '🏝️ → Desert',
+      currentLevel: level,
+      requiredLevel: 40,
+      resourceName: 'Crimstone',
+      currentResource: crimCount,
+      requiredResource: 20,
+      nextIslandType: 'desert',
+      tooltip: `Покращення острова: Spring → Desert (Lvl 40, Crimstone: ${crimCount}/20)`,
+      isMaxLevel: false,
+      isLastUpgrade: true,
+      canUpgrade,
+    };
+  }
+
+  if (islandType === 'desert') {
+    const nextLand = Math.max(5, expansionsCount + 1);
+    if (expansionsCount < 25 && DESERT_EXPANSIONS[nextLand]) {
+      const req = DESERT_EXPANSIONS[nextLand];
+      const prim = pickPrimaryResource(req.resources);
+      const isLvlOk = level >= req.level;
+      const allResOk = Object.entries(req.resources).every(([rName, rAmt]) => (Number(inventory[rName]) || 0) >= Number(rAmt));
+      return {
+        targetLabel: `🏝️ Desert L${nextLand}`,
+        currentLevel: level,
+        requiredLevel: req.level,
+        resourceName: prim.name,
+        currentResource: prim.current,
+        requiredResource: prim.required,
+        nextIslandType: 'desert',
+        tooltip: buildTooltip(`Desert Land ${nextLand}`, req.level, req.resources, req.coins),
+        isMaxLevel: false,
+        isLastUpgrade: true,
+        canUpgrade: isLvlOk && allResOk,
+      };
+    }
+    return {
+      targetLabel: '🏝️ Desert (макс. рівень)',
+      currentLevel: level,
+      requiredLevel: level,
+      resourceName: '',
+      currentResource: 0,
+      requiredResource: 0,
+      nextIslandType: 'desert',
+      tooltip: 'Desert — острів повністю розширено',
+      isMaxLevel: true,
+      isLastUpgrade: true,
+      canUpgrade: false,
+    };
+  }
+
+  return {
+    targetLabel: `🏝️ ${islandType}`,
+    currentLevel: level,
+    requiredLevel: level,
+    resourceName: '',
+    currentResource: 0,
+    requiredResource: 0,
+    nextIslandType: islandType,
+    tooltip: '',
+    isMaxLevel: true,
+    isLastUpgrade: true,
+    canUpgrade: false,
+  };
+}
+
 /**
  * Отримує повну інформацію для карточок усіх проектів ферми
  * (14 інформаційних блоків: рівні, доставки, грядки, дерева, ресурси, інструменти, квіти, страви, компостери, великі фрукти, риболовля, покращення островів)
@@ -710,48 +922,8 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
           baits: baitsList,
         };
 
-        // 14. Ресурси для покращення острова
-        let islandUpgrade: any = null;
-        if (islandType === 'basic') {
-          const resCount = Number(inventory['Gold']) || 0;
-          islandUpgrade = {
-            currentLevel: level,
-            requiredLevel: 10,
-            resourceName: 'Gold',
-            currentResource: resCount,
-            requiredResource: 5,
-            nextIslandType: 'spring',
-            isMaxLevel: false,
-            isLastUpgrade: false,
-            canUpgrade: level >= 10 && resCount >= 5,
-          };
-        } else if (islandType === 'spring') {
-          const resCount = Number(inventory['Crimstone']) || 0;
-          islandUpgrade = {
-            currentLevel: level,
-            requiredLevel: 40,
-            resourceName: 'Crimstone',
-            currentResource: resCount,
-            requiredResource: 20,
-            nextIslandType: 'desert',
-            isMaxLevel: false,
-            isLastUpgrade: true, // Desert — останнє покращення острова в Sunflower Land
-            canUpgrade: level >= 40 && resCount >= 20,
-          };
-        } else if (islandType === 'desert') {
-          // Desert — це фінальне, останнє покращення острова
-          islandUpgrade = {
-            currentLevel: level,
-            requiredLevel: level,
-            resourceName: '',
-            currentResource: 0,
-            requiredResource: 0,
-            nextIslandType: 'desert',
-            isMaxLevel: true,
-            isLastUpgrade: true,
-            canUpgrade: false,
-          };
-        }
+        // 14. Ресурси для розширення або покращення острова
+        const islandUpgrade = calculateIslandProgression(islandType, level, islandExpansions, inventory);
 
         cards.push({
           projectName,

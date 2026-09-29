@@ -113,6 +113,8 @@ export interface FarmCardData {
     currentResource: number;
     requiredResource: number;
     nextIslandType: string;
+    targetLabel?: string;
+    tooltip?: string;
     isMaxLevel?: boolean;
     isLastUpgrade?: boolean;
     canUpgrade: boolean;
@@ -946,16 +948,21 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
 
       {/* 14. Ресурси для покращення острова (Lvl 23/25, ресурс 18/50) */}
       {settings.showIslandUpgrade && card.islandUpgrade && (
-        <div className="farm-card-section bg-gradient-to-r from-slate-900 to-indigo-950/40 border-indigo-900/50">
+        <div
+          className="farm-card-section bg-gradient-to-r from-slate-900 to-indigo-950/40 border-indigo-900/50"
+          title={card.islandUpgrade.tooltip || undefined}
+        >
           <div className="flex items-center justify-between text-[11px]">
             {/* Острів */}
             <div className="flex items-center gap-1">
               <span className="text-indigo-400 font-semibold text-[10px]">
-                {card.islandUpgrade.isMaxLevel
-                  ? '🏝️ Desert (останнє покращення)'
-                  : card.islandUpgrade.isLastUpgrade
-                  ? '🏝️ → Desert (останнє покращення)'
-                  : `🏝️ → ${card.islandUpgrade.nextIslandType}`}
+                {card.islandUpgrade.targetLabel || (
+                  card.islandUpgrade.isMaxLevel
+                    ? '🏝️ Desert (макс. рівень)'
+                    : card.islandUpgrade.isLastUpgrade
+                    ? '🏝️ → Desert (останнє покращення)'
+                    : `🏝️ → ${card.islandUpgrade.nextIslandType}`
+                )}
               </span>
             </div>
 
