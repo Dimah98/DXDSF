@@ -318,55 +318,56 @@ const BASIC_EXPANSIONS: Record<number, ExpansionReq> = {
   4: { level: 1, resources: { Wood: 3 } },
   5: { level: 1, resources: { Wood: 5 }, coins: 0.25 },
   6: { level: 2, resources: { Stone: 1 }, coins: 60 },
-  7: { level: 5, resources: { Stone: 5, Iron: 1 }, coins: 100 },
-  8: { level: 8, resources: { Iron: 3, Gold: 1 }, coins: 200 },
-  9: { level: 11, resources: { Wood: 100, Stone: 40, Iron: 5 }, coins: 300 },
+  7: { level: 5, resources: { Stone: 5, Iron: 1 } },
+  8: { level: 8, resources: { Iron: 3, Gold: 1 } },
+  9: { level: 11, resources: { Wood: 100, Stone: 40, Iron: 5 } },
 };
 
 const SPRING_EXPANSIONS: Record<number, ExpansionReq> = {
-  5: { level: 11, resources: { Wood: 20 }, coins: 100 },
-  6: { level: 13, resources: { Wood: 10, Stone: 5, Gold: 2 }, coins: 200 },
-  7: { level: 16, resources: { Wood: 30, Stone: 20, Iron: 5, Gem: 15 }, coins: 300 },
-  8: { level: 20, resources: { Wood: 20, Crimstone: 1, Gem: 15 }, coins: 400 },
-  9: { level: 23, resources: { Wood: 50, Gold: 5, Gem: 15 }, coins: 500 },
-  10: { level: 25, resources: { Stone: 10, Crimstone: 3, Gem: 15 }, coins: 500 },
-  11: { level: 27, resources: { Wood: 100, Stone: 25, Gold: 5, Crimstone: 1, Gem: 15 }, coins: 500 },
-  12: { level: 29, resources: { Wood: 50, Iron: 5, Crimstone: 3, Gem: 30 }, coins: 500 },
-  13: { level: 32, resources: { Wood: 50, Stone: 25, Iron: 10, Gold: 10, Gem: 30 }, coins: 500 },
-  14: { level: 36, resources: { Wood: 100, Stone: 10, Crimstone: 5, Gem: 30 }, coins: 500 },
-  15: { level: 40, resources: { Wood: 150, Stone: 10, Iron: 10, Gold: 5, Crimstone: 5, Gem: 30 }, coins: 500 },
-  16: { level: 43, resources: { Wood: 100, Stone: 10, Gold: 5, Crimstone: 8, Gem: 30 }, coins: 500 },
+  5: { level: 11, resources: { Wood: 20 } },
+  6: { level: 13, resources: { Wood: 10, Stone: 5, Gold: 2 } },
+  7: { level: 16, resources: { Wood: 30, Stone: 20, Iron: 5, Gem: 15 } },
+  8: { level: 20, resources: { Wood: 20, Crimstone: 1, Gem: 15 } },
+  9: { level: 23, resources: { Wood: 50, Gold: 5, Gem: 15 } },
+  10: { level: 25, resources: { Stone: 10, Crimstone: 3, Gem: 15 } },
+  11: { level: 27, resources: { Wood: 100, Stone: 25, Gold: 5, Crimstone: 1, Gem: 15 } },
+  12: { level: 29, resources: { Wood: 50, Iron: 5, Crimstone: 3, Gem: 30 } },
+  13: { level: 32, resources: { Wood: 50, Stone: 25, Iron: 10, Gold: 10, Gem: 30 } },
+  14: { level: 36, resources: { Wood: 100, Stone: 10, Crimstone: 5, Gem: 30 } },
+  15: { level: 40, resources: { Wood: 150, Stone: 10, Iron: 10, Gold: 5, Crimstone: 5, Gem: 30 } },
+  16: { level: 43, resources: { Wood: 100, Stone: 10, Gold: 5, Crimstone: 8, Gem: 30 } },
 };
 
 const DESERT_EXPANSIONS: Record<number, ExpansionReq> = {
-  5: { level: 40, resources: { Wood: 50, Stone: 10, Iron: 5, Gold: 5 }, coins: 500 },
-  6: { level: 40, resources: { Wood: 100, Stone: 20, Iron: 10, Gold: 5 }, coins: 500 },
-  7: { level: 41, resources: { Wood: 150, Stone: 20, Iron: 10, Gold: 5, Gem: 15 }, coins: 500 },
-  8: { level: 42, resources: { Wood: 150, Stone: 10, Iron: 5, Gold: 5, Crimstone: 3, Oil: 5, Gem: 30 }, coins: 500 },
-  9: { level: 43, resources: { Wood: 50, Stone: 5, Iron: 5, Gold: 5, Crimstone: 6, Oil: 5, Gem: 30 }, coins: 500 },
-  10: { level: 44, resources: { Wood: 100, Stone: 50, Iron: 10, Gold: 5, Crimstone: 12, Oil: 10, Gem: 45 }, coins: 384 },
-  11: { level: 45, resources: { Wood: 150, Stone: 75, Iron: 10, Gold: 5, Crimstone: 15, Oil: 30, Gem: 45 }, coins: 768 },
-  12: { level: 47, resources: { Wood: 100, Stone: 100, Iron: 5, Gold: 10, Crimstone: 18, Oil: 30, Gem: 45 }, coins: 1536 },
-  13: { level: 50, resources: { Wood: 200, Stone: 50, Iron: 15, Gold: 10, Crimstone: 21, Oil: 40, Gem: 45 }, coins: 3072 },
-  14: { level: 53, resources: { Wood: 200, Stone: 100, Iron: 15, Gold: 10, Crimstone: 24, Oil: 50, Gem: 45 }, coins: 3840 },
-  15: { level: 56, resources: { Wood: 300, Stone: 50, Iron: 20, Gold: 10, Crimstone: 27, Oil: 75, Gem: 45 }, coins: 3840 },
-  16: { level: 58, resources: { Wood: 250, Stone: 125, Iron: 15, Gold: 15, Crimstone: 30, Oil: 100, Gem: 60 }, coins: 3840 },
-  17: { level: 60, resources: { Wood: 350, Stone: 75, Iron: 20, Gold: 10, Crimstone: 33, Oil: 125, Gem: 60 }, coins: 5760 },
-  18: { level: 63, resources: { Wood: 400, Stone: 125, Iron: 25, Gold: 15, Crimstone: 36, Oil: 150, Gem: 75 }, coins: 5760 },
-  19: { level: 65, resources: { Wood: 450, Stone: 150, Iron: 30, Gold: 20, Crimstone: 39, Oil: 200, Gem: 60 }, coins: 7680 },
-  20: { level: 68, resources: { Wood: 525, Stone: 200, Iron: 35, Gold: 30, Crimstone: 42, Oil: 250, Gem: 60 }, coins: 7680 },
-  21: { level: 70, resources: { Wood: 550, Stone: 150, Iron: 30, Gold: 25, Crimstone: 45, Oil: 350, Gem: 60 }, coins: 9600 },
-  22: { level: 72, resources: { Wood: 600, Stone: 200, Iron: 35, Gold: 30, Crimstone: 48, Oil: 450, Gem: 75 }, coins: 9600 },
-  23: { level: 73, resources: { Wood: 650, Stone: 250, Iron: 40, Gold: 35, Crimstone: 51, Oil: 500, Gem: 75 }, coins: 9600 },
-  24: { level: 74, resources: { Wood: 700, Stone: 300, Iron: 50, Gold: 45, Crimstone: 54, Oil: 550, Gem: 75 }, coins: 11520 },
-  25: { level: 75, resources: { Wood: 750, Stone: 350, Iron: 50, Gold: 50, Crimstone: 60, Oil: 650, Gem: 75 }, coins: 13440 },
+  5: { level: 40, resources: { Wood: 50, Stone: 10, Iron: 5, Gold: 5 } },
+  6: { level: 40, resources: { Wood: 100, Stone: 20, Iron: 10, Gold: 5 } },
+  7: { level: 41, resources: { Wood: 150, Stone: 20, Iron: 10, Gold: 5, Gem: 15 } },
+  8: { level: 42, resources: { Wood: 150, Stone: 10, Iron: 5, Gold: 5, Crimstone: 3, Oil: 5, Gem: 30 } },
+  9: { level: 43, resources: { Wood: 50, Stone: 5, Iron: 5, Gold: 5, Crimstone: 6, Oil: 5, Gem: 30 } },
+  10: { level: 44, resources: { Wood: 100, Stone: 50, Iron: 10, Gold: 5, Crimstone: 12, Oil: 10, Gem: 45 }, coins: 320 },
+  11: { level: 45, resources: { Wood: 150, Stone: 75, Iron: 10, Gold: 5, Crimstone: 15, Oil: 30, Gem: 45 }, coins: 640 },
+  12: { level: 47, resources: { Wood: 100, Stone: 100, Iron: 5, Gold: 10, Crimstone: 18, Oil: 30, Gem: 45 }, coins: 1280 },
+  13: { level: 50, resources: { Wood: 200, Stone: 50, Iron: 15, Gold: 10, Crimstone: 21, Oil: 40, Gem: 45 }, coins: 2560 },
+  14: { level: 53, resources: { Wood: 200, Stone: 100, Iron: 15, Gold: 10, Crimstone: 24, Oil: 50, Gem: 45 }, coins: 3200 },
+  15: { level: 56, resources: { Wood: 300, Stone: 50, Iron: 20, Gold: 10, Crimstone: 27, Oil: 75, Gem: 45 }, coins: 3200 },
+  16: { level: 58, resources: { Wood: 250, Stone: 125, Iron: 15, Gold: 15, Crimstone: 30, Oil: 100, Gem: 60 }, coins: 3200 },
+  17: { level: 60, resources: { Wood: 350, Stone: 75, Iron: 20, Gold: 10, Crimstone: 33, Oil: 125, Gem: 60 }, coins: 4800 },
+  18: { level: 63, resources: { Wood: 400, Stone: 125, Iron: 25, Gold: 15, Crimstone: 36, Oil: 150, Gem: 75 }, coins: 4800 },
+  19: { level: 65, resources: { Wood: 450, Stone: 150, Iron: 30, Gold: 20, Crimstone: 39, Oil: 200, Gem: 60 }, coins: 6400 },
+  20: { level: 68, resources: { Wood: 525, Stone: 200, Iron: 35, Gold: 30, Crimstone: 42, Oil: 250, Gem: 60 }, coins: 6400 },
+  21: { level: 70, resources: { Wood: 550, Stone: 150, Iron: 30, Gold: 25, Crimstone: 45, Oil: 350, Gem: 60 }, coins: 8000 },
+  22: { level: 72, resources: { Wood: 600, Stone: 200, Iron: 35, Gold: 30, Crimstone: 48, Oil: 450, Gem: 75 }, coins: 8000 },
+  23: { level: 73, resources: { Wood: 650, Stone: 250, Iron: 40, Gold: 35, Crimstone: 51, Oil: 500, Gem: 75 }, coins: 8000 },
+  24: { level: 74, resources: { Wood: 700, Stone: 300, Iron: 50, Gold: 45, Crimstone: 54, Oil: 550, Gem: 75 }, coins: 9600 },
+  25: { level: 75, resources: { Wood: 750, Stone: 350, Iron: 50, Gold: 50, Crimstone: 60, Oil: 650, Gem: 75 }, coins: 11200 },
 };
 
 function calculateIslandProgression(
   islandType: string,
   level: number,
   expansionsCountRaw: any,
-  inventory: Record<string, any>
+  inventory: Record<string, any>,
+  currentCoins: number = 0
 ) {
   const expansionsCount = Number(expansionsCountRaw) || 0;
   const RESOURCE_PRIORITY = ['Crimstone', 'Sunstone', 'Oil', 'Gold', 'Iron', 'Stone', 'Wood', 'Gem'];
@@ -384,6 +385,19 @@ function calculateIslandProgression(
     return { name: '', required: 0, current: 0 };
   };
 
+  const mapResourcesList = (resMap: Record<string, number>) => {
+    return Object.entries(resMap).map(([rName, rAmt]) => {
+      const current = Number(inventory[rName]) || 0;
+      const required = Number(rAmt);
+      return {
+        name: rName,
+        current,
+        required,
+        isReady: current >= required,
+      };
+    });
+  };
+
   const buildTooltip = (target: string, reqLvl: number, resMap: Record<string, number>, coins?: number) => {
     const parts = [target, `Lvl: ${reqLvl}`];
     if (coins) parts.push(`Coins: ${coins}`);
@@ -398,8 +412,10 @@ function calculateIslandProgression(
     if (expansionsCount < 9 && BASIC_EXPANSIONS[nextLand]) {
       const req = BASIC_EXPANSIONS[nextLand];
       const prim = pickPrimaryResource(req.resources);
+      const resourcesList = mapResourcesList(req.resources);
       const isLvlOk = level >= req.level;
-      const allResOk = Object.entries(req.resources).every(([rName, rAmt]) => (Number(inventory[rName]) || 0) >= Number(rAmt));
+      const allResOk = resourcesList.every(r => r.isReady);
+      const coinsOk = !req.coins || currentCoins >= req.coins;
       return {
         targetLabel: `🏝️ Basic L${nextLand}`,
         currentLevel: level,
@@ -407,11 +423,14 @@ function calculateIslandProgression(
         resourceName: prim.name,
         currentResource: prim.current,
         requiredResource: prim.required,
+        resources: resourcesList,
+        coinsRequired: req.coins || 0,
+        coinsCurrent: currentCoins,
         nextIslandType: 'spring',
         tooltip: buildTooltip(`Basic Land ${nextLand}`, req.level, req.resources, req.coins),
         isMaxLevel: false,
         isLastUpgrade: false,
-        canUpgrade: isLvlOk && allResOk,
+        canUpgrade: isLvlOk && allResOk && coinsOk,
       };
     }
     const goldCount = Number(inventory['Gold']) || 0;
@@ -423,6 +442,9 @@ function calculateIslandProgression(
       resourceName: 'Gold',
       currentResource: goldCount,
       requiredResource: 10,
+      resources: [{ name: 'Gold', current: goldCount, required: 10, isReady: goldCount >= 10 }],
+      coinsRequired: 0,
+      coinsCurrent: currentCoins,
       nextIslandType: 'spring',
       tooltip: `Покращення острова: Basic → Spring (Lvl 10, Gold: ${goldCount}/10)`,
       isMaxLevel: false,
@@ -436,8 +458,10 @@ function calculateIslandProgression(
     if (expansionsCount < 16 && SPRING_EXPANSIONS[nextLand]) {
       const req = SPRING_EXPANSIONS[nextLand];
       const prim = pickPrimaryResource(req.resources);
+      const resourcesList = mapResourcesList(req.resources);
       const isLvlOk = level >= req.level;
-      const allResOk = Object.entries(req.resources).every(([rName, rAmt]) => (Number(inventory[rName]) || 0) >= Number(rAmt));
+      const allResOk = resourcesList.every(r => r.isReady);
+      const coinsOk = !req.coins || currentCoins >= req.coins;
       return {
         targetLabel: `🏝️ Spring L${nextLand}`,
         currentLevel: level,
@@ -445,11 +469,14 @@ function calculateIslandProgression(
         resourceName: prim.name,
         currentResource: prim.current,
         requiredResource: prim.required,
+        resources: resourcesList,
+        coinsRequired: req.coins || 0,
+        coinsCurrent: currentCoins,
         nextIslandType: 'desert',
         tooltip: buildTooltip(`Spring Land ${nextLand}`, req.level, req.resources, req.coins),
         isMaxLevel: false,
         isLastUpgrade: false,
-        canUpgrade: isLvlOk && allResOk,
+        canUpgrade: isLvlOk && allResOk && coinsOk,
       };
     }
     const crimCount = Number(inventory['Crimstone']) || 0;
@@ -461,6 +488,9 @@ function calculateIslandProgression(
       resourceName: 'Crimstone',
       currentResource: crimCount,
       requiredResource: 20,
+      resources: [{ name: 'Crimstone', current: crimCount, required: 20, isReady: crimCount >= 20 }],
+      coinsRequired: 0,
+      coinsCurrent: currentCoins,
       nextIslandType: 'desert',
       tooltip: `Покращення острова: Spring → Desert (Lvl 40, Crimstone: ${crimCount}/20)`,
       isMaxLevel: false,
@@ -474,8 +504,10 @@ function calculateIslandProgression(
     if (expansionsCount < 25 && DESERT_EXPANSIONS[nextLand]) {
       const req = DESERT_EXPANSIONS[nextLand];
       const prim = pickPrimaryResource(req.resources);
+      const resourcesList = mapResourcesList(req.resources);
       const isLvlOk = level >= req.level;
-      const allResOk = Object.entries(req.resources).every(([rName, rAmt]) => (Number(inventory[rName]) || 0) >= Number(rAmt));
+      const allResOk = resourcesList.every(r => r.isReady);
+      const coinsOk = !req.coins || currentCoins >= req.coins;
       return {
         targetLabel: `🏝️ Desert L${nextLand}`,
         currentLevel: level,
@@ -483,11 +515,14 @@ function calculateIslandProgression(
         resourceName: prim.name,
         currentResource: prim.current,
         requiredResource: prim.required,
+        resources: resourcesList,
+        coinsRequired: req.coins || 0,
+        coinsCurrent: currentCoins,
         nextIslandType: 'desert',
         tooltip: buildTooltip(`Desert Land ${nextLand}`, req.level, req.resources, req.coins),
         isMaxLevel: false,
         isLastUpgrade: true,
-        canUpgrade: isLvlOk && allResOk,
+        canUpgrade: isLvlOk && allResOk && coinsOk,
       };
     }
     return {
@@ -497,6 +532,9 @@ function calculateIslandProgression(
       resourceName: '',
       currentResource: 0,
       requiredResource: 0,
+      resources: [],
+      coinsRequired: 0,
+      coinsCurrent: currentCoins,
       nextIslandType: 'desert',
       tooltip: 'Desert — острів повністю розширено',
       isMaxLevel: true,
@@ -512,6 +550,9 @@ function calculateIslandProgression(
     resourceName: '',
     currentResource: 0,
     requiredResource: 0,
+    resources: [],
+    coinsRequired: 0,
+    coinsCurrent: currentCoins,
     nextIslandType: islandType,
     tooltip: '',
     isMaxLevel: true,
@@ -923,7 +964,8 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
         };
 
         // 14. Ресурси для розширення або покращення острова
-        const islandUpgrade = calculateIslandProgression(islandType, level, islandExpansions, inventory);
+        const farmCoins = typeof farm.coins === 'number' ? farm.coins : (parseFloat(String(farm.coins || farm.balance || 0)) || 0);
+        const islandUpgrade = calculateIslandProgression(islandType, level, islandExpansions, inventory, farmCoins);
 
         cards.push({
           projectName,

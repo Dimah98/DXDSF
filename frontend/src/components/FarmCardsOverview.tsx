@@ -112,6 +112,14 @@ export interface FarmCardData {
     resourceName: string;
     currentResource: number;
     requiredResource: number;
+    resources?: Array<{
+      name: string;
+      current: number;
+      required: number;
+      isReady: boolean;
+    }>;
+    coinsRequired?: number;
+    coinsCurrent?: number;
     nextIslandType: string;
     targetLabel?: string;
     tooltip?: string;
@@ -946,14 +954,14 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
         </div>
       )}
 
-      {/* 14. Ресурси для покращення острова (Lvl 23/25, ресурс 18/50) */}
+      {/* 14. Ресурси для розширення/покращення острова (Lvl, ресурси) */}
       {settings.showIslandUpgrade && card.islandUpgrade && (
         <div
           className="farm-card-section bg-gradient-to-r from-slate-900 to-indigo-950/40 border-indigo-900/50"
           title={card.islandUpgrade.tooltip || undefined}
         >
-          <div className="flex items-center justify-between text-[11px]">
-            {/* Острів */}
+          <div className="flex flex-wrap items-center justify-between gap-1 text-[11px]">
+            {/* Острів / Ціль */}
             <div className="flex items-center gap-1">
               <span className="text-indigo-400 font-semibold text-[10px]">
                 {card.islandUpgrade.targetLabel || (
@@ -967,18 +975,46 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
             </div>
 
             {!card.islandUpgrade.isMaxLevel && (
-              <>
-                {/* Рівень */}
-                <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                {/* Рівень бампкіна */}
+                <div className="flex items-center gap-0.5">
                   <span className="text-slate-400 text-[10px]">Lvl:</span>
-                  <span className={`font-bold ${card.islandUpgrade.currentLevel >= card.islandUpgrade.requiredLevel ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  <span
+                    className={`font-bold text-[10px] ${
+                      card.islandUpgrade.currentLevel >= card.islandUpgrade.requiredLevel
+                        ? 'text-emerald-400'
+                        : 'text-amber-400'
+                    }`}
+                  >
                     {card.islandUpgrade.currentLevel}/{card.islandUpgrade.requiredLevel}
                   </span>
                 </div>
 
-                {/* Ресурс */}
-                {card.islandUpgrade.resourceName && (
-                  <div className="flex items-center gap-1">
+                {/* Ресурси для розширення */}
+                {card.islandUpgrade.resources && card.islandUpgrade.resources.length > 0 ? (
+                  card.islandUpgrade.resources.map((res: any) => (
+                    <div
+                      key={res.name}
+                      className="flex items-center gap-0.5"
+                      title={`${res.name}: ${res.current}/${res.required}`}
+                    >
+                      <img
+                        src={getCleanImageUrl(`/api/im/${encodeURIComponent(res.name)}.png`)}
+                        alt={res.name}
+                        onError={handleImageErrorWithCacheBust}
+                        className="w-3.5 h-3.5 object-contain"
+                      />
+                      <span
+                        className={`font-bold text-[10px] ${
+                          res.isReady ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {res.current}/{res.required}
+                      </span>
+                    </div>
+                  ))
+                ) : card.islandUpgrade.resourceName ? (
+                  <div className="flex items-center gap-0.5">
                     <img
                       src={getCleanImageUrl(`/api/im/${encodeURIComponent(card.islandUpgrade.resourceName)}.png`)}
                       alt={card.islandUpgrade.resourceName}
@@ -986,8 +1022,38 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
                       className="w-3.5 h-3.5 object-contain"
                       title={card.islandUpgrade.resourceName}
                     />
-                    <span className={`font-bold ${card.islandUpgrade.currentResource >= card.islandUpgrade.requiredResource ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <span
+                      className={`font-bold text-[10px] ${
+                        card.islandUpgrade.currentResource >= card.islandUpgrade.requiredResource
+                          ? 'text-emerald-400'
+                          : 'text-rose-400'
+                      }`}
+                    >
                       {card.islandUpgrade.currentResource}/{card.islandUpgrade.requiredResource}
+                    </span>
+                  </div>
+                ) : null}
+
+                {/* Монети (якщо потрібні) */}
+                {Boolean(card.islandUpgrade.coinsRequired && card.islandUpgrade.coinsRequired > 0) && (
+                  <div
+                    className="flex items-center gap-0.5"
+                    title={`Coins: ${Math.floor(card.islandUpgrade.coinsCurrent || 0)}/${card.islandUpgrade.coinsRequired}`}
+                  >
+                    <img
+                      src={getCleanImageUrl('/api/im/coins.png')}
+                      alt="Coins"
+                      onError={handleImageErrorWithCacheBust}
+                      className="w-3.5 h-3.5 object-contain"
+                    />
+                    <span
+                      className={`font-bold text-[10px] ${
+                        (card.islandUpgrade.coinsCurrent || 0) >= (card.islandUpgrade.coinsRequired || 0)
+                          ? 'text-emerald-400'
+                          : 'text-rose-400'
+                      }`}
+                    >
+                      {Math.floor(card.islandUpgrade.coinsCurrent || 0)}/{card.islandUpgrade.coinsRequired}
                     </span>
                   </div>
                 )}
@@ -997,7 +1063,7 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
                     Готово!
                   </span>
                 )}
-              </>
+              </div>
             )}
 
             {card.islandUpgrade.isMaxLevel && (
