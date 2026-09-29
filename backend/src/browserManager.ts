@@ -398,6 +398,54 @@ const CAMOUFOX_PROFILES_DIR = process.env.CAMOUFOX_PROFILES_DIR || '/app/profile
 // Дефолтна папка профілю з .env
 const CAMOUFOX_DEFAULT_PROFILE = process.env.CAMOUFOX_DEFAULT_PROFILE || 'default';
 
+/**
+ * Визначає назву папки профілю браузера для проекту:
+ * 1. Якщо існує папка з назвою проекту в CAMOUFOX_PROFILES_DIR — використовуємо її (назва проекту).
+ * 2. Якщо папки з назвою проекту ще немає, але вказано стару/кастомну папку (не 'default' і не порожня):
+ *    - Якщо стара папка існує, автоматично мігруємо (копіюємо) її вміст у папку з назвою проекту,
+ *      щоб папка браузера завжди відповідала імені проекту!
+ * 3. Якщо session.projectName задано — використовуємо session.projectName.
+ * 4. Інакше fallback на CAMOUFOX_DEFAULT_PROFILE.
+ */
+export function resolveProfileDir(session: ProjectSession, profileDir?: string): string {
+  const projName = session.projectName?.trim();
+  const trimmed = profileDir?.trim();
+
+  // 1. Якщо існує папка, яка називається точно як проект — завжди використовуємо її
+  if (projName && fs.existsSync(path.join(CAMOUFOX_PROFILES_DIR, projName))) {
+    return projName;
+  }
+
+  // 2. Якщо папки з назвою проекту ще немає, але вказана стара папка — перевіряємо чи вона існує
+  if (projName && trimmed && trimmed !== '' && trimmed !== 'default' && trimmed !== projName) {
+    const oldPath = path.join(CAMOUFOX_PROFILES_DIR, trimmed);
+    const newPath = path.join(CAMOUFOX_PROFILES_DIR, projName);
+    if (fs.existsSync(oldPath)) {
+      try {
+        logger.info(`Auto-migrating profile folder for ${projName}: ${trimmed} → ${projName}...`);
+        fs.cpSync(oldPath, newPath, { recursive: true, filter: (s) => !s.endsWith('.parentlock') });
+        logger.info(`Profile folder auto-migration for ${projName} completed.`);
+        return projName;
+      } catch (migErr) {
+        logger.warn(`Failed to auto-migrate profile folder ${trimmed} to ${projName}`, { error: String(migErr) });
+        return trimmed;
+      }
+    }
+  }
+
+  // 3. За замовчуванням папка профілю проекту завжди називається як сам проект
+  if (projName && projName !== '') {
+    return projName;
+  }
+
+  // 4. Якщо кастомний профіль вказано для невідомого проекту
+  if (trimmed && trimmed !== '' && trimmed !== 'default') {
+    return trimmed;
+  }
+
+  return CAMOUFOX_DEFAULT_PROFILE;
+}
+
 // Допоміжна функція для пошуку першого вільного TCP порту починаючи з заданого
 export async function findFreePort(startPort: number): Promise<number> {
   // Повертаємо проміс з номером вільного порту
@@ -613,8 +661,8 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
   }
 
   const doConnect = async (): Promise<Page> => {
-    // Визначаємо директорію профілю: вказану користувачем або дефолтну
-    const requestedProfileDir = profileDir && profileDir.trim() !== '' ? profileDir : CAMOUFOX_DEFAULT_PROFILE;
+    // Визначаємо директорію профілю: за назвою проекту або вказану користувачем
+    const requestedProfileDir = resolveProfileDir(session, profileDir);
 
   // Якщо профіль змінився в межах цієї ж сесії, закриваємо старий браузер та вбиваємо його процес
   if (session.currentlyRunningProfileDir && session.currentlyRunningProfileDir !== requestedProfileDir) {
@@ -733,8 +781,8 @@ export async function connectToBrowser(session: ProjectSession, width = 1280, he
 
   // Функція для безпосереднього запуску контексту браузера через Playwright + Camoufox
   const launch = async () => {
-    // Визначаємо активну директорію профілю
-    const activeProfileDir = profileDir && profileDir.trim() !== '' ? profileDir : CAMOUFOX_DEFAULT_PROFILE;
+    // Визначаємо активну директорію профілю (за назвою проекту або кастомну)
+    const activeProfileDir = resolveProfileDir(session, profileDir);
     // Формуємо повний шлях до userData профілю
     const activeUserData = path.join(CAMOUFOX_PROFILES_DIR, activeProfileDir);
 
@@ -964,7 +1012,7 @@ except Exception:
   };
 
   // Визначаємо активну директорію профілю для формування шляху блокування
-  const activeProfileDir = profileDir && profileDir.trim() !== '' ? profileDir : CAMOUFOX_DEFAULT_PROFILE;
+  const activeProfileDir = resolveProfileDir(session, profileDir);
   const activeUserData = path.join(CAMOUFOX_PROFILES_DIR, activeProfileDir);
 
   try {

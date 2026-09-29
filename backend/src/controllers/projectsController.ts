@@ -383,7 +383,7 @@ export async function saveProject(req: Request, res: Response): Promise<void> {
       try {
         if (fs.existsSync(filePath)) {
           const existingContent = await fs.promises.readFile(filePath, 'utf-8');
-          existingSettings = JSON.parse(existingContent);
+          existingSettings = JSON.parse(existingContent.replace(/^\uFEFF/, ''));
         }
       } catch (e) {
         logger.warn(`Failed to read existing project file`, { projectName: name, error: String(e) });
@@ -400,6 +400,17 @@ export async function saveProject(req: Request, res: Response): Promise<void> {
     if (existingBs.height && (!incomingBs.height || (data.isAutoSave && incomingBs.height === 720 && existingBs.height !== 720))) {
       browserSettings.height = existingBs.height;
     }
+
+    // Захищаємо profileDir та profile від затирання порожнім рядком, призначаємо назву проекту за замовчуванням
+    const resolvedProfileDir = (incomingBs.profileDir && incomingBs.profileDir.trim() !== '' && incomingBs.profileDir !== 'default')
+      ? incomingBs.profileDir.trim()
+      : (existingBs.profileDir && existingBs.profileDir.trim() !== '' && existingBs.profileDir !== 'default' ? existingBs.profileDir : name);
+    browserSettings.profileDir = resolvedProfileDir;
+
+    const resolvedProfile = (incomingBs.profile && incomingBs.profile.trim() !== '' && incomingBs.profile !== 'default')
+      ? incomingBs.profile.trim()
+      : (existingBs.profile && existingBs.profile.trim() !== '' && existingBs.profile !== 'default' ? existingBs.profile : resolvedProfileDir);
+    browserSettings.profile = resolvedProfile;
 
     const projectData = {
       nodes: data.nodes || [],
@@ -527,7 +538,7 @@ export async function updateProjectSettings(req: Request, res: Response): Promis
     if (!projectData) {
       if (fs.existsSync(filePath)) {
         const fileContent = await fs.promises.readFile(filePath, 'utf-8');
-        projectData = JSON.parse(fileContent);
+        projectData = JSON.parse(fileContent.replace(/^\uFEFF/, ''));
       } else {
         projectData = {
           nodes: [],
@@ -540,9 +551,23 @@ export async function updateProjectSettings(req: Request, res: Response): Promis
     }
 
     if (browserSettings && typeof browserSettings === 'object') {
+      const existingProfileDir = projectData.browserSettings?.profileDir;
+      const incomingProfileDir = typeof browserSettings.profileDir === 'string' ? browserSettings.profileDir.trim() : undefined;
+      const resolvedProfileDir = incomingProfileDir && incomingProfileDir !== '' && incomingProfileDir !== 'default'
+        ? incomingProfileDir
+        : (existingProfileDir && existingProfileDir.trim() !== '' && existingProfileDir !== 'default' ? existingProfileDir : name);
+
+      const existingProfile = projectData.browserSettings?.profile;
+      const incomingProfile = typeof browserSettings.profile === 'string' ? browserSettings.profile.trim() : undefined;
+      const resolvedProfile = incomingProfile && incomingProfile !== '' && incomingProfile !== 'default'
+        ? incomingProfile
+        : (existingProfile && existingProfile.trim() !== '' && existingProfile !== 'default' ? existingProfile : resolvedProfileDir);
+
       projectData.browserSettings = {
         ...(projectData.browserSettings || {}),
-        ...browserSettings
+        ...browserSettings,
+        profileDir: resolvedProfileDir,
+        profile: resolvedProfile
       };
     }
 

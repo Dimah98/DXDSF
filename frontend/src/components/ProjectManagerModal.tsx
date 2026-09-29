@@ -484,7 +484,9 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
     const proj = selectedProject || 'default';
     const key = `sfl_browser_${proj}`;
     const saved = localStorage.getItem(key);
-    const initialBs = saved ? JSON.parse(saved) : { width: 1280, height: 720, profile: '', profileDir: '', proxy: '', photoDebug: true, snapToGrid: true };
+    const initialBs = saved ? JSON.parse(saved) : { width: 1280, height: 720, profile: proj, profileDir: proj, proxy: '', photoDebug: true, snapToGrid: true };
+    if (!initialBs.profileDir || initialBs.profileDir === 'default') initialBs.profileDir = proj;
+    if (!initialBs.profile || initialBs.profile === 'default') initialBs.profile = proj;
     setBrowserSettings(initialBs);
 
     // Завантажуємо збережені налаштування з бекенду для синхронізації
@@ -499,6 +501,8 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
           if (data && data.success && data.browserSettings) {
             setBrowserSettings((prev: any) => {
               const merged = { ...prev, ...data.browserSettings };
+              if (!merged.profileDir || merged.profileDir === 'default') merged.profileDir = proj;
+              if (!merged.profile || merged.profile === 'default') merged.profile = proj;
               localStorage.setItem(key, JSON.stringify(merged));
               return merged;
             });
@@ -1012,7 +1016,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                           className="w-full bg-muted/40 border border-border rounded-lg px-3 py-1.5 text-xs text-foreground outline-none focus:ring-1 ring-blue-500 pr-8 appearance-none"
                         >
                           {/* Порожній варіант (використати дефолтний) */}
-                          <option value="">{defaultBrowserEnv.defaultProfileDir ? `Дефолт (${defaultBrowserEnv.defaultProfileDir})` : 'Виберіть профіль...'}</option>
+                          <option value="">{selectedProject ? `За назвою проекту (${selectedProject})` : (defaultBrowserEnv.defaultProfileDir ? `Дефолт (${defaultBrowserEnv.defaultProfileDir})` : 'Виберіть профіль...')}</option>
                           {/* Перебираємо всі профілі з ITBrowser та відображаємо як options */}
                           {itbrowserProfiles.map(p => (
                             <option key={p.id} value={p.id}>
@@ -1033,7 +1037,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                       value={browserSettings.profileDir || ''}
                       onChange={e => saveBrowserSettings({ profileDir: e.target.value })}
                       className="w-full bg-muted/40 border border-border rounded-lg px-3 py-1.5 text-xs text-foreground outline-none focus:ring-1 ring-blue-500"
-                      placeholder={defaultBrowserEnv.defaultProfileDir ? `За замовчуванням (${defaultBrowserEnv.defaultProfileDir})` : 'Наприклад: 20260521103945'}
+                      placeholder={selectedProject ? `За замовчуванням (${selectedProject})` : (defaultBrowserEnv.defaultProfileDir ? `За замовчуванням (${defaultBrowserEnv.defaultProfileDir})` : 'Наприклад: SF')}
                     />
                   </div>
 
@@ -1047,7 +1051,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                       <span className="font-bold text-indigo-300">
                         {browserSettings.profile && browserSettings.profile.trim() !== '' 
                           ? browserSettings.profile 
-                          : `${defaultBrowserEnv.defaultProfile} (дефолт)`}
+                          : `${selectedProject || defaultBrowserEnv.defaultProfile || 'default'} (за проектом)`}
                       </span>
                     </div>
                     {/* Інформація про папку профілю */}
@@ -1058,7 +1062,7 @@ const ProjectManagerModal: React.FC<ProjectManagerModalProps> = ({
                       <span className="font-bold text-indigo-300">
                         {browserSettings.profileDir && browserSettings.profileDir.trim() !== '' 
                           ? browserSettings.profileDir 
-                          : `${defaultBrowserEnv.defaultProfileDir} (дефолт)`}
+                          : `${selectedProject || defaultBrowserEnv.defaultProfileDir || 'default'} (за проектом)`}
                       </span>
                     </div>
                   </div>

@@ -128,13 +128,24 @@ export async function ensureBrowserSettings(projectName: string, session: Projec
     if (!projectData) {
       const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
       const rawData = await fs.promises.readFile(projectPath, 'utf-8');
-      projectData = JSON.parse(rawData);
+      projectData = JSON.parse(rawData.replace(/^\uFEFF/, ''));
     }
 
     const bs = projectData.browserSettings || projectData.settings || {};
     session.botSettings = { ...session.botSettings, ...bs };
+
+    // За замовчуванням папка та назва профілю браузера мають відповідати назві проекту
+    if (!session.botSettings.profileDir || session.botSettings.profileDir.trim() === '' || session.botSettings.profileDir === 'default') {
+      session.botSettings.profileDir = projectName;
+    }
+    if (!session.botSettings.profile || session.botSettings.profile.trim() === '' || session.botSettings.profile === 'default') {
+      session.botSettings.profile = projectName;
+    }
   } catch (err) {
     logger.warn(`Could not read project data for ${projectName} to ensure browser settings`, { error: String(err) });
+    if (!session.botSettings) session.botSettings = {} as any;
+    if (!session.botSettings.profileDir) session.botSettings.profileDir = projectName;
+    if (!session.botSettings.profile) session.botSettings.profile = projectName;
   }
 }
 
