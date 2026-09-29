@@ -54,6 +54,7 @@ export async function getMergedCatalog(): Promise<BuildingCatalogItem[]> {
     return {
       ...item,
       image: (bImg || item.mapImage || `${item.name}.png`).replace(/\.png$/i, ''),
+      menuImage: `${item.name.replace(/\.png$/i, '')}.png`,
       buildingImage: bImg,
       categoryImage: custom?.categoryImage ?? item.categoryImage,
       shopImage: custom?.shopImage ?? item.shopImage,
@@ -286,6 +287,7 @@ export const getProjectBuildingsStatusHandler = async (req: Request, res: Respon
         width: item.w,
         height: item.h,
         image: cleanImage,
+        menuImage: `${item.name.replace(/\.png$/i, '')}.png`,
         categoryImage: item.categoryImage ? item.categoryImage.replace(/\.png$/i, '') : undefined,
         shopImage: item.shopImage ? item.shopImage.replace(/\.png$/i, '') : undefined,
         mapImage: item.mapImage,

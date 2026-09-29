@@ -16,6 +16,7 @@ interface ProjectBuildingStatus {
   width: number;
   height: number;
   image: string;
+  menuImage?: string;
   shopImage?: string;
   categoryImage?: string;
 }
@@ -228,17 +229,24 @@ export const PurchasableBuildingsModal: React.FC<PurchasableBuildingsModalProps>
                     }`}
                   >
                     <div className="flex items-start gap-3.5">
-                      {/* Картинка будівлі */}
+                      {/* Картинка будівлі: назва будівлі і .png */}
                       <div className="relative w-16 h-16 rounded-xl bg-slate-950/60 border border-white/10 flex items-center justify-center p-1.5 flex-shrink-0">
                         <img
-                          src={`/api/im/${encodeURI(b.image)}.png`}
+                          src={`/api/im/${encodeURIComponent(b.name.replace(/\.png$/i, ''))}.png`}
                           alt={b.name}
                           className="max-w-full max-h-full object-contain pixelated"
                           onError={(e) => {
                             const img = e.currentTarget;
+                            const buildingPng = `${b.name.replace(/\.png$/i, '')}.png`;
                             if (!img.dataset.retried) {
                               img.dataset.retried = '1';
-                              img.src = `/im/${encodeURI(b.image)}.png`;
+                              img.src = `/im/${encodeURIComponent(buildingPng)}`;
+                              return;
+                            }
+                            if (b.image && !img.dataset.fallbackRetried) {
+                              img.dataset.fallbackRetried = '1';
+                              const cleanImg = b.image.replace(/\.png$/i, '');
+                              img.src = `/api/im/${encodeURIComponent(cleanImg)}.png`;
                               return;
                             }
                             img.onerror = null;
@@ -303,12 +311,20 @@ export const PurchasableBuildingsModal: React.FC<PurchasableBuildingsModalProps>
                                 return (
                                   <span
                                     key={resName}
-                                    className={`text-[10px] px-2 py-0.5 rounded border flex items-center gap-1 ${
+                                    className={`text-[10px] px-2 py-0.5 rounded border flex items-center gap-1.5 ${
                                       isEnough
                                         ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
                                         : 'bg-red-950/40 border-red-500/30 text-red-300'
                                     }`}
                                   >
+                                    <img
+                                      src={`/api/im/${encodeURIComponent(resName.replace(/\.png$/i, ''))}.png`}
+                                      alt={resName}
+                                      className="w-3.5 h-3.5 object-contain pixelated inline-block"
+                                      onError={(e) => {
+                                        (e.currentTarget as HTMLElement).style.display = 'none';
+                                      }}
+                                    />
                                     <span className="font-medium">{resName}:</span>
                                     <b>{userQty} / {reqQty}</b>
                                   </span>
@@ -376,7 +392,24 @@ export const PurchasableBuildingsModal: React.FC<PurchasableBuildingsModalProps>
               {editableCatalog.map((item, idx) => (
                 <div key={item.id || idx} className="p-2.5 bg-slate-900/70 border border-white/10 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-white">{item.name}</span>
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={`/api/im/${encodeURIComponent(item.name.replace(/\.png$/i, ''))}.png`}
+                        alt={item.name}
+                        className="w-5 h-5 object-contain pixelated rounded bg-slate-950/60 p-0.5 border border-white/10"
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          const buildingPng = `${item.name.replace(/\.png$/i, '')}.png`;
+                          if (!img.dataset.retried) {
+                            img.dataset.retried = '1';
+                            img.src = `/im/${encodeURIComponent(buildingPng)}`;
+                            return;
+                          }
+                          img.style.display = 'none';
+                        }}
+                      />
+                      <span className="font-semibold text-white">{item.name}</span>
+                    </div>
                     <span className="text-[10px] text-gray-400 font-mono">{item.id} ({item.category})</span>
                   </div>
 
@@ -390,7 +423,7 @@ export const PurchasableBuildingsModal: React.FC<PurchasableBuildingsModalProps>
                           const val = e.target.value;
                           setEditableCatalog(prev => prev.map((x, i) => i === idx ? { ...x, image: val, buildingImage: val } : x));
                         }}
-                        placeholder="file_name"
+                        placeholder={`${item.name}.png`}
                         className="w-full bg-[#1e293b] text-gray-200 text-xs px-2 py-1 rounded border border-gray-700 focus:outline-none focus:border-amber-500"
                       />
                     </div>
