@@ -24,6 +24,7 @@ const getSize = (name: string): [number, number] => BUILDING_SIZES[name] ?? [1, 
 
 /**
  * Надійний клік по цілі (картинка або селектор).
+ * Підтримує пошук картинок як з розширенням (.png, .webp тощо), так і БЕЗ закінчення .png (хешовані CDN асети).
  * Якщо є однакові елементи або зображення, ЗАВЖДИ вибирається ОСТАННЄ в списку.
  */
 export async function clickTarget(
@@ -34,8 +35,32 @@ export async function clickTarget(
   if (!target || !target.trim()) return { success: false };
   const clean = target.trim().toLowerCase();
 
+  // Формуємо набір варіацій пошукового ключа (з .png, без .png, назва файлу без шляху, пробіли/підкреслення)
+  const cleanPath = clean.split('?')[0].split('#')[0];
+  const baseName = cleanPath.split('/').pop()?.split('\\').pop() || cleanPath;
+  const noExtClean = cleanPath.replace(/\.(png|webp|jpg|jpeg|gif|svg)$/i, '');
+  const noExtBase = baseName.replace(/\.(png|webp|jpg|jpeg|gif|svg)$/i, '');
+  const withPngClean = cleanPath.endsWith('.png') ? cleanPath : `${cleanPath}.png`;
+  const withPngBase = baseName.endsWith('.png') ? baseName : `${baseName}.png`;
+
+  const rawKeys = [
+    clean,
+    cleanPath,
+    baseName,
+    noExtClean,
+    noExtBase,
+    withPngClean,
+    withPngBase,
+    clean.replace(/ /g, '_'),
+    clean.replace(/_/g, ' '),
+    noExtBase.replace(/ /g, '_'),
+    noExtBase.replace(/_/g, ' ')
+  ];
+
+  const searchKeys = Array.from(new Set(rawKeys.filter(k => Boolean(k && k.trim().length >= 2))));
+
   try {
-    const res = await page.evaluate(({ val, inPortal }: { val: string; inPortal: boolean }) => {
+    const res = await page.evaluate(({ val, keys, inPortal }: { val: string; keys: string[]; inPortal: boolean }) => {
       function getClickable(el: HTMLElement): HTMLElement {
         return (el.closest('.cursor-pointer, button, [role="tab"], [role="button"], a') as HTMLElement) || el.parentElement || el;
       }
@@ -43,10 +68,16 @@ export async function clickTarget(
       const portal = document.querySelector('#headlessui-portal-root');
       const root = (inPortal && portal && portal.children.length > 0) ? portal : document;
 
-      // 1. Пошук картинок по src (або елементів з [src])
+      function matchesAnyKey(text: string): boolean {
+        if (!text) return false;
+        const low = text.toLowerCase();
+        return keys.some(k => low.includes(k));
+      }
+
+      // 1. Пошук картинок по src (або елементів з [src]) — перевіряємо всі варіації ключів
       const imgs = Array.from(root.querySelectorAll('img, [src]')).filter(el => {
         const src = ((el as HTMLImageElement).src || el.getAttribute('src') || '').toLowerCase();
-        return src.includes(val);
+        return matchesAnyKey(src);
       }) as HTMLElement[];
       if (imgs.length > 0) {
         const visible = imgs.filter(i => i.offsetParent !== null || i.getBoundingClientRect().width > 0);
@@ -60,20 +91,37 @@ export async function clickTarget(
       // 2. Пошук картинок по alt
       const altImgs = Array.from(root.querySelectorAll('img[alt]')).filter(el => {
         const alt = ((el as HTMLImageElement).alt || el.getAttribute('alt') || '').toLowerCase();
-        return alt.includes(val);
+        return matchesAnyKey(alt);
       }) as HTMLElement[];
       if (altImgs.length > 0) {
         const visible = altImgs.filter(i => i.offsetParent !== null || i.getBoundingClientRect().width > 0);
-        // Завжди вибираємо ОСТАННЄ знайдено в списку
         const chosen = visible.length > 0 ? visible[visible.length - 1] : altImgs[altImgs.length - 1];
         const clk = getClickable(chosen);
         clk.click();
         return { success: true, method: 'img-alt-last', tag: clk.tagName };
       }
 
-      // 3. Пошук кнопок та табів за точним текстом
+      // 3. Пошук за background-image у стилях (для фонових іконок або CSS-спрайтів)
+      const bgEls = Array.from(root.querySelectorAll('[style*="url"], [style*="background"], div, span, button')).filter(el => {
+        const styleAttr = el.getAttribute('style') || '';
+        return matchesAnyKey(styleAttr);
+      }) as HTMLElement[];
+      if (bgEls.length > 0) {
+        const visible = bgEls.filter(i => i.offsetParent !== null || i.getBoundingClientRect().width > 0);
+        if (visible.length > 0) {
+          const chosen = visible[visible.length - 1];
+          const clk = getClickable(chosen);
+          clk.click();
+          return { success: true, method: 'bg-style-last', tag: clk.tagName };
+        }
+      }
+
+      // 4. Пошук кнопок та табів за точним текстом
       const textEls = Array.from(root.querySelectorAll('button, [role="tab"], [role="button"], div.cursor-pointer, span, p')) as HTMLElement[];
-      const exacts = textEls.filter(el => el.textContent && el.textContent.trim().toLowerCase() === val);
+      const exacts = textEls.filter(el => {
+        const txt = el.textContent ? el.textContent.trim().toLowerCase() : '';
+        return keys.includes(txt);
+      });
       if (exacts.length > 0) {
         const visible = exacts.filter(i => i.offsetParent !== null || i.getBoundingClientRect().width > 0);
         const chosen = visible.length > 0 ? visible[visible.length - 1] : exacts[exacts.length - 1];
@@ -82,8 +130,11 @@ export async function clickTarget(
         return { success: true, method: 'text-exact-last', tag: clk.tagName };
       }
 
-      // 4. Пошук за частковим текстом
-      const partials = textEls.filter(el => el.textContent && el.textContent.trim().toLowerCase().includes(val));
+      // 5. Пошук за частковим текстом
+      const partials = textEls.filter(el => {
+        const txt = el.textContent ? el.textContent.trim().toLowerCase() : '';
+        return txt && matchesAnyKey(txt);
+      });
       if (partials.length > 0) {
         const visible = partials.filter(i => i.offsetParent !== null || i.getBoundingClientRect().width > 0);
         const chosen = visible.length > 0 ? visible[visible.length - 1] : partials[partials.length - 1];
@@ -92,27 +143,34 @@ export async function clickTarget(
         return { success: true, method: 'text-partial-last', tag: clk.tagName };
       }
 
-      // 5. QuerySelector якщо це валідний CSS селектор
-      try {
-        const queryEls = Array.from(root.querySelectorAll(val)) as HTMLElement[];
-        if (queryEls.length > 0) {
-          const visible = queryEls.filter(i => i.offsetParent !== null || i.getBoundingClientRect().width > 0);
-          const chosen = visible.length > 0 ? visible[visible.length - 1] : queryEls[queryEls.length - 1];
-          const clk = getClickable(chosen);
-          clk.click();
-          return { success: true, method: 'query-selector-last', tag: clk.tagName };
-        }
-      } catch (e) {}
+      // 6. QuerySelector якщо валідний CSS селектор
+      for (const sel of [val, ...keys]) {
+        try {
+          const queryEls = Array.from(root.querySelectorAll(sel)) as HTMLElement[];
+          if (queryEls.length > 0) {
+            const visible = queryEls.filter(i => i.offsetParent !== null || i.getBoundingClientRect().width > 0);
+            const chosen = visible.length > 0 ? visible[visible.length - 1] : queryEls[queryEls.length - 1];
+            const clk = getClickable(chosen);
+            clk.click();
+            return { success: true, method: 'query-selector-last', tag: clk.tagName };
+          }
+        } catch (e) {}
+      }
 
       return { success: false };
-    }, { val: clean, inPortal: preferInPortal });
+    }, { val: clean, keys: searchKeys, inPortal: preferInPortal });
 
     if (res?.success) return res;
   } catch (err) {}
 
-  // Playwright fallback: завжди вибираємо останній елемент (.last())
+  // Playwright fallback: шукаємо за всіма варіаціями ключів (і з .png, і без нього)
   try {
-    const loc = page.locator(`img[src*="${clean}"], [src*="${clean}"], button:has-text("${clean}"), ${clean}`);
+    const locators: string[] = [];
+    for (const k of searchKeys) {
+      const safe = k.replace(/"/g, '\\"');
+      locators.push(`img[src*="${safe}"]`, `[src*="${safe}"]`, `img[alt*="${safe}"]`, `button:has-text("${safe}")`);
+    }
+    const loc = page.locator(locators.join(', '));
     const count = await loc.count();
     if (count > 0) {
       const lastEl = loc.last();
@@ -340,9 +398,27 @@ export const buildingPlacerNodeHandler = async ({
     // ── Крок 3: Клік на зображення постройки ──────────────────────────────────
     if (finalBuildingImage) {
       logToClient(`⏳ Крок 3: Клік на будівлю («${finalBuildingImage}»)`, 'info');
-      const bldRes = await clickTarget(activePage, finalBuildingImage, true);
+      let bldRes = await clickTarget(activePage, finalBuildingImage, true);
+
+      // Якщо не вдалося, явно пробуємо без закінчення .png / .webp
+      if (!bldRes.success) {
+        const noExt = finalBuildingImage.replace(/\.(png|webp|jpg|jpeg|gif|svg)(\?.*)?$/i, '');
+        if (noExt !== finalBuildingImage) {
+          logToClient(`⏳ Крок 3: Спроба знайти зображення без закінчення .png («${noExt}»)`, 'debug');
+          bldRes = await clickTarget(activePage, noExt, true);
+        }
+      }
+
+      // Якщо не вдалося за зображенням, пробуємо за назвою будівлі
       if (!bldRes.success && effectiveBuildingName) {
-        await clickTarget(activePage, effectiveBuildingName, true);
+        logToClient(`⏳ Крок 3: Спроба знайти будівлю за назвою («${effectiveBuildingName}»)`, 'debug');
+        bldRes = await clickTarget(activePage, effectiveBuildingName, true);
+      }
+
+      if (bldRes.success) {
+        logToClient(`✅ Крок 3: Вибрано будівлю (${bldRes.method || 'успішно'})`, 'info');
+      } else {
+        logToClient(`⚠️ Крок 3: Не вдалося натиснути на будівлю «${finalBuildingImage}» (перевірте чи відкрита правильна вкладка верстака)`, 'info');
       }
       await smartSleep(1000, ws);
     }

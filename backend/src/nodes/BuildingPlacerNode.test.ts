@@ -124,4 +124,68 @@ describe('BuildingPlacerNode - clickTarget', () => {
     expect(lastMockClick).toHaveBeenCalled();
     expect(firstMockClick).not.toHaveBeenCalled();
   });
+
+  it('успішно знаходить зображення по src коли target передано з .png, а в DOM картинка БЕЗ .png (хеш асету)', async () => {
+    let clicked = false;
+    const hashWithoutPng = '0CnW0uQPc6vtTRmSPC81gIfeCQcsmeHNPqp7FkKFlfMMmSP8y9ffwAA';
+    const targetWithPng = `${hashWithoutPng}.png`;
+
+    const img = {
+      src: `https://sunflower-land.com/play/assets/${hashWithoutPng}`,
+      offsetParent: {},
+      getBoundingClientRect: () => ({ width: 32 }),
+      closest: () => null,
+      parentElement: null,
+      tagName: 'IMG',
+      click: () => { clicked = true; }
+    };
+
+    (global as any).document.querySelectorAll = vi.fn().mockImplementation((sel: string) => {
+      if (sel.includes('img')) return [img];
+      return [];
+    });
+
+    const mockPage = {
+      evaluate: vi.fn().mockImplementation((fn: Function, args: any) => {
+        return fn(args);
+      })
+    };
+
+    const res = await clickTarget(mockPage, targetWithPng);
+    expect(res.success).toBe(true);
+    expect(res.method).toBe('img-src-last');
+    expect(clicked).toBe(true);
+  });
+
+  it('успішно знаходить зображення по src коли target передано БЕЗ .png, а в DOM картинка З .png', async () => {
+    let clicked = false;
+    const imgNameNoPng = 'kitchen';
+    const imgNameWithPng = 'kitchen.png';
+
+    const img = {
+      src: `https://sunflower-land.com/play/assets/${imgNameWithPng}`,
+      offsetParent: {},
+      getBoundingClientRect: () => ({ width: 40 }),
+      closest: () => null,
+      parentElement: null,
+      tagName: 'IMG',
+      click: () => { clicked = true; }
+    };
+
+    (global as any).document.querySelectorAll = vi.fn().mockImplementation((sel: string) => {
+      if (sel.includes('img')) return [img];
+      return [];
+    });
+
+    const mockPage = {
+      evaluate: vi.fn().mockImplementation((fn: Function, args: any) => {
+        return fn(args);
+      })
+    };
+
+    const res = await clickTarget(mockPage, imgNameNoPng);
+    expect(res.success).toBe(true);
+    expect(res.method).toBe('img-src-last');
+    expect(clicked).toBe(true);
+  });
 });

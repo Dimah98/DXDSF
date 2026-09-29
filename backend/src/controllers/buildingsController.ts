@@ -53,9 +53,9 @@ export async function getMergedCatalog(): Promise<BuildingCatalogItem[]> {
     const bImg = custom?.buildingImage ?? item.buildingImage;
     return {
       ...item,
-      image: (bImg || item.mapImage || `${item.name}.png`).replace(/\.png$/i, ''),
+      image: bImg !== undefined ? bImg : (item.buildingImage || `${item.name}.png`),
       menuImage: `${item.name.replace(/\.png$/i, '')}.png`,
-      buildingImage: bImg,
+      buildingImage: bImg !== undefined ? bImg : item.buildingImage,
       categoryImage: custom?.categoryImage ?? item.categoryImage,
       shopImage: custom?.shopImage ?? item.shopImage,
       mapImage: custom?.mapImage ?? item.mapImage,
@@ -92,7 +92,7 @@ export const saveBuildingsCatalogHandler = async (req: Request, res: Response) =
         // Користувач у модалці редагує поле "Зображення:" (item.image) або buildingImage
         const rawImg = item.image !== undefined ? item.image : item.buildingImage;
         const trimmedImg = rawImg != null ? String(rawImg).trim() : '';
-        const bImg = trimmedImg ? (trimmedImg.toLowerCase().endsWith('.png') ? trimmedImg : `${trimmedImg}.png`) : undefined;
+        const bImg = trimmedImg || undefined;
 
         settingsToSave[item.name] = {
           ...(settingsToSave[item.name] || {}),
