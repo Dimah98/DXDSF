@@ -481,23 +481,54 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
         // 5. Фруктові дерева (квадрати)
         const fruitPatches = Object.entries(farm.fruitPatches || {}) as [string, any][];
         const fruitGrowthMap: Record<string, number> = {
-          Apple: 24 * 3600 * 1000,
-          Orange: 24 * 3600 * 1000,
-          Blueberry: 24 * 3600 * 1000,
-          Banana: 24 * 3600 * 1000,
-          Tomato: 2 * 3600 * 1000,
-          Lemon: 24 * 3600 * 1000,
+          Tomato: 2 * 3600 * 1000,     // 2 години (7200с)
+          Lemon: 4 * 3600 * 1000,      // 4 години (14400с)
+          Blueberry: 6 * 3600 * 1000,  // 6 годин (21600с)
+          Orange: 8 * 3600 * 1000,     // 8 годин (28800с)
+          Apple: 12 * 3600 * 1000,     // 12 годин (43200с)
+          Banana: 12 * 3600 * 1000,    // 12 годин (43200с)
+          Celestine: 6 * 3600 * 1000,  // 6 годин
+          Lunara: 12 * 3600 * 1000,    // 12 годин
+          Duskberry: 24 * 3600 * 1000, // 24 години
         };
+        const skills = farm.bumpkin?.skills || {};
         const fruitTrees = fruitPatches.map(([id, patch]) => {
           const fruit = patch?.fruit;
           const fName = fruit?.name || 'Apple';
           const harvestsLeft = typeof fruit?.harvestsLeft === 'number' ? fruit.harvestsLeft : 3;
           const amount = typeof fruit?.amount === 'number' ? fruit.amount : 1;
-          const growthMs = fruitGrowthMap[fName] || (24 * 3600 * 1000);
+
+          let multiplier = 1;
+          if (skills['Short Pickings']) {
+            if (fName === 'Blueberry' || fName === 'Orange') multiplier *= 0.75;
+            else if (fName === 'Apple' || fName === 'Banana') multiplier *= 1.1;
+          }
+          if (skills['Long Pickings']) {
+            if (fName === 'Apple' || fName === 'Banana') multiplier *= 0.75;
+            else if (fName === 'Blueberry' || fName === 'Orange') multiplier *= 1.1;
+          }
+
+          const baseGrowthMs = fruitGrowthMap[fName] || (12 * 3600 * 1000);
+          const growthMs = baseGrowthMs * multiplier;
           const lastActivity = (fruit?.harvestedAt && fruit.harvestedAt > 0) ? fruit.harvestedAt : (fruit?.plantedAt || 0);
-          const readyAt = lastActivity + growthMs;
-          const remainingMs = Math.max(0, readyAt - now);
-          const isReady = remainingMs === 0;
+
+          let remainingMs = 0;
+          let readyAt = 0;
+          let isReady = false;
+          let isDead = false;
+
+          if (harvestsLeft <= 0) {
+            isDead = true;
+            isReady = false;
+            remainingMs = 0;
+          } else if (lastActivity === 0) {
+            isReady = true;
+            remainingMs = 0;
+          } else {
+            readyAt = lastActivity + growthMs;
+            remainingMs = Math.max(0, readyAt - now);
+            isReady = remainingMs === 0;
+          }
 
           return {
             id,
@@ -505,6 +536,7 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
             harvestsLeft,
             amount,
             isReady,
+            isDead,
             readyAt,
             remainingMs,
           };
@@ -689,6 +721,8 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
             currentResource: resCount,
             requiredResource: 5,
             nextIslandType: 'spring',
+            isMaxLevel: false,
+            isLastUpgrade: false,
             canUpgrade: level >= 10 && resCount >= 5,
           };
         } else if (islandType === 'spring') {
@@ -700,29 +734,22 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
             currentResource: resCount,
             requiredResource: 20,
             nextIslandType: 'desert',
+            isMaxLevel: false,
+            isLastUpgrade: true, // Desert — останнє покращення острова в Sunflower Land
             canUpgrade: level >= 40 && resCount >= 20,
           };
         } else if (islandType === 'desert') {
-          const resCount = Number(inventory['Oil']) || 0;
+          // Desert — це фінальне, останнє покращення острова
           islandUpgrade = {
             currentLevel: level,
-            requiredLevel: 70,
-            resourceName: 'Oil',
-            currentResource: resCount,
-            requiredResource: 200,
-            nextIslandType: 'volcano',
-            canUpgrade: level >= 70 && resCount >= 200,
-          };
-        } else if (islandType === 'volcano') {
-          const resCount = Number(inventory['Crimstone']) || 0;
-          islandUpgrade = {
-            currentLevel: level,
-            requiredLevel: 150,
-            resourceName: 'Crimstone',
-            currentResource: resCount,
-            requiredResource: 30,
-            nextIslandType: 'ascension',
-            canUpgrade: level >= 150 && resCount >= 30,
+            requiredLevel: level,
+            resourceName: '',
+            currentResource: 0,
+            requiredResource: 0,
+            nextIslandType: 'desert',
+            isMaxLevel: true,
+            isLastUpgrade: true,
+            canUpgrade: false,
           };
         }
 

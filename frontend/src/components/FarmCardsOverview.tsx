@@ -9,17 +9,10 @@ import {
   Square,
   Clock,
   Sparkles,
-  TreeDeciduous,
-  Pickaxe,
-  Wheat,
-  UtensilsCrossed,
-  Fish,
-  Landmark,
   Box,
-  Flame,
   LayoutGrid
 } from 'lucide-react';
-import { getCleanImageUrl, handleImageErrorWithCacheBust, MINI_QUESTION_SVG } from '../utils/imageUtils';
+import { getCleanImageUrl, handleImageErrorWithCacheBust } from '../utils/imageUtils';
 
 // Інтерфейс для кожної картки проекту
 export interface FarmCardData {
@@ -59,6 +52,7 @@ export interface FarmCardData {
     harvestsLeft: number;
     amount: number;
     isReady: boolean;
+    isDead?: boolean;
     readyAt: number;
     remainingMs: number;
   }[];
@@ -119,6 +113,8 @@ export interface FarmCardData {
     currentResource: number;
     requiredResource: number;
     nextIslandType: string;
+    isMaxLevel?: boolean;
+    isLastUpgrade?: boolean;
     canUpgrade: boolean;
   } | null;
 }
@@ -602,11 +598,6 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 3. Рослини на грядках і скільки буде при зборі + таймер */}
       {settings.showCrops && card.crops.length > 0 && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <Wheat size={12} className="text-amber-400" />
-            <span>Грядки</span>
-          </div>
-
           <div className="space-y-1">
             {card.crops.map((crop, idx) => {
               const liveRemaining = Math.max(0, crop.remainingMs - elapsedSinceFetch);
@@ -638,12 +629,7 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 4. Насіння рослин пори року що залишилися в інвентарі */}
       {settings.showSeasonalCropSeeds && card.seasonalCropSeeds.length > 0 && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <Sparkles size={11} className="text-emerald-400" />
-            <span>Насіння сезону {card.season && SEASON_UKRAINIAN[card.season.toLowerCase()] ? `(${SEASON_UKRAINIAN[card.season.toLowerCase()]})` : ''}</span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {card.seasonalCropSeeds.map((seed, idx) => (
               <div key={idx} className="flex items-center gap-1 bg-slate-800/90 px-1.5 py-0.5 rounded border border-slate-700/60">
                 <img
@@ -663,21 +649,17 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 5. Фруктові дерева (квадрати: зліва зверху - збори, знизу справа - урожай, рамка зелена/сіра, таймер) */}
       {settings.showFruitTrees && card.fruitTrees.length > 0 && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <TreeDeciduous size={12} className="text-emerald-400" />
-            <span>Фруктові дерева ({card.fruitTrees.length})</span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {card.fruitTrees.map(tree => {
               const liveRemaining = Math.max(0, tree.remainingMs - elapsedSinceFetch);
-              const isReady = liveRemaining === 0;
+              const isDead = tree.isDead || tree.harvestsLeft <= 0;
+              const isReady = !isDead && liveRemaining === 0;
 
               return (
                 <div key={tree.id} className="flex flex-col items-center gap-0.5">
                   <div
-                    className={`farm-square-box ${isReady ? 'border-ready' : 'border-not-ready'}`}
-                    title={`${tree.name}: залишилось зборів: ${tree.harvestsLeft}, урожай: ${tree.amount}, статус: ${isReady ? 'Готово до збору' : formatRemaining(liveRemaining)}`}
+                    className={`farm-square-box ${isDead ? 'opacity-50 border-not-ready' : isReady ? 'border-ready' : 'border-not-ready'}`}
+                    title={`${tree.name}: залишилось зборів: ${tree.harvestsLeft}, урожай: ${tree.amount}, статус: ${isDead ? 'Дерево сухе (зрубати)' : isReady ? 'Готово до збору' : formatRemaining(liveRemaining)}`}
                   >
                     {/* Зверху зліва: скільки разів ще можна збирати */}
                     <span className="tree-harvests-left">{tree.harvestsLeft}</span>
@@ -687,7 +669,7 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
                       src={getCleanImageUrl(`/api/im/${encodeURIComponent(tree.name)}.png`)}
                       alt={tree.name}
                       onError={handleImageErrorWithCacheBust}
-                      className="w-6 h-6 object-contain"
+                      className="w-4 h-4 object-contain"
                     />
 
                     {/* Знизу справа: скільки дасть при зборі */}
@@ -695,8 +677,8 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
                   </div>
 
                   {/* Таймер до дозрівання фруктового дерева */}
-                  <span className={isReady ? 'timer-badge-ready text-[9px]' : 'timer-badge-waiting text-[9px]'}>
-                    {formatRemaining(liveRemaining)}
+                  <span className={isDead ? 'timer-badge-waiting text-[8px] text-rose-400' : isReady ? 'timer-badge-ready text-[8px]' : 'timer-badge-waiting text-[8px]'}>
+                    {isDead ? 'Сухе' : formatRemaining(liveRemaining)}
                   </span>
                 </div>
               );
@@ -708,11 +690,6 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 6. Ресурси для збору (дерево, камінь, залізо тощо: 4/9 і час до відновлення) */}
       {settings.showResources && card.resources.length > 0 && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <Pickaxe size={12} className="text-sky-400" />
-            <span>Ресурси для збору</span>
-          </div>
-
           <div className="grid grid-cols-2 gap-1.5">
             {card.resources.map(res => {
               const liveRemaining = Math.max(0, res.remainingMs - elapsedSinceFetch);
@@ -746,11 +723,6 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 7. Інструменти в інвентарі та на складі */}
       {settings.showTools && card.tools.length > 0 && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <Pickaxe size={12} className="text-amber-400" />
-            <span>Інструменти (інв. / склад)</span>
-          </div>
-
           <div className="flex flex-wrap gap-1.5">
             {card.tools.map(tool => (
               <div
@@ -778,11 +750,6 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 8. Квітки що ростуть */}
       {settings.showFlowers && card.growingFlowers.length > 0 && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <span className="text-purple-400">🌸</span>
-            <span>Квіти на клумбах ({card.growingFlowers.length})</span>
-          </div>
-
           <div className="space-y-1">
             {card.growingFlowers.map((flower, idx) => {
               const liveRemaining = Math.max(0, flower.remainingMs - elapsedSinceFetch);
@@ -815,11 +782,6 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 9. Насіння квітів поточного сезону в інвентарі */}
       {settings.showSeasonalFlowerSeeds && card.seasonalFlowerSeeds.length > 0 && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <span className="text-purple-400">🌷</span>
-            <span>Насіння квітів {card.season && SEASON_UKRAINIAN[card.season.toLowerCase()] ? `(${SEASON_UKRAINIAN[card.season.toLowerCase()]})` : ''}</span>
-          </div>
-
           <div className="flex flex-wrap gap-1.5">
             {card.seasonalFlowerSeeds.map((seed, idx) => (
               <div key={idx} className="flex items-center gap-1 bg-slate-800/90 px-1.5 py-0.5 rounded border border-purple-900/40">
@@ -840,11 +802,6 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 10. Страви які зараз готуються */}
       {settings.showCooking && card.cookingDishes.length > 0 && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <UtensilsCrossed size={12} className="text-amber-400" />
-            <span>Страви що готуються ({card.cookingDishes.length})</span>
-          </div>
-
           <div className="space-y-1">
             {card.cookingDishes.map((dish, idx) => {
               const liveRemaining = Math.max(0, dish.remainingMs - elapsedSinceFetch);
@@ -880,12 +837,7 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 11. 3 компостери (квадрат з кольоровою рамкою) */}
       {settings.showComposters && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <Flame size={12} className="text-amber-400" />
-            <span>Компостери</span>
-          </div>
-
-          <div className="flex justify-around items-center pt-1">
+          <div className="flex justify-around items-center pt-0.5">
             {card.composters.map(comp => {
               const liveRemaining = Math.max(0, (comp.remainingMs || 0) - elapsedSinceFetch);
               let borderClass = 'composter-gray';
@@ -909,10 +861,10 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
                       src={getCleanImageUrl(`/api/im/${encodeURIComponent(comp.name)}.png`)}
                       alt={comp.name}
                       onError={handleImageErrorWithCacheBust}
-                      className="w-7 h-7 object-contain"
+                      className="w-5 h-5 object-contain"
                     />
                   </div>
-                  <span className="text-[9px] text-slate-400 truncate max-w-[60px] text-center">
+                  <span className="text-[8px] text-slate-400 truncate max-w-[48px] text-center">
                     {comp.name.replace(' Composter', '').replace(' Bin', '')}
                   </span>
                 </div>
@@ -925,11 +877,6 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 12. Великі фрукти Project на острові */}
       {settings.showBigFruits && card.bigFruitProjects.length > 0 && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <Landmark size={12} className="text-amber-400" />
-            <span>Project на острові</span>
-          </div>
-
           <div className="space-y-1.5">
             {card.bigFruitProjects.map((proj, idx) => (
               <div key={idx} className="flex items-center justify-between text-[11px] bg-slate-800/80 px-2 py-1 rounded border border-slate-700/50">
@@ -960,11 +907,6 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 13. Риболовля (спроби 10/30, вудки, наживка) */}
       {settings.showFishing && (
         <div className="farm-card-section">
-          <div className="farm-card-section-title">
-            <Fish size={12} className="text-sky-400" />
-            <span>Риболовля</span>
-          </div>
-
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-slate-300">
               Сьогодні: <span className="font-bold text-sky-400">{card.fishing.dailyAttempts}/{card.fishing.dailyLimit}</span>
@@ -1005,36 +947,55 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
       {/* 14. Ресурси для покращення острова (Lvl 23/25, ресурс 18/50) */}
       {settings.showIslandUpgrade && card.islandUpgrade && (
         <div className="farm-card-section bg-gradient-to-r from-slate-900 to-indigo-950/40 border-indigo-900/50">
-          <div className="farm-card-section-title text-indigo-300">
-            <span>Покращення острова → {card.islandUpgrade.nextIslandType}</span>
-          </div>
-
           <div className="flex items-center justify-between text-[11px]">
-            {/* Рівень */}
+            {/* Острів */}
             <div className="flex items-center gap-1">
-              <span className="text-slate-400">Lvl:</span>
-              <span className={`font-bold ${card.islandUpgrade.currentLevel >= card.islandUpgrade.requiredLevel ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {card.islandUpgrade.currentLevel}/{card.islandUpgrade.requiredLevel}
+              <span className="text-indigo-400 font-semibold text-[10px]">
+                {card.islandUpgrade.isMaxLevel
+                  ? '🏝️ Desert (останнє покращення)'
+                  : card.islandUpgrade.isLastUpgrade
+                  ? '🏝️ → Desert (останнє покращення)'
+                  : `🏝️ → ${card.islandUpgrade.nextIslandType}`}
               </span>
             </div>
 
-            {/* Ресурс */}
-            <div className="flex items-center gap-1">
-              <img
-                src={getCleanImageUrl(`/api/im/${encodeURIComponent(card.islandUpgrade.resourceName)}.png`)}
-                alt={card.islandUpgrade.resourceName}
-                onError={handleImageErrorWithCacheBust}
-                className="w-4 h-4 object-contain"
-                title={card.islandUpgrade.resourceName}
-              />
-              <span className={`font-bold ${card.islandUpgrade.currentResource >= card.islandUpgrade.requiredResource ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {card.islandUpgrade.currentResource}/{card.islandUpgrade.requiredResource}
-              </span>
-            </div>
+            {!card.islandUpgrade.isMaxLevel && (
+              <>
+                {/* Рівень */}
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-400 text-[10px]">Lvl:</span>
+                  <span className={`font-bold ${card.islandUpgrade.currentLevel >= card.islandUpgrade.requiredLevel ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {card.islandUpgrade.currentLevel}/{card.islandUpgrade.requiredLevel}
+                  </span>
+                </div>
 
-            {card.islandUpgrade.canUpgrade && (
-              <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 text-[9px] font-bold rounded border border-emerald-500/40 animate-pulse">
-                Готово!
+                {/* Ресурс */}
+                {card.islandUpgrade.resourceName && (
+                  <div className="flex items-center gap-1">
+                    <img
+                      src={getCleanImageUrl(`/api/im/${encodeURIComponent(card.islandUpgrade.resourceName)}.png`)}
+                      alt={card.islandUpgrade.resourceName}
+                      onError={handleImageErrorWithCacheBust}
+                      className="w-3.5 h-3.5 object-contain"
+                      title={card.islandUpgrade.resourceName}
+                    />
+                    <span className={`font-bold ${card.islandUpgrade.currentResource >= card.islandUpgrade.requiredResource ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {card.islandUpgrade.currentResource}/{card.islandUpgrade.requiredResource}
+                    </span>
+                  </div>
+                )}
+
+                {card.islandUpgrade.canUpgrade && (
+                  <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 text-[9px] font-bold rounded border border-emerald-500/40 animate-pulse">
+                    Готово!
+                  </span>
+                )}
+              </>
+            )}
+
+            {card.islandUpgrade.isMaxLevel && (
+              <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 text-[9px] font-bold rounded border border-emerald-500/30">
+                Макс. рівень
               </span>
             )}
           </div>
