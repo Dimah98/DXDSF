@@ -223,3 +223,45 @@
   color: #60a5fa;
   border: 1px solid rgba(59, 130, 246, 0.4);
 }
+
+/* Квадрат курки в курятнику */
+.chicken-square-card {
+  width: 52px;
+  min-height: 58px;
+  position: relative;
+  background: #0b1120;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 2px;
+  border: 1.5px solid #334155;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.chicken-square-card:hover {
+  transform: translateY(-1px);
+  border-color: #94a3b8;
+}
+
+.chicken-level-badge {
+  font-size: 8px;
+  font-weight: 800;
+  color: #fbbf24;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.chicken-status-icon {
+  font-size: 8.5px;
+  line-height: 1;
+}
+
+.chicken-timer-sub {
+  font-size: 7.5px;
+  line-height: 1.1;
+  font-weight: 700;
+  white-space: nowrap;
+}

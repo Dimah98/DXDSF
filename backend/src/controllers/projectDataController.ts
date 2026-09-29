@@ -308,6 +308,61 @@ const SEASON_FLOWERS_MAP: Record<string, string[]> = {
   winter: ['Lotus Seed', 'Daffodil Seed']
 };
 
+const SEASON_FRUIT_SEEDS_MAP: Record<string, string[]> = {
+  spring: ['Apple Seed', 'Orange Seed', 'Blueberry Seed'],
+  summer: ['Banana Seed', 'Lemon Seed', 'Orange Seed'],
+  autumn: ['Apple Seed', 'Tomato Seed', 'Banana Seed'],
+  winter: ['Lemon Seed', 'Tomato Seed', 'Blueberry Seed']
+};
+
+const ALL_FRUIT_SEEDS = [
+  'Apple Seed', 'Orange Seed', 'Blueberry Seed', 'Banana Seed',
+  'Lemon Seed', 'Tomato Seed', 'Celestine Seed', 'Lunara Seed', 'Duskberry Seed'
+];
+
+const CHICKEN_LEVEL_THRESHOLDS = [
+  { level: 16, xp: 2720 },
+  { level: 15, xp: 2400 },
+  { level: 14, xp: 2160 },
+  { level: 13, xp: 1920 },
+  { level: 12, xp: 1680 },
+  { level: 11, xp: 1440 },
+  { level: 10, xp: 1200 },
+  { level: 9, xp: 1020 },
+  { level: 8, xp: 840 },
+  { level: 7, xp: 660 },
+  { level: 6, xp: 480 },
+  { level: 5, xp: 360 },
+  { level: 4, xp: 240 },
+  { level: 3, xp: 120 },
+  { level: 2, xp: 60 },
+  { level: 1, xp: 0 },
+];
+
+function getChickenLevel(xp: number): number {
+  for (const t of CHICKEN_LEVEL_THRESHOLDS) {
+    if (xp >= t.xp) return t.level;
+  }
+  return 1;
+}
+
+function getFlowerGrowthMs(flowerName: string): number {
+  const name = (flowerName || '').toLowerCase();
+  if (name.includes('carnation') || name.includes('lotus') || name.includes('primula enigma')) {
+    return 5 * 24 * 3600 * 1000;
+  }
+  if (name.includes('clover') || name.includes('lavender') || name.includes('edelweiss') || name.includes('gladiolus')) {
+    return 3 * 24 * 3600 * 1000;
+  }
+  if (name.includes('balloon flower') || name.includes('daffodil') || name.includes('celestial frostbloom')) {
+    return 2 * 24 * 3600 * 1000;
+  }
+  if (name.includes('pansy') || name.includes('cosmos') || name.includes('prism petal')) {
+    return 24 * 3600 * 1000;
+  }
+  return 24 * 3600 * 1000;
+}
+
 interface ExpansionReq {
   level: number;
   coins?: number;
@@ -656,10 +711,9 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
           const cName = plot.crop.name;
           if (!cName) continue;
           const plantedAt = plot.crop.plantedAt || 0;
-          const boostedTime = plot.crop.boostedTime || 0;
           const baseGrowthMs = BASE_GROWTH_TIMES[cName] || (30 * 60 * 1000);
-          const actualGrowthMs = Math.max(0, baseGrowthMs - boostedTime);
-          const readyAt = plantedAt + actualGrowthMs;
+          // У Sunflower Land plantedAt вже зміщено в минуле на величина бусту, тому readyAt = plantedAt + baseGrowthMs
+          const readyAt = plantedAt + baseGrowthMs;
           const remainingMs = Math.max(0, readyAt - now);
           const amount = typeof plot.crop.amount === 'number' ? plot.crop.amount : 1;
 
@@ -795,6 +849,71 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
           };
         });
 
+        // 5.1 Насіння фруктових дерев поточного сезону в інвентарі
+        const seasonFruitSeeds = SEASON_FRUIT_SEEDS_MAP[farmSeason] || SEASON_FRUIT_SEEDS_MAP.spring;
+        const seasonalFruitSeeds: { name: string; count: number }[] = [];
+        for (const seedName of seasonFruitSeeds) {
+          const count = Number(inventory[seedName]) || 0;
+          if (count > 0) {
+            seasonalFruitSeeds.push({ name: seedName, count });
+          }
+        }
+        // Fallback: якщо насіння поточного сезону немає в інвентарі, але є інше фруктове насіння
+        if (seasonalFruitSeeds.length === 0) {
+          for (const sName of ALL_FRUIT_SEEDS) {
+            const count = Number(inventory[sName]) || 0;
+            if (count > 0) {
+              seasonalFruitSeeds.push({ name: sName, count });
+            }
+          }
+        }
+
+        // 5.2 Кури в курятнику
+        const henHouseAnimals = farm.henHouse?.animals || {};
+        const chickensList = Object.values(henHouseAnimals).map((ch: any) => {
+          const xp = typeof ch.experience === 'number' ? ch.experience : 0;
+          const level = getChickenLevel(xp);
+          const awakeAt = ch.awakeAt || 0;
+          const sleepRemainingMs = Math.max(0, awakeAt - now);
+          const isSleeping = sleepRemainingMs > 0;
+
+          const lovedAt = ch.lovedAt || 0;
+          const careCooldownMs = 24 * 3600 * 1000;
+          const careRemainingMs = lovedAt > 0 ? Math.max(0, (lovedAt + careCooldownMs) - now) : 0;
+          const canCare = careRemainingMs === 0;
+
+          const isSick = Boolean(
+            ch.isSick ||
+            ch.sick ||
+            ch.state === 'sick' ||
+            (farm.henHouse?.sickAnimals && farm.henHouse.sickAnimals.includes(ch.id))
+          );
+
+          let state: 'sleeping' | 'hungry' | 'sick' = 'hungry';
+          if (isSick) {
+            state = 'sick';
+          } else if (isSleeping) {
+            state = 'sleeping';
+          } else {
+            state = 'hungry';
+          }
+
+          const desiredItem = ch.item || 'Petting Hand';
+
+          return {
+            id: String(ch.id || Math.random()),
+            level,
+            experience: xp,
+            sleepRemainingMs,
+            isSleeping,
+            careRemainingMs,
+            canCare,
+            state,
+            desiredItem,
+            isSick,
+          };
+        });
+
         // 6. Ресурси для збору
         const resourceConfig: { key: string; name: string; recoveryMs: number; actKey: string }[] = [
           { key: 'trees', name: 'Wood', recoveryMs: 2 * 3600 * 1000, actKey: 'choppedAt' },
@@ -853,7 +972,7 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
           if (!fl) return null;
           const flName = fl.name || 'Flower';
           const plantedAt = fl.plantedAt || 0;
-          const growthMs = 24 * 3600 * 1000;
+          const growthMs = getFlowerGrowthMs(flName);
           const readyAt = plantedAt + growthMs;
           const remainingMs = Math.max(0, readyAt - now);
           return {
@@ -983,6 +1102,8 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
           crops: cropsList,
           seasonalCropSeeds,
           fruitTrees,
+          seasonalFruitSeeds,
+          chickens: chickensList,
           resources: resourcesList,
           tools: toolsList,
           growingFlowers,

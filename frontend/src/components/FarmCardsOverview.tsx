@@ -56,6 +56,22 @@ export interface FarmCardData {
     readyAt: number;
     remainingMs: number;
   }[];
+  seasonalFruitSeeds?: {
+    name: string;
+    count: number;
+  }[];
+  chickens?: {
+    id: string;
+    level: number;
+    experience: number;
+    sleepRemainingMs: number;
+    isSleeping: boolean;
+    careRemainingMs: number;
+    canCare: boolean;
+    state: 'sleeping' | 'hungry' | 'sick';
+    desiredItem: string;
+    isSick: boolean;
+  }[];
   resources: {
     name: string;
     readyCount: number;
@@ -129,22 +145,24 @@ export interface FarmCardData {
   } | null;
 }
 
-// Налаштування видимості 14 блоків
+// Налаштування видимості блоків
 export interface CardSettings {
   showTitleHeader: boolean;          // 1. Назва проекту, Lvl, тип острова
   showDeliveriesActivity: boolean;   // 2. Доставки, допомога, міні-ігри
   showCrops: boolean;                // 3. Грядки (що росте і врожай)
   showSeasonalCropSeeds: boolean;    // 4. Насіння рослин поточного сезону
   showFruitTrees: boolean;           // 5. Фруктові дерева
-  showResources: boolean;            // 6. Ресурси для збору (дерево, камінь тощо)
-  showTools: boolean;                // 7. Інструменти (інвентар і склад)
-  showFlowers: boolean;              // 8. Квітки що ростуть
-  showSeasonalFlowerSeeds: boolean;  // 9. Насіння квітів поточного сезону
-  showCooking: boolean;              // 10. Страви що готуються
-  showComposters: boolean;           // 11. 3 компостери
-  showBigFruits: boolean;            // 12. Великі фрукти Project
-  showFishing: boolean;              // 13. Риболовля
-  showIslandUpgrade: boolean;        // 14. Ресурси для покращення острова
+  showSeasonalFruitSeeds: boolean;   // 6. Насіння фруктових дерев поточного сезону в інвентарі
+  showChickens: boolean;             // 7. Кури в курятнику
+  showResources: boolean;            // 8. Ресурси для збору (дерево, камінь тощо)
+  showTools: boolean;                // 9. Інструменти (інвентар і склад)
+  showFlowers: boolean;              // 10. Квітки що ростуть
+  showSeasonalFlowerSeeds: boolean;  // 11. Насіння квітів поточного сезону
+  showCooking: boolean;              // 12. Страви що готуються
+  showComposters: boolean;           // 13. 3 компостери
+  showBigFruits: boolean;            // 14. Великі фрукти Project
+  showFishing: boolean;              // 15. Риболовля
+  showIslandUpgrade: boolean;        // 16. Ресурси для покращення острова
   columnsCount: number;              // Кількість колонок (за замовчуванням 5)
 }
 
@@ -154,6 +172,8 @@ const DEFAULT_SETTINGS: CardSettings = {
   showCrops: true,
   showSeasonalCropSeeds: true,
   showFruitTrees: true,
+  showSeasonalFruitSeeds: true,
+  showChickens: true,
   showResources: true,
   showTools: true,
   showFlowers: true,
@@ -430,15 +450,17 @@ export const FarmCardsOverview: React.FC<FarmCardsOverviewProps> = ({ setCurrent
                 { key: 'showCrops', label: '3. Рослини на грядках та сумарний урожай із таймером' },
                 { key: 'showSeasonalCropSeeds', label: '4. Насіння рослин поточного сезону в інвентарі' },
                 { key: 'showFruitTrees', label: '5. Фруктові дерева (квадрати зі зборами, урожаєм та рамкою)' },
-                { key: 'showResources', label: '6. Ресурси для збору (дерево, камінь, залізо тощо з таймерами)' },
-                { key: 'showTools', label: '7. Інструменти (в інвентарі та на складі)' },
-                { key: 'showFlowers', label: '8. Квітки що ростуть із таймером дозрівання' },
-                { key: 'showSeasonalFlowerSeeds', label: '9. Насіння квітів поточного сезону в інвентарі' },
-                { key: 'showCooking', label: '10. Страви що готуються у будівлях із таймерами' },
-                { key: 'showComposters', label: '11. 3 компостери (квадрати з кольоровими рамками статусу)' },
-                { key: 'showBigFruits', label: '12. Великі фрукти Project на острові (прогрес 16/25)' },
-                { key: 'showFishing', label: '13. Риболовля (спроби дня, вудки, наживка)' },
-                { key: 'showIslandUpgrade', label: '14. Ресурси та рівень для покращення острова' },
+                { key: 'showSeasonalFruitSeeds', label: '6. Насіння фруктових дерев поточного сезону в інвентарі' },
+                { key: 'showChickens', label: '7. Кури в курятнику (квадратики: рівень, сон, піклування, стан)' },
+                { key: 'showResources', label: '8. Ресурси для збору (дерево, камінь, залізо тощо з таймерами)' },
+                { key: 'showTools', label: '9. Інструменти (в інвентарі та на складі)' },
+                { key: 'showFlowers', label: '10. Квітки що ростуть із таймером дозрівання' },
+                { key: 'showSeasonalFlowerSeeds', label: '11. Насіння квітів поточного сезону в інвентарі' },
+                { key: 'showCooking', label: '12. Страви що готуються у будівлях із таймерами' },
+                { key: 'showComposters', label: '13. 3 компостери (квадрати з кольоровими рамками статусу)' },
+                { key: 'showBigFruits', label: '14. Великі фрукти Project на острові (прогрес 16/25)' },
+                { key: 'showFishing', label: '15. Риболовля (спроби дня, вудки, наживка)' },
+                { key: 'showIslandUpgrade', label: '16. Ресурси та рівень для покращення острова' },
               ].map(item => {
                 const isChecked = (settings as any)[item.key];
                 return (
@@ -697,7 +719,121 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
         </div>
       )}
 
-      {/* 6. Ресурси для збору (дерево, камінь, залізо тощо: 4/9 і час до відновлення) */}
+      {/* 6. Насіння фруктових дерев поточного сезону в інвентарі */}
+      {settings.showSeasonalFruitSeeds && card.seasonalFruitSeeds && card.seasonalFruitSeeds.length > 0 && (
+        <div className="farm-card-section">
+          <div className="flex flex-wrap gap-1.5">
+            {card.seasonalFruitSeeds.map((seed, idx) => (
+              <div key={idx} className="flex items-center gap-1 bg-slate-800/90 px-1.5 py-0.5 rounded border border-slate-700/60">
+                <img
+                  src={getCleanImageUrl(`/api/im/${encodeURIComponent(seed.name)}.png`)}
+                  alt={seed.name}
+                  onError={handleImageErrorWithCacheBust}
+                  className="w-3.5 h-3.5 object-contain"
+                  title={seed.name}
+                />
+                <span className="text-[10px] font-bold text-amber-300">= {seed.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 7. Кури в курятнику */}
+      {settings.showChickens && card.chickens && card.chickens.length > 0 && (
+        <div className="farm-card-section">
+          <div className="flex flex-wrap gap-1.5">
+            {card.chickens.map(chicken => {
+              const liveSleepRemaining = Math.max(0, chicken.sleepRemainingMs - elapsedSinceFetch);
+              const liveCareRemaining = Math.max(0, chicken.careRemainingMs - elapsedSinceFetch);
+              const isSleeping = liveSleepRemaining > 0;
+              const isSick = chicken.isSick;
+              const canCare = liveCareRemaining === 0;
+
+              let stateBorderClass = 'border-slate-700';
+              let stateIcon = '🌾';
+              let stateText = 'Хоче їсти';
+
+              if (isSick) {
+                stateBorderClass = 'border-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.4)]';
+                stateIcon = '🩹';
+                stateText = 'Слаба / хвора';
+              } else if (isSleeping) {
+                stateBorderClass = 'border-indigo-500/70';
+                stateIcon = '💤';
+                stateText = 'Спить';
+              } else {
+                stateBorderClass = 'border-amber-500/80 shadow-[0_0_5px_rgba(245,158,11,0.25)]';
+                stateIcon = '🌾';
+                stateText = 'Хоче їсти (прокинулась)';
+              }
+
+              return (
+                <div
+                  key={chicken.id}
+                  className={`chicken-square-card ${stateBorderClass}`}
+                  title={`Курка #${chicken.id} | Рівень: ${chicken.level} (${chicken.experience} XP) | Стан: ${stateText} | Іграшка: ${chicken.desiredItem} | Пробудження: ${isSleeping ? formatRemaining(liveSleepRemaining) : 'Прокинулась'} | Піклування: ${canCare ? 'Готова' : formatRemaining(liveCareRemaining)}`}
+                >
+                  {/* Верхній рядок: Рівень та іконка стану */}
+                  <div className="w-full flex items-center justify-between px-0.5">
+                    <span className="chicken-level-badge">L{chicken.level}</span>
+                    <span className="chicken-status-icon" title={stateText}>{stateIcon}</span>
+                  </div>
+
+                  {/* Центр: курка + бажана іграшка */}
+                  <div className="relative flex items-center justify-center my-0.5">
+                    <img
+                      src={getCleanImageUrl('/api/im/Chicken.png')}
+                      alt="Chicken"
+                      onError={handleImageErrorWithCacheBust}
+                      className={`w-5 h-5 object-contain ${isSleeping ? 'opacity-70' : 'opacity-100'}`}
+                    />
+                    {chicken.desiredItem && (
+                      <div
+                        className="absolute -bottom-1 -right-1.5 bg-slate-900 rounded-full p-0.5 border border-slate-700 shadow"
+                        title={`Бажає: ${chicken.desiredItem}`}
+                      >
+                        <img
+                          src={getCleanImageUrl(`/api/im/${encodeURIComponent(chicken.desiredItem)}.png`)}
+                          alt={chicken.desiredItem}
+                          onError={handleImageErrorWithCacheBust}
+                          className="w-3 h-3 object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Таймер до пробудження */}
+                  <div className="w-full text-center leading-none">
+                    <span
+                      className={`chicken-timer-sub block truncate ${
+                        isSleeping ? 'text-indigo-300' : 'text-amber-300'
+                      }`}
+                      title={isSleeping ? `До пробудження: ${formatRemaining(liveSleepRemaining)}` : 'Прокинулась, хоче їсти'}
+                    >
+                      {isSleeping ? formatRemaining(liveSleepRemaining) : 'Їсти'}
+                    </span>
+                  </div>
+
+                  {/* Таймер до піклування */}
+                  <div className="w-full text-center leading-none mt-0.5 border-t border-slate-800/80 pt-0.5">
+                    <span
+                      className={`chicken-timer-sub block truncate ${
+                        canCare ? 'text-emerald-400 font-bold' : 'text-slate-400'
+                      }`}
+                      title={canCare ? 'Готова до піклування' : `Час до піклування: ${formatRemaining(liveCareRemaining)}`}
+                    >
+                      {canCare ? '❤️ Готова' : `❤️ ${formatRemaining(liveCareRemaining)}`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 8. Ресурси для збору (дерево, камінь, залізо тощо: 4/9 і час до відновлення) */}
       {settings.showResources && card.resources.length > 0 && (
         <div className="farm-card-section">
           <div className="grid grid-cols-2 gap-1.5">
