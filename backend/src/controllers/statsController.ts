@@ -5,13 +5,21 @@ import { Logger } from '../logger';
 import { PROJECTS_DIR } from '../constants';
 import { getProjectStats, getAllGlobalStats } from '../db/schema';
 import { inputValidator } from '../validation/InputValidator';
+import { cache } from '../cache';
 
 const logger = new Logger('StatsController');
 
 export async function getGlobalStats(_req: Request, res: Response): Promise<void> {
   try {
+    const cached = cache.get<any[]>('stats:global');
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
     const dbStats = getAllGlobalStats();
     if (dbStats && dbStats.length > 0) {
+      cache.set('stats:global', dbStats, 120);
       res.json(dbStats);
       return;
     }
@@ -50,6 +58,7 @@ export async function getGlobalStats(_req: Request, res: Response): Promise<void
         }
       }
     }
+    cache.set('stats:global', globalStats, 120);
     res.json(globalStats);
   } catch (err: any) {
     logger.error('Global stats endpoint error', err instanceof Error ? err : new Error(String(err)));

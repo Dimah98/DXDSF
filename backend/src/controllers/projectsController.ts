@@ -19,8 +19,9 @@ import {
   getProjects as getDbProjects,
   getProjectContent,
   saveProjectContent,
-  getDbProjectSaveRow
+  getDbAllProjectSavesAndContents
 } from '../db/schema';
+import { cache } from '../cache';
 import {
   startProject,
   stopProject
@@ -69,9 +70,16 @@ async function getCachedJson(filePath: string): Promise<{ data: any; mtimeMs: nu
 
 export async function getProjects(_req: Request, res: Response): Promise<void> {
   try {
+    const cached = cache.get<string[]>('projects:list');
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
+    let names: string[] = [];
     const dbProjects = getDbProjects();
     if (dbProjects && dbProjects.length > 0) {
-      const names = dbProjects
+      names = dbProjects
         .map(p => p.name)
         .filter(name =>
           name !== 'categories' &&
@@ -90,23 +98,23 @@ export async function getProjects(_req: Request, res: Response): Promise<void> {
           !name.endsWith('_inventory')
         );
       names.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-      res.json(names);
-      return;
+    } else {
+      const files = await fs.promises.readdir(PROJECTS_DIR);
+      const projectFiles = files.filter(f => {
+        if (!f.endsWith('.json')) return false;
+        const name = f.replace('.json', '');
+        if (name === 'categories' || name === 'global_building_types' || name === 'buildings_catalog_settings' || name === 'configs' || name === 'mass_launches' || name === 'test_project_logger_runs') return false;
+        if (name.endsWith('_layout') || name.endsWith('_save') || name.endsWith('_vars')) return false;
+        if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
+        if (name.includes('schedule') || name.includes('notifications') || name.includes('buildings_catalog_settings')) return false;
+        return true;
+      });
+      names = projectFiles.map(f => f.replace('.json', ''));
+      names.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
     }
 
-    const files = await fs.promises.readdir(PROJECTS_DIR);
-    const projectFiles = files.filter(f => {
-      if (!f.endsWith('.json')) return false;
-      const name = f.replace('.json', '');
-      if (name === 'categories' || name === 'global_building_types' || name === 'buildings_catalog_settings' || name === 'configs' || name === 'mass_launches' || name === 'test_project_logger_runs') return false;
-      if (name.endsWith('_layout') || name.endsWith('_save') || name.endsWith('_vars')) return false;
-      if (name.endsWith('_stats') || name.endsWith('_logs') || name.endsWith('_inventory')) return false;
-      if (name.includes('schedule') || name.includes('notifications') || name.includes('buildings_catalog_settings')) return false;
-      return true;
-    });
-    const projectNames = projectFiles.map(f => f.replace('.json', ''));
-    projectNames.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-    res.json(projectNames);
+    cache.set('projects:list', names, 60); // TTL 60s
+    res.json(names);
   } catch (err: any) { 
     logger.error('Failed to get projects list', err instanceof Error ? err : new Error(String(err)));
     res.status(500).json({ success: false, error: 'Failed to load project list. Please try again later.' }); 
@@ -473,6 +481,10 @@ export async function saveProject(req: Request, res: Response): Promise<void> {
       }
     }
     
+    // Інвалідація кешу проектів
+    cache.invalidatePattern('projects:*');
+    cache.invalidatePattern(`project:${name}*`);
+
     res.json({ success: true });
   } catch (err: any) { 
     logger.error('Save project error', err instanceof Error ? err : new Error(String(err)));
@@ -700,6 +712,11 @@ export async function deleteProjectHandler(req: Request, res: Response): Promise
     }
     
     sessions.delete(name);
+
+    // Інвалідація кешу
+    cache.invalidatePattern('projects:*');
+    cache.invalidatePattern(`project:${name}*`);
+    cache.invalidatePattern(`inventory:${name}*`);
 
     logger.info('Project deleted successfully', { projectName: name });
     res.json({ success: true });
@@ -1066,6 +1083,12 @@ export async function runSequentialProjects(req: Request, res: Response): Promis
 
 export async function getProjectsOverview(_req: Request, res: Response): Promise<void> {
   try {
+    const cached = cache.get<any[]>('projects:overview');
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
     let projectNames: string[] = [];
     try {
       const dbProjects = getDbProjects();
@@ -1118,6 +1141,9 @@ export async function getProjectsOverview(_req: Request, res: Response): Promise
       }
     } catch (_) {}
 
+    // Batch-завантаження даних збережень та проектів (вирішення N+1 query проблеми)
+    const { saves: allDbSaves, contents: allDbContents } = getDbAllProjectSavesAndContents();
+
     const isToday = (ts: any): boolean => {
       const millis = typeof ts === 'number' ? ts : Number(ts);
       if (!millis || isNaN(millis) || millis <= 0) return false;
@@ -1163,22 +1189,22 @@ export async function getProjectsOverview(_req: Request, res: Response): Promise
         let projData: any = null;
         let lastSaveUpdate: number | null = null;
 
-        // 1. Спершу перевіряємо SQLite
-        try {
-          const dbSaveRow = getDbProjectSaveRow(name);
-          if (dbSaveRow) {
-            saveData = dbSaveRow.data;
-            lastSaveUpdate = dbSaveRow.updated_at;
-          }
-          const dbProj = getProjectContent(name);
-          if (dbProj && dbProj.content) {
+        // 1. Миттєвий доступ до пакетно завантажених даних з SQLite (O(1) без N+1 запитів)
+        const dbSaveRow = allDbSaves.get(name);
+        if (dbSaveRow) {
+          saveData = dbSaveRow.data;
+          lastSaveUpdate = dbSaveRow.updated_at;
+        }
+        const dbProj = allDbContents.get(name);
+        if (dbProj && dbProj.content) {
+          try {
             projData = JSON.parse(dbProj.content);
             if (!lastSaveUpdate) {
               lastSaveUpdate = dbProj.updated_at || null;
             }
             if (!saveData) saveData = projData;
-          }
-        } catch (_) {}
+          } catch (_) {}
+        }
 
         // 2. Фолбек на диск, якщо в базі немає
         if (!saveData) {
@@ -1358,6 +1384,7 @@ export async function getProjectsOverview(_req: Request, res: Response): Promise
       })
     );
 
+    cache.set('projects:overview', overviewList, 30); // TTL 30s
     res.json(overviewList);
   } catch (err: any) {
     logger.error('Failed to get projects overview', err instanceof Error ? err : new Error(String(err)));

@@ -3,6 +3,7 @@ import { Logger } from '../logger';
 import { sessions } from '../browserManager';
 import { browserSemaphore } from '../services';
 import { errorMetrics } from '../services/ErrorMetrics';
+import { cache } from '../cache';
 
 const logger = new Logger('SystemController');
 
@@ -114,5 +115,15 @@ export function getErrorMetricsHandler(_req: Request, res: Response): void {
   } catch (err) {
     logger.error('Failed to get error metrics', err);
     res.status(500).json({ success: false, error: 'Failed to retrieve error metrics' });
+  }
+}
+
+export function getCacheMetricsHandler(_req: Request, res: Response): void {
+  try {
+    const metrics = cache.getMetrics();
+    res.status(200).json({ success: true, data: metrics });
+  } catch (err) {
+    logger.error('Failed to get cache metrics', err);
+    res.status(500).json({ success: false, error: 'Failed to retrieve cache metrics' });
   }
 }

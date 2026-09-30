@@ -134,15 +134,57 @@ try { db.exec('DROP INDEX IF EXISTS idx_exec_run_id;'); } catch {}
 const INDEXES = `
 CREATE INDEX IF NOT EXISTS idx_exec_project ON executions(project_name, started_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_exec_run_id ON executions(run_id);
+CREATE INDEX IF NOT EXISTS idx_exec_status ON executions(status);
+CREATE INDEX IF NOT EXISTS idx_exec_project_status ON executions(project_name, status);
+CREATE INDEX IF NOT EXISTS idx_exec_started ON executions(started_at);
+CREATE INDEX IF NOT EXISTS idx_projects_updated ON projects(updated_at);
 CREATE INDEX IF NOT EXISTS idx_logs_project ON execution_logs(project_name, logged_at);
 CREATE INDEX IF NOT EXISTS idx_logs_run_id ON execution_logs(run_id);
 CREATE INDEX IF NOT EXISTS idx_logs_exec ON execution_logs(execution_id);
 CREATE INDEX IF NOT EXISTS idx_inv_project ON inventory_items(project_name, item_name);
+CREATE INDEX IF NOT EXISTS idx_inv_scanned ON inventory_items(scanned_at);
 `;
 
 db.exec(INDEXES);
 
 export { db };
+
+/**
+ * Batch-loads saves and contents for all projects in 2 SQL queries to eliminate N+1 query loops
+ */
+export function getDbAllProjectSavesAndContents(): {
+  saves: Map<string, { data: any; updated_at: number }>;
+  contents: Map<string, { content: string; updated_at: number }>;
+} {
+  const saves = new Map<string, { data: any; updated_at: number }>();
+  const contents = new Map<string, { content: string; updated_at: number }>();
+
+  try {
+    const saveRows = db.prepare('SELECT project_name, save_data, updated_at FROM project_saves').all() as Array<{
+      project_name: string;
+      save_data: string;
+      updated_at: number;
+    }>;
+    for (const r of saveRows) {
+      try {
+        saves.set(r.project_name, { data: JSON.parse(r.save_data), updated_at: r.updated_at });
+      } catch (_) {}
+    }
+  } catch (_) {}
+
+  try {
+    const projRows = db.prepare('SELECT name, content, updated_at FROM projects WHERE content IS NOT NULL').all() as Array<{
+      name: string;
+      content: string;
+      updated_at: number;
+    }>;
+    for (const r of projRows) {
+      contents.set(r.name, { content: r.content, updated_at: r.updated_at });
+    }
+  } catch (_) {}
+
+  return { saves, contents };
+}
 
 // ─── Project Helpers ──────────────────────────────────────────────────────
 
