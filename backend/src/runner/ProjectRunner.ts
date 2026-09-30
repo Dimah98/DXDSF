@@ -43,32 +43,9 @@ export function getQueueConfig(): { queueMode: boolean; maxParallel: number } {
   return { queueMode, maxParallel };
 }
 
-// Допоміжна функція для retry логіки з обмеженням кількості спроб
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 2,
-  delayMs: number = 1000,
-  context: string = 'operation'
-): Promise<T> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      
-      if (attempt < maxRetries) {
-        logger.warn(`${context} failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delayMs}ms`, { error: lastError.message });
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-      } else {
-        logger.error(`${context} failed after ${maxRetries + 1} attempts`, lastError, { attempts: attempt + 1 });
-      }
-    }
-  }
-  
-  throw lastError;
-}
+// Імпорт та реекспорт централізованої retry утиліти
+import { withRetry } from '../utils/retry';
+export { withRetry };
 
 // Допоміжна функція для трансляції повідомлень у всі активні сокети сесії
 export const broadcastToSession = (session: ProjectSession, msg: string | object) => {

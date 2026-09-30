@@ -37,8 +37,9 @@ export async function loadProjectVariables(projectName: string): Promise<Record<
     if (dbVars && Object.keys(dbVars).length > 0) {
       return dbVars;
     }
+    logger.warn(`Project '${projectName}' variables not found in SQLite, falling back to disk JSON file: ${getProjectVarsPath(projectName)}`);
   } catch (err) {
-    logger.warn(`Failed to read variables from SQLite for ${projectName}`, { error: String(err) });
+    logger.warn(`Failed to read variables from SQLite for ${projectName}, falling back to disk`, { error: String(err) });
   }
 
   // 2. Читання з окремого файлу _vars.json
@@ -48,7 +49,9 @@ export async function loadProjectVariables(projectName: string): Promise<Record<
     if (Object.keys(fileVars).length > 0) {
       try {
         saveDbProjectVariables(projectName, fileVars);
-      } catch (_) {}
+      } catch (cacheErr) {
+        logger.warn(`Failed to cache disk variables to SQLite for ${projectName}`, { error: String(cacheErr) });
+      }
       return fileVars;
     }
   }
@@ -61,7 +64,9 @@ export async function loadProjectVariables(projectName: string): Promise<Record<
       if (Object.keys(defaultVars).length > 0) {
         try {
           saveDbProjectVariables(projectName, defaultVars);
-        } catch (_) {}
+        } catch (cacheErr) {
+          logger.warn(`Failed to cache default variables to SQLite`, { error: String(cacheErr) });
+        }
         return defaultVars;
       }
     }

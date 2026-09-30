@@ -29,8 +29,9 @@ export async function getProjectSaveData(projectName: string): Promise<any | nul
     if (dbData !== null && dbData !== undefined) {
       return dbData;
     }
+    logger.warn(`Project '${projectName}' save not found in SQLite, falling back to disk file: ${getSaveFilePath(projectName)}`);
   } catch (err) {
-    logger.warn(`Failed to read save from SQLite for project ${projectName}`, { error: String(err) });
+    logger.warn(`Failed to read save from SQLite for project ${projectName}, falling back to disk`, { error: String(err) });
   }
 
   // 2. Fallback: читання з диска при першому зверненні

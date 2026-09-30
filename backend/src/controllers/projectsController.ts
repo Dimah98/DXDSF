@@ -132,11 +132,14 @@ export async function getProject(req: Request, res: Response, next: NextFunction
     if (dbProject && dbProject.content) {
       try {
         projectData = JSON.parse(dbProject.content);
-      } catch (_) {}
+      } catch (parseErr) {
+        logger.warn(`Failed to parse SQLite project content for '${name}'`, { error: String(parseErr) });
+      }
     }
 
     // 2. Fallback на диск, якщо в SQLite ще немає
     if (!projectData) {
+      logger.warn(`Project '${name}' not found in SQLite, falling back to disk JSON file`);
       const projectPath = path.join(PROJECTS_DIR, `${name}.json`);
       if (!fs.existsSync(projectPath)) {
         res.status(404).json({ success: false, error: 'Project not found' });
@@ -146,7 +149,9 @@ export async function getProject(req: Request, res: Response, next: NextFunction
       projectData = JSON.parse(fileContent);
       try {
         saveProjectContent(name, fileContent, projectPath);
-      } catch (_) {}
+      } catch (cacheErr) {
+        logger.warn(`Failed to cache disk project to SQLite for '${name}'`, { error: String(cacheErr) });
+      }
     }
 
     const loadedVars = await loadProjectVariables(name);
@@ -175,10 +180,13 @@ export async function getProjectContainers(req: Request, res: Response): Promise
     if (dbProject && dbProject.content) {
       try {
         projectData = JSON.parse(dbProject.content);
-      } catch (_) {}
+      } catch (parseErr) {
+        logger.warn(`Failed to parse SQLite project content for '${projectName}' containers`, { error: String(parseErr) });
+      }
     }
 
     if (!projectData) {
+      logger.warn(`Project '${projectName}' not found in SQLite, falling back to disk JSON for containers`);
       const projectPath = path.join(PROJECTS_DIR, `${projectName}.json`);
       if (!fs.existsSync(projectPath)) {
         res.status(404).json({ success: false, error: 'Project not found' });
@@ -281,11 +289,14 @@ export async function loadProject(req: Request, res: Response): Promise<void> {
     if (dbProject && dbProject.content) {
       try {
         projectData = JSON.parse(dbProject.content);
-      } catch (_) {}
+      } catch (parseErr) {
+        logger.warn(`Failed to parse SQLite project content for '${name}' in loadProject`, { error: String(parseErr) });
+      }
     }
 
     // 2. Fallback на диск, якщо в SQLite ще немає
     if (!projectData) {
+      logger.warn(`Project '${name}' not found in SQLite during loadProject, falling back to disk JSON file`);
       let pathToRead: string | null = null;
       try {
         if (fs.existsSync(projectPath)) {
@@ -483,10 +494,13 @@ export async function getProjectSettings(req: Request, res: Response): Promise<v
     if (dbProject && dbProject.content) {
       try {
         projectData = JSON.parse(dbProject.content);
-      } catch (_) {}
+      } catch (parseErr) {
+        logger.warn(`Failed to parse SQLite project content for '${name}' settings`, { error: String(parseErr) });
+      }
     }
 
     if (!projectData) {
+      logger.warn(`Project '${name}' settings not found in SQLite, falling back to disk JSON file`);
       const projectPath = path.join(PROJECTS_DIR, `${name}.json`);
       if (fs.existsSync(projectPath)) {
         const fileContent = await fs.promises.readFile(projectPath, 'utf-8');
@@ -532,10 +546,13 @@ export async function updateProjectSettings(req: Request, res: Response): Promis
     if (dbProject && dbProject.content) {
       try {
         projectData = JSON.parse(dbProject.content);
-      } catch (_) {}
+      } catch (parseErr) {
+        logger.warn(`Failed to parse SQLite project content for '${name}' in updateSettings`, { error: String(parseErr) });
+      }
     }
 
     if (!projectData) {
+      logger.warn(`Project '${name}' not found in SQLite for updateSettings, falling back to disk JSON file`);
       if (fs.existsSync(filePath)) {
         const fileContent = await fs.promises.readFile(filePath, 'utf-8');
         projectData = JSON.parse(fileContent.replace(/^\uFEFF/, ''));

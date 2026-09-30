@@ -166,33 +166,47 @@ app.use('/api/screenshots', express.static(PROJECTS_DIR));
 // Застосовуємо rate limiting для всіх /api/* ендпоінтів
 app.use('/api', apiRateLimiter);
 
+// Підключаємо всі модульні маршрути додатку
+app.use(routes);
+
 // ──────────────────────────────────────────────────────────────
-// Fix #3: Centralized Express error middleware
-// Catches any error passed via next(err) from route handlers,
-// eliminating the need to duplicate try-catch in every controller.
+// Centralized Express error middleware (must be registered AFTER routes)
+// Handles AppError subclasses (ValidationError, AuthenticationError, DatabaseError, BrowserError)
+// and generic errors, preserving stack traces and returning standard error payloads.
 // ──────────────────────────────────────────────────────────────
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  const status: number = typeof err.status === 'number' ? err.status
-    : typeof err.statusCode === 'number' ? err.statusCode
+  const status: number = typeof err.statusCode === 'number' ? err.statusCode
+    : typeof err.status === 'number' ? err.status
     : 500;
   const message: string = err.message || 'Internal Server Error';
+  const code: string = err.code || (status >= 500 ? 'INTERNAL_SERVER_ERROR' : 'CLIENT_ERROR');
 
-  // Log only real server errors, not 4xx client mistakes
   if (status >= 500) {
-    logger.error('Unhandled route error', err instanceof Error ? err : new Error(message), {
+    logger.error('Unhandled route error', err, {
       status,
+      code,
+      url: _req.url,
+      method: _req.method,
+    });
+  } else {
+    logger.warn(`Client request error (${status})`, {
+      status,
+      code,
+      message,
       url: _req.url,
       method: _req.method,
     });
   }
 
   if (!res.headersSent) {
-    res.status(status).json({ success: false, error: message });
+    res.status(status).json({
+      success: false,
+      error: message,
+      code,
+      ...(err.context ? { details: err.context } : {})
+    });
   }
 });
-
-// Підключаємо всі модульні маршрути додатку
-app.use(routes);
 
 // Створюємо HTTP сервер
 const server = http.createServer(app);

@@ -77,8 +77,9 @@ export class RunLogger {
       if (dbRuns && dbRuns.length > 0) {
         return dbRuns.slice(0, MAX_RUNS_HISTORY);
       }
+      console.warn(`[RunLogger] WARNING: No runs in SQLite for '${projectName}', falling back to disk JSON file`);
     } catch (dbErr) {
-      console.warn(`[RunLogger] Failed to read runs from SQLite for ${projectName}, falling back to file`, dbErr);
+      console.warn(`[RunLogger] WARNING: Failed to read runs from SQLite for '${projectName}', falling back to disk file: ${dbErr}`);
     }
 
     const file = this.getHistoryFile(projectName);
@@ -100,8 +101,9 @@ export class RunLogger {
       if (dbRuns && dbRuns.length > 0) {
         return dbRuns.slice(0, MAX_RUNS_HISTORY);
       }
+      console.warn(`[RunLogger] WARNING: No runs in SQLite for '${projectName}', falling back to disk JSON file`);
     } catch (dbErr) {
-      console.warn(`[RunLogger] Failed to read runs from SQLite for ${projectName}, falling back to file`, dbErr);
+      console.warn(`[RunLogger] WARNING: Failed to read runs from SQLite for '${projectName}', falling back to disk file: ${dbErr}`);
     }
 
     const file = this.getHistoryFile(projectName);

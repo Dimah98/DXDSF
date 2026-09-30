@@ -47,13 +47,20 @@ export async function getProjectMap(req: Request, res: Response): Promise<void> 
 
     // 2. Fallback на диск, якщо в SQLite ще немає
     if (!data && fs.existsSync(layoutPath)) {
+      logger.warn(`Project layout for '${projectName}' not found in SQLite, falling back to disk file: ${layoutPath}`);
       try {
         const content = await fs.promises.readFile(layoutPath, 'utf-8');
         data = JSON.parse(content);
         if (data) {
-          try { saveDbProjectLayout(projectName, data); } catch (_) {}
+          try {
+            saveDbProjectLayout(projectName, data);
+          } catch (cacheErr) {
+            logger.warn(`Failed to cache layout to SQLite for '${projectName}'`, { error: String(cacheErr) });
+          }
         }
-      } catch (_) {}
+      } catch (readErr) {
+        logger.warn(`Failed to read layout file for '${projectName}'`, { error: String(readErr) });
+      }
     }
 
     if (!data) {
