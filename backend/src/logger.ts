@@ -12,6 +12,7 @@
  */
 
 import { normalizeError, isAppError } from './errors';
+import { errorMetrics } from './services/ErrorMetrics';
 
 export enum LogLevel {
   DEBUG = 0,
@@ -181,6 +182,9 @@ export class Logger {
     }
 
     this.log(LogLevel.WARN, message, finalMeta);
+    try {
+      errorMetrics.recordWarning(this.context, message);
+    } catch (_) {}
   }
 
   /**
@@ -209,6 +213,10 @@ export class Logger {
     }
 
     this.log(LogLevel.ERROR, message, errorMeta);
+
+    try {
+      errorMetrics.recordError(this.context, error || message, errorMeta);
+    } catch (_) {}
   }
 
   /**

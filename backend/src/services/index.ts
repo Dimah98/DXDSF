@@ -7,6 +7,9 @@ import { BrowserLifecycle } from '../lifecycle/BrowserLifecycle';
 import { TimerManager } from '../lifecycle/TimerManager';
 import { MemoryMonitor } from '../lifecycle/MemoryMonitor';
 import { browserSemaphore } from '../concurrency/Semaphore';
+import { Logger } from '../logger';
+
+const serviceLogger = new Logger('Services');
 
 /**
  * Singleton instances of core backend services
@@ -33,7 +36,7 @@ export const notificationService = new NotificationService(PROJECTS_DIR, (projec
       }
     }
   } catch (err) {
-    console.error('Failed to broadcast notification:', err);
+    serviceLogger.error('Failed to broadcast notification', err);
   }
 });
 export const browserLifecycle = new BrowserLifecycle();

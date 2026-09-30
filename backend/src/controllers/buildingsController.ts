@@ -5,6 +5,9 @@ import { PROJECTS_DIR } from '../constants';
 import { DEFAULT_BUILDINGS_CATALOG, BuildingCatalogItem } from '../data/buildingsCatalog';
 import { getProjectSaveData } from '../utils/saveStorage';
 import { getProjectContent } from '../db/schema';
+import { Logger } from '../logger';
+
+const logger = new Logger('BuildingsController');
 
 const SETTINGS_FILE = path.join(PROJECTS_DIR, 'buildings_catalog_settings.json');
 const GLOBAL_BUILDING_TYPES_FILE = path.join(PROJECTS_DIR, 'global_building_types.json');
@@ -45,7 +48,7 @@ export async function getMergedCatalog(): Promise<BuildingCatalogItem[]> {
       settings = JSON.parse(await fs.promises.readFile(SETTINGS_FILE, 'utf-8'));
     }
   } catch (e) {
-    console.error('Error reading buildings_catalog_settings.json:', e);
+    logger.error('Error reading buildings_catalog_settings.json', e);
   }
 
   return DEFAULT_BUILDINGS_CATALOG.map((item) => {
@@ -125,7 +128,7 @@ export const saveBuildingsCatalogHandler = async (req: Request, res: Response) =
       });
       await fs.promises.writeFile(GLOBAL_BUILDING_TYPES_FILE, JSON.stringify(globalTypes, null, 2), 'utf-8');
     } catch (e) {
-      console.error('Error updating global_building_types.json:', e);
+      logger.error('Error updating global_building_types.json', e);
     }
 
     res.json({ success: true, message: 'Налаштування будівель збережено' });

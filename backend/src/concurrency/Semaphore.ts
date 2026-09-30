@@ -8,28 +8,10 @@
  */
 
 import { config } from '../config/ConfigManager';
+import { Logger } from '../logger';
 
-// Simple logger for Semaphore
-const semaphoreLogger = {
-  debug: (msg: string, data?: any) => {
-    if (config.get('LOG_LEVEL') === 0) {
-      console.log(`[Semaphore] ${msg}`, data || '');
-    }
-  },
-  info: (msg: string, data?: any) => {
-    if (config.get('LOG_LEVEL') <= 1) {
-      console.log(`[Semaphore] ${msg}`, data || '');
-    }
-  },
-  warn: (msg: string, data?: any) => {
-    if (config.get('LOG_LEVEL') <= 2) {
-      console.warn(`[Semaphore] ${msg}`, data || '');
-    }
-  },
-  error: (msg: string, data?: any) => {
-    console.error(`[Semaphore] ${msg}`, data || '');
-  }
-};
+// Standard structured logger for Semaphore
+const semaphoreLogger = new Logger('Semaphore');
 
 /**
  * Semaphore implementation with FIFO queuing.

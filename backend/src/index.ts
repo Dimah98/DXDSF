@@ -41,6 +41,24 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// ──────────────────────────────────────────────────────────────
+// Уніфікація форматів відповідей:
+// Автоматично гарантує послідовний формат { success: false, error: '...' },
+// навіть якщо контролер повернув лише { error: '...' }
+// ──────────────────────────────────────────────────────────────
+app.use((_req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const originalJson = res.json.bind(res);
+  res.json = (body: any) => {
+    if (body && typeof body === 'object' && !Array.isArray(body)) {
+      if (body.error !== undefined && body.success === undefined) {
+        body.success = false;
+      }
+    }
+    return originalJson(body);
+  };
+  next();
+});
+
 function createSmartImMiddleware(dirCandidates: string[]) {
   const fileCache = new Map<string, string>();
 

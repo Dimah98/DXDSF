@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Logger } from '../logger';
 import { sessions } from '../browserManager';
 import { browserSemaphore } from '../services';
+import { errorMetrics } from '../services/ErrorMetrics';
 
 const logger = new Logger('SystemController');
 
@@ -103,5 +104,15 @@ export function restartBackend(_req: Request, res: Response): void {
   } catch (err) {
     logger.error('Error initiating restart', err instanceof Error ? err : new Error(String(err)));
     res.status(500).json({ status: 'error', message: 'Restart failed' });
+  }
+}
+
+export function getErrorMetricsHandler(_req: Request, res: Response): void {
+  try {
+    const summary = errorMetrics.getSummary();
+    res.status(200).json({ success: true, data: summary });
+  } catch (err) {
+    logger.error('Failed to get error metrics', err);
+    res.status(500).json({ success: false, error: 'Failed to retrieve error metrics' });
   }
 }
