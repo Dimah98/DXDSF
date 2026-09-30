@@ -130,6 +130,7 @@ fun DashboardScreen(
     onNavigateToProject: (String) -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToAllInventories: () -> Unit = {},
+    onNavigateToFarmCards: () -> Unit = {},
     onNavigateToAllScreenshots: () -> Unit = {},
     onNavigateToAllDeliveries: () -> Unit = {},
     onNavigateToConfigs: () -> Unit = {},
@@ -164,6 +165,7 @@ fun DashboardScreen(
         onNavigateToProject = onNavigateToProject,
         onNavigateToNotifications = onNavigateToNotifications,
         onNavigateToAllInventories = onNavigateToAllInventories,
+        onNavigateToFarmCards = onNavigateToFarmCards,
         onNavigateToAllScreenshots = onNavigateToAllScreenshots,
         onNavigateToAllDeliveries = onNavigateToAllDeliveries,
         onNavigateToConfigs = onNavigateToConfigs,
@@ -194,6 +196,7 @@ fun DashboardScreenContent(
     onNavigateToProject: (String) -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToAllInventories: () -> Unit,
+    onNavigateToFarmCards: () -> Unit = {},
     onNavigateToAllScreenshots: () -> Unit = {},
     onNavigateToAllDeliveries: () -> Unit = {},
     onNavigateToConfigs: () -> Unit = {},
@@ -365,12 +368,13 @@ fun DashboardScreenContent(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    DashboardNavButton(modifier = Modifier.weight(1f), icon = Icons.Default.Inventory2, onClick = onNavigateToAllInventories)
-                    DashboardNavButton(modifier = Modifier.weight(1f), icon = Icons.Default.PhotoLibrary, onClick = onNavigateToAllScreenshots)
-                    DashboardNavButton(modifier = Modifier.weight(1f), icon = Icons.Default.LocalShipping, onClick = onNavigateToAllDeliveries)
-                    DashboardNavButton(modifier = Modifier.weight(1f), icon = Icons.Default.Tune, onClick = onNavigateToConfigs)
+                    DashboardNavButton(modifier = Modifier.weight(1f), icon = Icons.Default.Dashboard, title = "Карточки", onClick = onNavigateToFarmCards)
+                    DashboardNavButton(modifier = Modifier.weight(1f), icon = Icons.Default.Inventory2, title = "Інвентарі", onClick = onNavigateToAllInventories)
+                    DashboardNavButton(modifier = Modifier.weight(1f), icon = Icons.Default.PhotoLibrary, title = "Скріншоти", onClick = onNavigateToAllScreenshots)
+                    DashboardNavButton(modifier = Modifier.weight(1f), icon = Icons.Default.LocalShipping, title = "Доставки", onClick = onNavigateToAllDeliveries)
+                    DashboardNavButton(modifier = Modifier.weight(1f), icon = Icons.Default.Tune, title = "Конфіги", onClick = onNavigateToConfigs)
                 }
 
                 if (isLoading && projects.isEmpty()) {

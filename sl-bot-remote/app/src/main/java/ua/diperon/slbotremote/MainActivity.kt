@@ -73,6 +73,9 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToAllInventories = {
                                     navController.navigate("all_inventories")
                                 },
+                                onNavigateToFarmCards = {
+                                    navController.navigate("farm_cards")
+                                },
                                 onNavigateToAllScreenshots = {
                                     navController.navigate("all_screenshots")
                                 },
@@ -215,6 +218,26 @@ class MainActivity : ComponentActivity() {
                                 )
                             } else {
                                 // Fallback якщо apiService ще не ініціалізований
+                                androidx.compose.foundation.layout.Box(
+                                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                                    contentAlignment = androidx.compose.ui.Alignment.Center
+                                ) {
+                                    androidx.compose.material3.Text("Завантаження...")
+                                }
+                            }
+                        }
+
+                        // 10. Farm Cards Overview route
+                        composable("farm_cards") {
+                            val apiService = sharedDashboardViewModel.getApiService()
+                            if (apiService != null) {
+                                FarmCardsScreen(
+                                    apiService = apiService,
+                                    onBackClick = {
+                                        navController.popBackStack()
+                                    }
+                                )
+                            } else {
                                 androidx.compose.foundation.layout.Box(
                                     modifier = androidx.compose.ui.Modifier.fillMaxSize(),
                                     contentAlignment = androidx.compose.ui.Alignment.Center

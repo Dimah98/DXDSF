@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable // Імпорт для обробки кліків
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow // Імпорт для горизонтальної стрічки категорій
 import androidx.compose.foundation.lazy.items // Імпорт для відображення категорій у стрічці
 import androidx.compose.foundation.pager.HorizontalPager
@@ -978,7 +979,6 @@ fun InventoryMatrix(
 ) {
     val context = LocalContext.current
     val horizontalScrollState = rememberScrollState()
-    val verticalScrollState = rememberScrollState()
 
     val cellWidth = if (dataSource == "both") 48.dp else 28.dp
 
@@ -987,12 +987,20 @@ fun InventoryMatrix(
         (inventories.keys + stockInventories.keys).distinct().sortedWith(NaturalOrderComparator)
     }
 
+    // O(1) словники для миттєвого пошуку ресурсів замість лінійного .find {} на кожну комірку
+    val invLookup = remember(inventories) {
+        inventories.mapValues { (_, list) -> list.associateBy { it.image } }
+    }
+    val stockLookup = remember(stockInventories) {
+        stockInventories.mapValues { (_, list) -> list.associateBy { it.image } }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(8.dp)
     ) {
-        // Заголовок з ресурсами (зафіксований зверху, скролиться горизонтально)
+        // Заголовок з ресурсами (зафіксований зверху, скролиться горизонтально разом із рядками)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1017,7 +1025,7 @@ fun InventoryMatrix(
                 )
             }
 
-            // Заголовки ресурсів з зображеннями
+            // Заголовки ресурсів з оптимізованими мініатюрами
             resources.forEachIndexed { index, resource ->
                 ResourceHeaderCell(
                     resource = resource,
@@ -1032,15 +1040,13 @@ fun InventoryMatrix(
 
         Spacer(modifier = Modifier.height(1.dp))
 
-        // Рядки з даними (скролиться вертикально та горизонтально)
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(verticalScrollState)
+        // Рядки з даними через LazyColumn для віртуалізації та уникнення лагів/крашів OOM
+        LazyColumn(
+            modifier = Modifier.fillMaxSize()
         ) {
-            projectNames.forEach { projectName ->
-                val invItems = inventories[projectName] ?: emptyList()
-                val stockItems = stockInventories[projectName] ?: emptyList()
+            items(projectNames, key = { it }) { projectName ->
+                val invMap = invLookup[projectName]
+                val stockMap = stockLookup[projectName]
 
                 Row(
                     modifier = Modifier
@@ -1067,10 +1073,10 @@ fun InventoryMatrix(
                         )
                     }
 
-                    // Комірки з кількістю
+                    // Комірки з кількістю через O(1) hash map
                     resources.forEachIndexed { resIndex, resource ->
-                        val invItem = invItems.find { it.image == resource }
-                        val stockItem = stockItems.find { it.image == resource }
+                        val invItem = invMap?.get(resource)
+                        val stockItem = stockMap?.get(resource)
 
                         if (dataSource == "both") {
                             CombinedInventoryCell(
@@ -1123,7 +1129,8 @@ fun ResourceHeaderCell(
         AsyncImage(
             model = ImageRequest.Builder(context)
                 .data(imageUrl)
-                .crossfade(true)
+                .size(64, 64) // Фіксований ліміт розміру для запобігання OOM (Out Of Memory)
+                .crossfade(false)
                 .allowHardware(false)
                 .build(),
             contentDescription = "Resource",

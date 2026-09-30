@@ -590,6 +590,182 @@ data class ProjectBuildingsStatusResponse(
     @Json(name = "error") val error: String? = null
 )
 
+// ===== Farm Cards Overview Models =====
+
+data class FarmCardsOverviewResponse(
+    @Json(name = "success") val success: Boolean = false,
+    @Json(name = "timestamp") val timestamp: Long? = null,
+    @Json(name = "cards") val cards: List<FarmCardData> = emptyList(),
+    @Json(name = "error") val error: String? = null
+)
+
+data class FarmCardData(
+    @Json(name = "projectName") val projectName: String,
+    @Json(name = "level") val level: Int = 1,
+    @Json(name = "experience") val experience: Double = 0.0,
+    @Json(name = "islandType") val islandType: String = "basic",
+    @Json(name = "islandExpansions") val islandExpansions: Int = 0,
+    @Json(name = "season") val season: String? = null,
+    @Json(name = "deliveries") val deliveries: FarmCardDeliveries = FarmCardDeliveries(),
+    @Json(name = "helpedPlayers") val helpedPlayers: FarmCardHelped = FarmCardHelped(),
+    @Json(name = "minigames") val minigames: FarmCardMinigames = FarmCardMinigames(),
+    @Json(name = "crops") val crops: List<FarmCardCrop> = emptyList(),
+    @Json(name = "seasonalCropSeeds") val seasonalCropSeeds: List<FarmCardCountItem> = emptyList(),
+    @Json(name = "fruitTrees") val fruitTrees: List<FarmCardFruitTree> = emptyList(),
+    @Json(name = "seasonalFruitSeeds") val seasonalFruitSeeds: List<FarmCardCountItem>? = null,
+    @Json(name = "chickens") val chickens: List<FarmCardChicken>? = null,
+    @Json(name = "resources") val resources: List<FarmCardResource> = emptyList(),
+    @Json(name = "tools") val tools: List<FarmCardTool> = emptyList(),
+    @Json(name = "growingFlowers") val growingFlowers: List<FarmCardGrowingFlower> = emptyList(),
+    @Json(name = "seasonalFlowerSeeds") val seasonalFlowerSeeds: List<FarmCardCountItem> = emptyList(),
+    @Json(name = "cookingDishes") val cookingDishes: List<FarmCardCookingDish> = emptyList(),
+    @Json(name = "composters") val composters: List<FarmCardComposter> = emptyList(),
+    @Json(name = "bigFruitProjects") val bigFruitProjects: List<FarmCardBigFruit> = emptyList(),
+    @Json(name = "fishing") val fishing: FarmCardFishing = FarmCardFishing(),
+    @Json(name = "islandUpgrade") val islandUpgrade: FarmCardIslandUpgrade? = null,
+    @Json(name = "timelineEvents") val timelineEvents: List<FarmCardTimelineEvent>? = null
+)
+
+data class FarmCardDeliveries(
+    @Json(name = "coins") val coins: Int = 0,
+    @Json(name = "flower") val flower: Int = 0,
+    @Json(name = "ticket") val ticket: Int = 0
+)
+
+data class FarmCardHelped(
+    @Json(name = "current") val current: Int = 0,
+    @Json(name = "max") val max: Int = 5
+)
+
+data class FarmCardMinigames(
+    @Json(name = "completed") val completed: Int = 0,
+    @Json(name = "total") val total: Int = 6
+)
+
+data class FarmCardCrop(
+    @Json(name = "name") val name: String,
+    @Json(name = "totalAmount") val totalAmount: Double = 0.0,
+    @Json(name = "remainingMs") val remainingMs: Long = 0,
+    @Json(name = "isReady") val isReady: Boolean = false,
+    @Json(name = "count") val count: Int = 0
+)
+
+data class FarmCardCountItem(
+    @Json(name = "name") val name: String,
+    @Json(name = "count") val count: Double = 0.0
+)
+
+data class FarmCardFruitTree(
+    @Json(name = "id") val id: String,
+    @Json(name = "name") val name: String,
+    @Json(name = "harvestsLeft") val harvestsLeft: Int = 0,
+    @Json(name = "amount") val amount: Double = 1.0,
+    @Json(name = "isReady") val isReady: Boolean = false,
+    @Json(name = "isDead") val isDead: Boolean = false,
+    @Json(name = "readyAt") val readyAt: Long = 0,
+    @Json(name = "remainingMs") val remainingMs: Long = 0
+)
+
+data class FarmCardChicken(
+    @Json(name = "id") val id: String,
+    @Json(name = "level") val level: Int = 1,
+    @Json(name = "experience") val experience: Double = 0.0,
+    @Json(name = "sleepRemainingMs") val sleepRemainingMs: Long = 0,
+    @Json(name = "isSleeping") val isSleeping: Boolean = false,
+    @Json(name = "careRemainingMs") val careRemainingMs: Long = 0,
+    @Json(name = "canCare") val canCare: Boolean = false,
+    @Json(name = "state") val state: String = "hungry",
+    @Json(name = "desiredItem") val desiredItem: String = "Petting Hand",
+    @Json(name = "isSick") val isSick: Boolean = false
+)
+
+data class FarmCardResource(
+    @Json(name = "name") val name: String,
+    @Json(name = "readyCount") val readyCount: Int = 0,
+    @Json(name = "totalCount") val totalCount: Int = 0,
+    @Json(name = "remainingMs") val remainingMs: Long = 0
+)
+
+data class FarmCardTool(
+    @Json(name = "name") val name: String,
+    @Json(name = "inventoryCount") val inventoryCount: Double = 0.0,
+    @Json(name = "stockCount") val stockCount: Double = 0.0
+)
+
+data class FarmCardGrowingFlower(
+    @Json(name = "name") val name: String,
+    @Json(name = "readyAt") val readyAt: Long = 0,
+    @Json(name = "remainingMs") val remainingMs: Long = 0,
+    @Json(name = "isReady") val isReady: Boolean = false
+)
+
+data class FarmCardCookingDish(
+    @Json(name = "name") val name: String,
+    @Json(name = "buildingName") val buildingName: String = "",
+    @Json(name = "readyAt") val readyAt: Long = 0,
+    @Json(name = "remainingMs") val remainingMs: Long = 0,
+    @Json(name = "isReady") val isReady: Boolean = false
+)
+
+data class FarmCardComposter(
+    @Json(name = "name") val name: String,
+    @Json(name = "status") val status: String = "idle_ready",
+    @Json(name = "producingItem") val producingItem: String? = null,
+    @Json(name = "readyAt") val readyAt: Long? = null,
+    @Json(name = "remainingMs") val remainingMs: Long? = null
+)
+
+data class FarmCardBigFruit(
+    @Json(name = "name") val name: String,
+    @Json(name = "cheers") val cheers: Int = 0,
+    @Json(name = "goal") val goal: Int = 25,
+    @Json(name = "isCompleted") val isCompleted: Boolean = false
+)
+
+data class FarmCardFishing(
+    @Json(name = "dailyAttempts") val dailyAttempts: Int = 0,
+    @Json(name = "dailyLimit") val dailyLimit: Int = 30,
+    @Json(name = "rodsCount") val rodsCount: Double = 0.0,
+    @Json(name = "baits") val baits: List<FarmCardCountItem> = emptyList()
+)
+
+data class FarmCardUpgradeResource(
+    @Json(name = "name") val name: String,
+    @Json(name = "current") val current: Double = 0.0,
+    @Json(name = "required") val required: Double = 0.0,
+    @Json(name = "isReady") val isReady: Boolean = false
+)
+
+data class FarmCardIslandUpgrade(
+    @Json(name = "currentLevel") val currentLevel: Int = 1,
+    @Json(name = "requiredLevel") val requiredLevel: Int = 1,
+    @Json(name = "resourceName") val resourceName: String? = null,
+    @Json(name = "currentResource") val currentResource: Double = 0.0,
+    @Json(name = "requiredResource") val requiredResource: Double = 0.0,
+    @Json(name = "resources") val resources: List<FarmCardUpgradeResource>? = null,
+    @Json(name = "coinsRequired") val coinsRequired: Double? = null,
+    @Json(name = "coinsCurrent") val coinsCurrent: Double? = null,
+    @Json(name = "nextIslandType") val nextIslandType: String = "",
+    @Json(name = "targetLabel") val targetLabel: String? = null,
+    @Json(name = "tooltip") val tooltip: String? = null,
+    @Json(name = "isMaxLevel") val isMaxLevel: Boolean = false,
+    @Json(name = "isLastUpgrade") val isLastUpgrade: Boolean = false,
+    @Json(name = "canUpgrade") val canUpgrade: Boolean = false
+)
+
+data class FarmCardTimelineEvent(
+    @Json(name = "id") val id: String,
+    @Json(name = "category") val category: String = "crop",
+    @Json(name = "name") val name: String,
+    @Json(name = "details") val details: String? = null,
+    @Json(name = "amount") val amount: Double? = null,
+    @Json(name = "count") val count: Int? = null,
+    @Json(name = "icon") val icon: String? = null,
+    @Json(name = "readyAt") val readyAt: Long = 0,
+    @Json(name = "remainingMs") val remainingMs: Long = 0,
+    @Json(name = "isReady") val isReady: Boolean = false
+)
+
 // ===== API Interface =====
 
 interface BotApiService {
@@ -813,6 +989,9 @@ interface BotApiService {
 
     @GET("api/all-inventories")
     suspend fun getAllInventories(): AllInventoriesBulkResponse
+
+    @GET("api/all-farm-cards")
+    suspend fun getAllFarmCards(): FarmCardsOverviewResponse
 
     companion object {
         private const val TAG = "BotApiService"
