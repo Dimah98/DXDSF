@@ -5,7 +5,7 @@ $destinations = @(
 )
 
 foreach ($dst in $destinations) {
-    Write-Host "Syncing to $dst ..."
+    Write-Host "Syncing to $dst ..." -ForegroundColor Cyan
 
     if (!(Test-Path $dst)) {
         Write-Warning "Target path $dst not found!"
@@ -28,12 +28,16 @@ foreach ($dst in $destinations) {
     robocopy "$src\frontend\dist" "$dst\frontend\dist" /MIR /NDL /NFL /NJH /NJS /nc /ns /np
     Write-Host "  Frontend dist synced"
 
-    # 5. IM images
+    # 5. Docs (OpenAPI, APM, WebSocket, Architecture, Deployment)
+    robocopy "$src\docs" "$dst\docs" /MIR /NDL /NFL /NJH /NJS /nc /ns /np
+    Write-Host "  Docs synced"
+
+    # 6. IM images
     robocopy "$src\im" "$dst\im" /E /NDL /NFL /NJH /NJS /nc /ns /np
     robocopy "$src\im" "$dst\data\im" /E /NDL /NFL /NJH /NJS /nc /ns /np
     Write-Host "  IM images synced (im and data/im)"
 
-    # 6. Specific data files
+    # 7. Specific data files
     if (Test-Path "$src\backend\data\npcDeliveries.json") {
         if (!(Test-Path "$dst\backend\data")) {
             New-Item -ItemType Directory -Path "$dst\backend\data" -Force | Out-Null
@@ -42,7 +46,12 @@ foreach ($dst in $destinations) {
         Write-Host "  npcDeliveries.json copied"
     }
 
-    # 7. Configs and scripts
+    # 8. Backend package files
+    if (Test-Path "$src\backend\package.json") {
+        Copy-Item "$src\backend\package.json" "$dst\backend\package.json" -Force
+    }
+
+    # 9. Configs, documentation and scripts
     if (Test-Path "$src\docker-compose.yml") {
         Copy-Item "$src\docker-compose.yml" "$dst\docker-compose.yml" -Force
     }
@@ -55,8 +64,14 @@ foreach ($dst in $destinations) {
     if (Test-Path "$src\restart_backend.sh") {
         Copy-Item "$src\restart_backend.sh" "$dst\restart_backend.sh" -Force
     }
-    Write-Host "  Configs and scripts copied"
-    Write-Host "Done with $dst"
+    if (Test-Path "$src\README.md") {
+        Copy-Item "$src\README.md" "$dst\README.md" -Force
+    }
+    if (Test-Path "$src\README_SERVER.md") {
+        Copy-Item "$src\README_SERVER.md" "$dst\README_SERVER.md" -Force
+    }
+    Write-Host "  Configs, README and scripts copied"
+    Write-Host "Done with $dst" -ForegroundColor Green
 }
 
-Write-Host "Sync completed."
+Write-Host "Sync completed successfully." -ForegroundColor Green
