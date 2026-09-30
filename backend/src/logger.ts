@@ -1,6 +1,6 @@
 /**
  * Structured Logging System
- * 
+ *
  * Provides centralized logging with:
  * - Multiple log levels (DEBUG, INFO, WARN, ERROR)
  * - Structured log formatting
@@ -21,16 +21,42 @@ interface LogMetadata {
 }
 
 /**
+ * JSON.stringify replacement that handles circular references gracefully.
+ * Circular nodes are replaced with the string "[Circular]" so that logging
+ * never throws even when metadata contains browser/Playwright/Express objects.
+ *
+ * Fix for issue #4: "Циклічні посилання ламають логування"
+ */
+export function safeStringify(value: unknown, indent?: number): string {
+  const seen = new WeakSet();
+  try {
+    return JSON.stringify(value, (_key, val) => {
+      if (typeof val === 'object' && val !== null) {
+        if (seen.has(val)) return '[Circular]';
+        seen.add(val);
+      }
+      if (val instanceof Error) {
+        return { message: val.message, stack: val.stack };
+      }
+      if (typeof val === 'function') return '[Function]';
+      return val;
+    }, indent);
+  } catch {
+    return '"[UnserializableObject]"';
+  }
+}
+
+/**
  * Logger class for structured logging
- * 
+ *
  * Format: [TIMESTAMP] [LEVEL] [CONTEXT] message
- * 
+ *
  * Example usage:
  * ```typescript
  * const logger = new Logger('BotEngine');
  * logger.info('Bot started', { projectName: 'test' });
  * logger.error('Bot failed', new Error('Connection lost'), { nodeId: '123' });
- * 
+ *
  * const childLogger = logger.child('NodeExecutor');
  * childLogger.debug('Executing node', { nodeId: '456' });
  * ```
@@ -54,13 +80,13 @@ export class Logger {
    */
   private getMinLevelFromEnv(): LogLevel {
     const envLevel = process.env.LOG_LEVEL;
-    
+
     if (envLevel === undefined || envLevel === '') {
       return LogLevel.INFO;
     }
 
     const level = parseInt(envLevel, 10);
-    
+
     if (isNaN(level) || level < 0 || level > 3) {
       console.warn(`Invalid LOG_LEVEL value: ${envLevel}. Using INFO (1) as default.`);
       return LogLevel.INFO;
@@ -73,20 +99,19 @@ export class Logger {
    * Internal log method that formats and outputs log messages
    */
   private log(level: LogLevel, message: string, meta?: LogMetadata): void {
-    // Filter based on minimum log level
     if (level < this.minLevel) {
       return;
     }
 
     const timestamp = new Date().toISOString();
     const levelStr = LogLevel[level];
-    
+
     // Format: [TIMESTAMP] [LEVEL] [CONTEXT] message
     let logMessage = `[${timestamp}] [${levelStr}] [${this.context}] ${message}`;
 
-    // Append metadata if provided
+    // Append metadata if provided — uses safeStringify to avoid circular-reference crashes
     if (meta && Object.keys(meta).length > 0) {
-      logMessage += ` ${JSON.stringify(meta)}`;
+      logMessage += ` ${safeStringify(meta)}`;
     }
 
     // Output to appropriate stream
@@ -101,8 +126,6 @@ export class Logger {
 
   /**
    * Log a DEBUG level message
-   * @param message - The log message
-   * @param meta - Optional metadata object
    */
   debug(message: string, meta?: LogMetadata): void {
     this.log(LogLevel.DEBUG, message, meta);
@@ -110,8 +133,6 @@ export class Logger {
 
   /**
    * Log an INFO level message
-   * @param message - The log message
-   * @param meta - Optional metadata object
    */
   info(message: string, meta?: LogMetadata): void {
     this.log(LogLevel.INFO, message, meta);
@@ -119,8 +140,6 @@ export class Logger {
 
   /**
    * Log a WARN level message
-   * @param message - The log message
-   * @param meta - Optional metadata object
    */
   warn(message: string, meta?: LogMetadata): void {
     this.log(LogLevel.WARN, message, meta);
@@ -147,7 +166,7 @@ export class Logger {
    * Create a child logger with additional context
    * @param childContext - Additional context to append to current context
    * @returns A new Logger instance with combined context
-   * 
+   *
    * Example:
    * ```typescript
    * const parentLogger = new Logger('BotEngine');
@@ -160,24 +179,14 @@ export class Logger {
     return new Logger(combinedContext);
   }
 
-  /**
-   * Get the current context string
-   */
   getContext(): string {
     return this.context;
   }
 
-  /**
-   * Get the current minimum log level
-   */
   getMinLevel(): LogLevel {
     return this.minLevel;
   }
 
-  /**
-   * Set a new minimum log level (useful for testing or runtime changes)
-   * @param level - The new minimum log level
-   */
   setMinLevel(level: LogLevel): void {
     this.minLevel = level;
   }
@@ -190,8 +199,6 @@ export const defaultLogger = new Logger('App');
 
 /**
  * Helper function to create a logger with a specific context
- * @param context - The context string for the logger
- * @returns A new Logger instance
  */
 export function createLogger(context: string): Logger {
   return new Logger(context);

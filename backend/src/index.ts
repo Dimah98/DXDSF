@@ -12,6 +12,7 @@ import { setupWebSocketServer } from './websocket';
 import { startMassLaunchScheduler, stopMassLaunchScheduler } from './runner/MassLaunchRunner';
 import { runAutoMigration } from './db/migrate';
 import { sessions } from './browserManager';
+import { flushPendingLogs } from './RunLogger';
 import {
   wsLifecycle,
   browserLifecycle,
@@ -165,6 +166,31 @@ app.use('/api/screenshots', express.static(PROJECTS_DIR));
 // Застосовуємо rate limiting для всіх /api/* ендпоінтів
 app.use('/api', apiRateLimiter);
 
+// ──────────────────────────────────────────────────────────────
+// Fix #3: Centralized Express error middleware
+// Catches any error passed via next(err) from route handlers,
+// eliminating the need to duplicate try-catch in every controller.
+// ──────────────────────────────────────────────────────────────
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const status: number = typeof err.status === 'number' ? err.status
+    : typeof err.statusCode === 'number' ? err.statusCode
+    : 500;
+  const message: string = err.message || 'Internal Server Error';
+
+  // Log only real server errors, not 4xx client mistakes
+  if (status >= 500) {
+    logger.error('Unhandled route error', err instanceof Error ? err : new Error(message), {
+      status,
+      url: _req.url,
+      method: _req.method,
+    });
+  }
+
+  if (!res.headersSent) {
+    res.status(status).json({ success: false, error: message });
+  }
+});
+
 // Підключаємо всі модульні маршрути додатку
 app.use(routes);
 
@@ -224,11 +250,16 @@ async function gracefulShutdown(signal: string) {
     timerManager.stopCleanupTimer();
     
     memoryMonitor.stopReportingTimer();
+
+    // Fix #1: flush any buffered SQLite logs before exiting
+    flushPendingLogs();
     
     logger.info('Graceful shutdown complete');
     process.exit(0);
   } catch (err) {
     logger.error('Error during graceful shutdown', err instanceof Error ? err : new Error(String(err)));
+    // Flush even on error path to avoid losing log data
+    try { flushPendingLogs(); } catch {}
     process.exit(1);
   }
 }

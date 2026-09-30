@@ -14,9 +14,13 @@ import {
 const RUNS_DIR = path.join(__dirname, '../../data/runs');
 const LOGS_DIR = path.join(__dirname, '../../data/logs/runs');
 
-// Ensure directories exist asynchronously
-fs.promises.mkdir(RUNS_DIR, { recursive: true }).catch(() => {});
-fs.promises.mkdir(LOGS_DIR, { recursive: true }).catch(() => {});
+// Ensure directories exist asynchronously — log failures instead of silently swallowing them
+fs.promises.mkdir(RUNS_DIR, { recursive: true }).catch((e) => {
+  console.warn(`[RunLogger] Failed to create RUNS_DIR: ${e}`);
+});
+fs.promises.mkdir(LOGS_DIR, { recursive: true }).catch((e) => {
+  console.warn(`[RunLogger] Failed to create LOGS_DIR: ${e}`);
+});
 
 interface PendingLog {
   projectName: string;
@@ -265,7 +269,9 @@ export class RunLogger {
     // 1. Update in SQLite
     try {
       recordRunFinish(projectName, runId, status, error, endTime, snapshot);
-      this.pruneRuns(projectName, MAX_RUNS_HISTORY).catch(() => {});
+      this.pruneRuns(projectName, MAX_RUNS_HISTORY).catch((pruneErr) => {
+        console.warn(`[RunLogger] Failed to prune runs for ${projectName}`, pruneErr);
+      });
     } catch (dbErr) {
       console.warn(`[RunLogger] Failed to update run in SQLite`, dbErr);
     }

@@ -37,6 +37,12 @@ services:
       # Можливість змінювати код без повної перезбірки образу
       - ./backend/src:/app/backend/src
     shm_size: '2gb' # Критично для стабільної роботи Firefox/Camoufox без вильотів пам'яті
+    # Fix #2: ротація логів Docker — max 50MB на файл, 5 файлів (250MB разом)
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     networks:
       - sf_network
 
