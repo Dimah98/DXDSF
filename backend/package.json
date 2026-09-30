@@ -18,8 +18,10 @@
     "express-rate-limit": "7.5.0",
     "jsonwebtoken": "^9.0.3",
     "playwright": "^1.44.0",
+    "swagger-ui-express": "^5.0.1",
     "telegraf": "^4.16.3",
-    "ws": "^8.17.0"
+    "ws": "^8.17.0",
+    "yamljs": "^0.3.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -27,7 +29,9 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.12.12",
     "@types/supertest": "^7.2.0",
+    "@types/swagger-ui-express": "^4.1.8",
     "@types/ws": "^8.5.10",
+    "@types/yamljs": "^0.2.34",
     "fast-check": "^4.8.0",
     "supertest": "^7.2.2",
     "tsx": "^4.10.5",

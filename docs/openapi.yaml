@@ -1,0 +1,874 @@
+openapi: 3.0.3
+info:
+  title: Sunflower Land Bot Constructor REST API
+  description: |
+    Вичерпна специфікація REST API серверного рушія Sunflower Land Bot Constructor.
+    Забезпечує керування проектами, сесіями браузера Camoufox (антидетект Firefox),
+    інвентарем ферми, статистикою та системними метриками.
+  version: 1.0.0
+  contact:
+    name: Команда підтримки Sunflower Land Bot
+servers:
+  - url: http://localhost:3001
+    description: Локальний сервер розробки
+  - url: http://192.168.0.107:3001
+    description: Локальна мережа (CasaOS / Home Server)
+  - url: https://dxd.pp.ua
+    description: Продакшн сервер з SSL
+
+paths:
+  /health:
+    get:
+      summary: Перевірка працездатності сервера (Health Check)
+      description: Публічний ендпоінт для Docker healthcheck та систем моніторингу. Не вимагає авторизації.
+      tags:
+        - Системні
+      responses:
+        '200':
+          description: Сервер працює стабільно
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  uptime:
+                    type: number
+                    example: 3600.45
+                  timestamp:
+                    type: number
+                    example: 1727738400000
+
+  /api/system/status:
+    get:
+      summary: Детальний статус сервера
+      description: Повертає інформацію про використання пам'яті (RSS, Heap), версії та активні браузерні сесії.
+      tags:
+        - Системні
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Успішне отримання статусу
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatusResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/system/error-metrics:
+    get:
+      summary: Метрики помилок та збоїв
+      description: Повертає статистику помилок (ErrorMetrics), згруповану за типами та останні зафіксовані збої.
+      tags:
+        - Системні
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Метрики помилок
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMetricsResponse'
+
+  /api/system/cache-metrics:
+    get:
+      summary: Метрики LRU кешу
+      description: Статистика In-Memory CacheService (hits, misses, розмір, коефіцієнт ефективності).
+      tags:
+        - Системні
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Статистика кешу
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheMetricsResponse'
+
+  /api/system/restart:
+    post:
+      summary: Плавне перезавантаження бекенду
+      description: Ініціює graceful shutdown з flushing логів та перезапуском через менеджер процесів.
+      tags:
+        - Системні
+      security:
+        - BearerAuth: []
+        - CSRFToken: []
+      responses:
+        '200':
+          description: Перезавантаження ініційовано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+
+  /api/projects:
+    get:
+      summary: Отримати список усіх проектів
+      description: Повертає список проектів із базовими метаданими. Результат кешується в CacheService.
+      tags:
+        - Проекти
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список проектів
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectSummary'
+
+  /api/projects/overview:
+    get:
+      summary: Розширений огляд проектів
+      description: Отримує повний огляд усіх проектів з датами модифікації, налаштуваннями та розмірами.
+      tags:
+        - Проекти
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Огляд проектів
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectOverviewItem'
+
+  /api/projects/status:
+    get:
+      summary: Поточні статуси виконання проектів
+      description: Повертає статус для кожного проекту (чи запущений бот, чи активний браузер).
+      tags:
+        - Проекти
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Статуси проектів
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                          enum: [idle, running, error]
+                          example: running
+                        browserOpen:
+                          type: boolean
+                          example: true
+
+  /api/projects/{name}:
+    get:
+      summary: Отримати деталі конкретного проекту
+      description: Повертає повні дані проекту включно з вузлами, з'єднаннями та змінними.
+      tags:
+        - Проекти
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Назва проекту
+          schema:
+            type: string
+            example: Farm_Main
+      responses:
+        '200':
+          description: Деталі проекту
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Видалити проект
+      description: Видаляє проект, історію його запусків та збережені файли.
+      tags:
+        - Проекти
+      security:
+        - BearerAuth: []
+        - CSRFToken: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Проект успішно видалено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+
+  /api/projects/{name}/settings:
+    get:
+      summary: Отримати налаштування проекту
+      description: Повертає конфігурацію браузера (розширення, проксі, тайм-аути) та параметри запуску.
+      tags:
+        - Проекти
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Налаштування проекту
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProjectSettings'
+    post:
+      summary: Оновити налаштування проекту
+      description: Зберігає нові налаштування браузера або параметри виконання.
+      tags:
+        - Проекти
+      security:
+        - BearerAuth: []
+        - CSRFToken: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectSettings'
+      responses:
+        '200':
+          description: Налаштування успішно збережено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+
+  /api/load:
+    get:
+      summary: Завантажити структуру графа проекту
+      description: Завантажує nodes, edges та змінні проекту для редактора React Flow.
+      tags:
+        - Графи та Збереження
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+            example: Farm_Main
+      responses:
+        '200':
+          description: Граф успішно завантажено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphSaveData'
+
+  /api/save:
+    post:
+      summary: Зберегти граф сценарію
+      description: Зберігає поточний стан графа в SQLite та синхронізує з JSON файлом.
+      tags:
+        - Графи та Збереження
+      security:
+        - BearerAuth: []
+        - CSRFToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectName
+                - nodes
+                - edges
+              properties:
+                projectName:
+                  type: string
+                  example: Farm_Main
+                nodes:
+                  type: array
+                  items:
+                    type: object
+                edges:
+                  type: array
+                  items:
+                    type: object
+                globalVariables:
+                  type: object
+      responses:
+        '200':
+          description: Проект успішно збережено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+
+  /api/projects/run-multiple:
+    post:
+      summary: Пакетний запуск списку проектів
+      description: Запускає паралельне або чергове виконання декількох вибраних ферм згідно з лімітами семафора.
+      tags:
+        - Масове керування
+      security:
+        - BearerAuth: []
+        - CSRFToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectNames
+              properties:
+                projectNames:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Farm_1", "Farm_2"]
+      responses:
+        '200':
+          description: Запуск ініційовано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+
+  /api/projects/stop-multiple:
+    post:
+      summary: Пакетна зупинка проектів
+      description: Зупиняє виконання для зазначеного списку проектів.
+      tags:
+        - Масове керування
+      security:
+        - BearerAuth: []
+        - CSRFToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectNames
+              properties:
+                projectNames:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Зупинка успішна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+
+  /api/browser/open/{projectName}:
+    post:
+      summary: Відкрити браузер для проекту
+      description: Запускає сесію Camoufox із збереженим профілем зазначеного проекту без старту графа дій.
+      tags:
+        - Браузер Camoufox
+      security:
+        - BearerAuth: []
+        - CSRFToken: []
+      parameters:
+        - name: projectName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Браузер відкрито
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+
+  /api/browser/close/{projectName}:
+    post:
+      summary: Закрити браузер проекту
+      description: Завершує активний процес Camoufox та звільняє слот семафора.
+      tags:
+        - Браузер Camoufox
+      security:
+        - BearerAuth: []
+        - CSRFToken: []
+      parameters:
+        - name: projectName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Браузер закрито
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardSuccessResponse'
+
+  /api/browser/status/{projectName}:
+    get:
+      summary: Статус браузера проекту
+      description: Перевіряє, чи активне вікно браузера та CDP сесія для проекту.
+      tags:
+        - Браузер Camoufox
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Статус сесії
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      isOpen:
+                        type: boolean
+                        example: true
+                      url:
+                        type: string
+                        example: https://sunflower-land.com/play/
+
+  /api/browser/profiles:
+    get:
+      summary: Список профілів браузера
+      description: Повертає список доступних збережених каталогів профілів Camoufox у /profiles.
+      tags:
+        - Браузер Camoufox
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список профілів
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: string
+                      example: default
+
+  /api/browser/proxies:
+    get:
+      summary: Список налаштованих проксі
+      description: Повертає список доступних проксі з proxies.txt.
+      tags:
+        - Браузер Camoufox
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список проксі
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: string
+
+  /api/all-inventories:
+    get:
+      summary: Зведений інвентар по всіх проектах
+      description: Повертає останній зібраний стан складів для всіх ферм одночасно.
+      tags:
+        - Інвентар та Доставки
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Зведений інвентар
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/InventoryItem'
+
+  /api/inventory/{projectName}:
+    get:
+      summary: Інвентар конкретного проекту
+      description: Повертає предмети, насіння та ресурси вибраної ферми.
+      tags:
+        - Інвентар та Доставки
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: projectName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Інвентар знайдено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InventoryItem'
+
+  /api/global-stats:
+    get:
+      summary: Глобальна аналітика та статистика
+      description: Агреговані метрики прибутків, кількості зборів врожаю та часу роботи всіх ботів.
+      tags:
+        - Статистика
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Загальна статистика
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/GlobalStatsData'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Передайте JWT токен авторизації у заголовку Authorization
+    CSRFToken:
+      type: apiKey
+      in: header
+      name: x-csrf-token
+      description: CSRF токен для захисту від підробки запитів (отримується при handshake)
+
+  schemas:
+    StandardSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Операцію успішно виконано
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Опис причини збою
+
+    ProjectSummary:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Farm_Main
+        updatedAt:
+          type: number
+          example: 1727738400000
+        nodeCount:
+          type: integer
+          example: 18
+
+    ProjectOverviewItem:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Farm_Main
+        createdAt:
+          type: number
+          example: 1727652000000
+        updatedAt:
+          type: number
+          example: 1727738400000
+        status:
+          type: string
+          example: idle
+        lastRunTime:
+          type: number
+          example: 1727730000000
+
+    ProjectSettings:
+      type: object
+      properties:
+        browserResolution:
+          type: string
+          example: "1280x720"
+        proxy:
+          type: string
+          example: "http://user:pass@proxy.example.com:8080"
+        maxActionDelay:
+          type: integer
+          example: 1500
+        autoRestartOnCrash:
+          type: boolean
+          example: true
+
+    ProjectDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            name:
+              type: string
+              example: Farm_Main
+            nodes:
+              type: array
+              items:
+                type: object
+            edges:
+              type: array
+              items:
+                type: object
+            globalVariables:
+              type: object
+
+    GraphSaveData:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            nodes:
+              type: array
+              items:
+                type: object
+            edges:
+              type: array
+              items:
+                type: object
+            globalVariables:
+              type: object
+
+    InventoryItem:
+      type: object
+      properties:
+        image:
+          type: string
+          example: Sunflower.png
+        number:
+          type: number
+          example: 150
+        selector:
+          type: string
+          example: div[data-testid="item-Sunflower"]
+
+    GlobalStatsData:
+      type: object
+      properties:
+        totalRuns:
+          type: integer
+          example: 142
+        totalHarvests:
+          type: integer
+          example: 2540
+        uptimeHours:
+          type: number
+          example: 48.5
+
+    SystemStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            memory:
+              type: object
+              properties:
+                rss:
+                  type: string
+                  example: 145 MB
+                heapUsed:
+                  type: string
+                  example: 85 MB
+            activeBrowsers:
+              type: integer
+              example: 2
+            uptimeSeconds:
+              type: number
+              example: 14200
+
+    ErrorMetricsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            totalErrors:
+              type: integer
+              example: 7
+            byType:
+              type: object
+              additionalProperties:
+                type: integer
+              example:
+                BrowserError: 3
+                ValidationError: 4
+            recentErrors:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  message:
+                    type: string
+                  timestamp:
+                    type: number
+
+    CacheMetricsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            size:
+              type: integer
+              example: 24
+            hits:
+              type: integer
+              example: 1204
+            misses:
+              type: integer
+              example: 48
+            hitRate:
+              type: string
+              example: "96.17%"
+
+  responses:
+    UnauthorizedError:
+      description: Недійсний або відсутній JWT токен
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "Необхідна авторизація"
+
+    NotFoundError:
+      description: Запитуваний ресурс не знайдено
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "Проект не знайдено"

@@ -13,10 +13,12 @@ import scheduleRoutes from './scheduleRoutes';
 import notificationsRoutes from './notificationsRoutes';
 import buildingsRoutes from './buildingsRoutes';
 import npcDeliveriesRoutes from './npcDeliveriesRoutes';
+import swaggerRoutes from '../docs/swagger';
 
 const router = Router();
 
 // Mount all route modules
+router.use(swaggerRoutes);
 router.use(systemRoutes);
 router.use(projectsRoutes);
 router.use(logsRoutes);

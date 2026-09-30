@@ -1,6 +1,16 @@
 # 📡 Довідник API та WebSocket Протоколу
 
-Цей документ містить повний опис REST API ендпоінтів та протоколу обміну повідомленнями через WebSocket для платформи **Sunflower Land Bot**.
+Цей документ містить опис REST API ендпоінтів та протоколу обміну повідомленнями через WebSocket для платформи **Sunflower Land Bot**.
+
+---
+
+## ⚡ Швидкі ресурси для розробників
+
+- 🖥️ **Інтерактивна документація Swagger UI:** доступна на живому сервері за адресою [`http://localhost:3001/api-docs`](http://localhost:3001/api-docs)
+- 📄 **OpenAPI 3.0 Специфікація:** [`docs/openapi.yaml`](file:///d:/SF%20k/docs/openapi.yaml) або [`docs/openapi.json`](file:///d:/SF%20k/docs/openapi.json)
+- 📮 **Postman Колекція v2.1:** [`docs/postman_collection.json`](file:///d:/SF%20k/docs/postman_collection.json) (готова до імпорту в Postman/Insomnia)
+- 🤖 **Генерація клієнтських SDK (TypeScript, Kotlin, Python):** [`docs/CLIENT_GENERATION.md`](file:///d:/SF%20k/docs/CLIENT_GENERATION.md)
+- 🔌 **Повна специфікація WebSocket протоколу:** [`docs/websocket-protocol.md`](file:///d:/SF%20k/docs/websocket-protocol.md)
 
 ---
 

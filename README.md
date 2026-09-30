@@ -188,7 +188,11 @@ flowchart TD
 Для глибшого вивчення конкретних частин платформи зверніться до спеціалізованих розділів:
 
 - 🏗️ **[Архітектура системи (`docs/ARCHITECTURE.md`)](file:///d:/SF%20k/docs/ARCHITECTURE.md):** Повний огляд внутрішніх механізмів, життєвого циклу сесій, захисту від блокувань та пайплайнів обробки.
-- 🔌 **[Довідник API та WebSocket (`docs/API.md`)](file:///d:/SF%20k/docs/API.md):** Ендпоінти REST API, формати передачі повідомлень WebSocket, типи відповідей та коди помилок.
+- 📡 **[Довідник API (`docs/API.md`)](file:///d:/SF%20k/docs/API.md):** Огляд усіх ендпоінтів та інтерактивної Swagger UI документації.
+- 📄 **[OpenAPI 3.0 Специфікація (`docs/openapi.yaml`)](file:///d:/SF%20k/docs/openapi.yaml):** Машиночитана специфікація REST API для імпорту та валідації.
+- 🔌 **[WebSocket Протокол (`docs/websocket-protocol.md`)](file:///d:/SF%20k/docs/websocket-protocol.md):** Детальний опис взаємодії в реальному часі, життєвий цикл стріму, payload schemas та коди помилок.
+- 📮 **[Postman Колекція (`docs/postman_collection.json`)](file:///d:/SF%20k/docs/postman_collection.json):** Готова колекція запитів для швидкого тестування в Postman / Insomnia.
+- 🤖 **[Генерація клієнтських SDK (`docs/CLIENT_GENERATION.md`)](file:///d:/SF%20k/docs/CLIENT_GENERATION.md):** Автоматична генерація клієнтів для TypeScript (Web), Kotlin (Android) та Python.
 - 🚢 **[Посібник з розгортання (`docs/DEPLOYMENT.md`)](file:///d:/SF%20k/docs/DEPLOYMENT.md):** Налаштування на VPS, робота з CasaOS, ротація логів, резервне копіювання даних та усунення проблем.
 - 💻 **[Гайд для розробників (`docs/DEVELOPMENT.md`)](file:///d:/SF%20k/docs/DEVELOPMENT.md):** Створення власних кастомних нод, конвенції оформлення коду, запуск тестів та робота з гілками.
 - 🛡️ **[Безпека та конфіденційність (`docs/SECURITY.md`)](file:///d:/SF%20k/docs/SECURITY.md):** Ізоляція сесій, зберігання облікових записів Web3, шифрування та запобігання витокам.
