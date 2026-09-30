@@ -265,3 +265,48 @@
   font-weight: 700;
   white-space: nowrap;
 }
+
+.timer-badge-soon {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 10px;
+}
+
+/* Секція часової шкали */
+.timeline-card-section {
+  background: #090d16;
+  border-color: #1e293b;
+}
+
+.timeline-event-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 5px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  transition: all 0.15s ease;
+  gap: 6px;
+}
+
+.timeline-event-row:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(100, 116, 139, 0.7);
+}
+
+.timeline-event-ready {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(6, 78, 59, 0.25);
+}
+
+.timeline-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

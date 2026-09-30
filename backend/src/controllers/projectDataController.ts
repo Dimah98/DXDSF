@@ -302,21 +302,21 @@ const SEASON_CROPS_MAP: Record<string, string[]> = {
 };
 
 const SEASON_FLOWERS_MAP: Record<string, string[]> = {
-  spring: ['Sunpetal Seed', 'Bloom Seed', 'Lily Seed'],
-  summer: ['Gladiolus Seed', 'Edelweiss Seed'],
-  autumn: ['Lavender Seed', 'Clover Seed'],
-  winter: ['Lotus Seed', 'Daffodil Seed']
+  spring: ['Sunpetal Seed', 'Bloom Seed', 'Lily Seed', 'Lavender Seed'],
+  summer: ['Sunpetal Seed', 'Bloom Seed', 'Lily Seed', 'Gladiolus Seed'],
+  autumn: ['Sunpetal Seed', 'Bloom Seed', 'Lily Seed', 'Clover Seed'],
+  winter: ['Sunpetal Seed', 'Bloom Seed', 'Lily Seed', 'Edelweiss Seed']
 };
 
 const SEASON_FRUIT_SEEDS_MAP: Record<string, string[]> = {
-  spring: ['Apple Seed', 'Orange Seed', 'Blueberry Seed'],
-  summer: ['Banana Seed', 'Lemon Seed', 'Orange Seed'],
-  autumn: ['Apple Seed', 'Tomato Seed', 'Banana Seed'],
-  winter: ['Lemon Seed', 'Tomato Seed', 'Blueberry Seed']
+  spring: ['Apple Seed', 'Orange Seed', 'Blueberry Seed', 'Banana Plant', 'Banana Seed', 'Lemon Seed', 'Tomato Seed'],
+  summer: ['Tomato Seed', 'Lemon Seed', 'Orange Seed', 'Banana Plant', 'Banana Seed'],
+  autumn: ['Apple Seed', 'Tomato Seed', 'Orange Seed'],
+  winter: ['Lemon Seed', 'Blueberry Seed', 'Orange Seed']
 };
 
 const ALL_FRUIT_SEEDS = [
-  'Apple Seed', 'Orange Seed', 'Blueberry Seed', 'Banana Seed',
+  'Apple Seed', 'Orange Seed', 'Blueberry Seed', 'Banana Plant', 'Banana Seed',
   'Lemon Seed', 'Tomato Seed', 'Celestine Seed', 'Lunara Seed', 'Duskberry Seed'
 ];
 
@@ -651,12 +651,11 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
         const level = getBumpkinLevel(experience);
         const islandType = farm.island?.type || 'basic';
         const islandExpansions = inventory['Basic Land'] || farm.island?.previousExpansions || 0;
-        const farmSeason = (
-          farm.season?.season ||
-          rawSave.season?.season ||
-          farm.island?.type ||
-          'spring'
-        ).toLowerCase();
+        const validSeasons = ['spring', 'summer', 'autumn', 'winter'];
+        const rawSeason = String(farm.season?.season || rawSave.season?.season || '').toLowerCase();
+        const farmSeason = validSeasons.includes(rawSeason)
+          ? rawSeason
+          : (validSeasons.includes(String(farm.island?.type || '').toLowerCase()) ? String(farm.island.type).toLowerCase() : 'spring');
 
         // 2. Доставки за типами, виконані СЬОГОДНІ
         let coinsDeliveredToday = 0;
@@ -852,18 +851,21 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
         // 5.1 Насіння фруктових дерев поточного сезону в інвентарі
         const seasonFruitSeeds = SEASON_FRUIT_SEEDS_MAP[farmSeason] || SEASON_FRUIT_SEEDS_MAP.spring;
         const seasonalFruitSeeds: { name: string; count: number }[] = [];
+        const seenFruitTypes = new Set<string>();
         for (const seedName of seasonFruitSeeds) {
           const count = Number(inventory[seedName]) || 0;
-          if (count > 0) {
+          if (count > 0 && !seenFruitTypes.has(seedName)) {
             seasonalFruitSeeds.push({ name: seedName, count });
+            seenFruitTypes.add(seedName);
           }
         }
         // Fallback: якщо насіння поточного сезону немає в інвентарі, але є інше фруктове насіння
         if (seasonalFruitSeeds.length === 0) {
           for (const sName of ALL_FRUIT_SEEDS) {
             const count = Number(inventory[sName]) || 0;
-            if (count > 0) {
+            if (count > 0 && !seenFruitTypes.has(sName)) {
               seasonalFruitSeeds.push({ name: sName, count });
+              seenFruitTypes.add(sName);
             }
           }
         }
@@ -873,14 +875,24 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
         const chickensList = Object.values(henHouseAnimals).map((ch: any) => {
           const xp = typeof ch.experience === 'number' ? ch.experience : 0;
           const level = getChickenLevel(xp);
-          const awakeAt = ch.awakeAt || 0;
-          const sleepRemainingMs = Math.max(0, awakeAt - now);
-          const isSleeping = sleepRemainingMs > 0;
+          const awakeAt = Number(ch.awakeAt) || 0;
+          const asleepAt = Number(ch.asleepAt) || 0;
+          const lovedAt = Number(ch.lovedAt) || 0;
 
-          const lovedAt = ch.lovedAt || 0;
-          const careCooldownMs = 24 * 3600 * 1000;
-          const careRemainingMs = lovedAt > 0 ? Math.max(0, (lovedAt + careCooldownMs) - now) : 0;
-          const canCare = careRemainingMs === 0;
+          const sleepRemainingMs = Math.max(0, awakeAt - now);
+          const isSleeping = asleepAt > 0 && now >= asleepAt && sleepRemainingMs > 0;
+
+          // Курка потребує любові ТІЛЬКИ коли вона спить і в поточному циклі сну її ще не гладили
+          // (lovedAt < asleepAt або lovedAt === 0).
+          const needsCare = isSleeping && (lovedAt < asleepAt || lovedAt === 0);
+          const canCare = needsCare;
+
+          // Таймер піклування:
+          // Якщо курка спить і вже погладжена (lovedAt >= asleepAt), наступне піклування
+          // стане доступним тільки у наступному циклі сну (після пробудження awakeAt).
+          // Якщо спить і ще не погладжена — піклування доступне ЗАРАЗ (0 мс).
+          // Якщо не спить (голодна/прокинулась) — піклування неможливе до наступного сну (0 мс).
+          const careRemainingMs = (isSleeping && lovedAt >= asleepAt) ? sleepRemainingMs : 0;
 
           const isSick = Boolean(
             ch.isSick ||
@@ -1086,6 +1098,193 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
         const farmCoins = typeof farm.coins === 'number' ? farm.coins : (parseFloat(String(farm.coins || farm.balance || 0)) || 0);
         const islandUpgrade = calculateIslandProgression(islandType, level, islandExpansions, inventory, farmCoins);
 
+        // 15. Часова шкала (Timeline подій: коли що дозріє, приготується, прокинеться чи відновиться)
+        const timelineEvents: Array<{
+          id: string;
+          category: 'crop' | 'fruit' | 'flower' | 'cooking' | 'composter' | 'chicken' | 'resource';
+          name: string;
+          details?: string;
+          amount?: number;
+          count?: number;
+          icon?: string;
+          readyAt: number;
+          remainingMs: number;
+          isReady: boolean;
+        }> = [];
+
+        // 15.1 Рослини на грядках (групуємо однакові культури за хвилиною дозрівання)
+        const cropGroups: Record<string, { name: string; count: number; totalAmount: number; readyAt: number }> = {};
+        for (const plot of plots) {
+          if (!plot?.crop?.name) continue;
+          const cName = plot.crop.name;
+          const plantedAt = plot.crop.plantedAt || 0;
+          const baseGrowthMs = BASE_GROWTH_TIMES[cName] || (30 * 60 * 1000);
+          const readyAt = plantedAt + baseGrowthMs;
+          const minuteKey = `${cName}_${Math.floor(readyAt / 60000)}`;
+          const amount = typeof plot.crop.amount === 'number' ? plot.crop.amount : 1;
+
+          if (!cropGroups[minuteKey]) {
+            cropGroups[minuteKey] = { name: cName, count: 0, totalAmount: 0, readyAt };
+          }
+          cropGroups[minuteKey].count += 1;
+          cropGroups[minuteKey].totalAmount += amount;
+          if (readyAt < cropGroups[minuteKey].readyAt) {
+            cropGroups[minuteKey].readyAt = readyAt;
+          }
+        }
+        for (const [key, grp] of Object.entries(cropGroups)) {
+          const remMs = Math.max(0, grp.readyAt - now);
+          timelineEvents.push({
+            id: `crop_${key}`,
+            category: 'crop',
+            name: grp.name,
+            details: `x${Math.round(grp.totalAmount * 10) / 10} (${grp.count} шт)`,
+            amount: Math.round(grp.totalAmount * 10) / 10,
+            count: grp.count,
+            icon: `/api/im/${encodeURIComponent(grp.name)}.png`,
+            readyAt: grp.readyAt,
+            remainingMs: remMs,
+            isReady: remMs === 0,
+          });
+        }
+
+        // 15.2 Фруктові дерева (групуємо за фруктом та хвилиною дозрівання)
+        const fruitGroups: Record<string, { name: string; count: number; totalYield: number; readyAt: number }> = {};
+        for (const tree of fruitTrees) {
+          if (tree.isDead) continue;
+          const targetReadyAt = tree.isReady ? now : (tree.readyAt || now);
+          const minuteKey = `${tree.name}_${Math.floor(targetReadyAt / 60000)}`;
+          if (!fruitGroups[minuteKey]) {
+            fruitGroups[minuteKey] = { name: tree.name, count: 0, totalYield: 0, readyAt: targetReadyAt };
+          }
+          fruitGroups[minuteKey].count += 1;
+          fruitGroups[minuteKey].totalYield += (tree.amount || 1);
+          if (targetReadyAt < fruitGroups[minuteKey].readyAt) {
+            fruitGroups[minuteKey].readyAt = targetReadyAt;
+          }
+        }
+        for (const [key, grp] of Object.entries(fruitGroups)) {
+          const remMs = Math.max(0, grp.readyAt - now);
+          timelineEvents.push({
+            id: `fruit_${key}`,
+            category: 'fruit',
+            name: grp.name,
+            details: `x${grp.totalYield} (${grp.count} ${grp.count === 1 ? 'дерево' : 'дер.'})`,
+            amount: grp.totalYield,
+            count: grp.count,
+            icon: `/api/im/${encodeURIComponent(grp.name)}.png`,
+            readyAt: grp.readyAt,
+            remainingMs: remMs,
+            isReady: remMs === 0,
+          });
+        }
+
+        // 15.3 Квіти що ростуть
+        for (const fl of growingFlowers) {
+          if (!fl) continue;
+          timelineEvents.push({
+            id: `flower_${fl.name}_${fl.readyAt}`,
+            category: 'flower',
+            name: fl.name,
+            details: 'Клумба',
+            icon: `/api/im/${encodeURIComponent(fl.name)}.png`,
+            readyAt: fl.readyAt,
+            remainingMs: fl.remainingMs,
+            isReady: fl.isReady,
+          });
+        }
+
+        // 15.4 Страви що готуються
+        for (const dish of cookingDishes) {
+          timelineEvents.push({
+            id: `cooking_${dish.buildingName}_${dish.name}_${dish.readyAt}`,
+            category: 'cooking',
+            name: dish.name,
+            details: dish.buildingName,
+            icon: `/api/im/${encodeURIComponent(dish.name)}.png`,
+            readyAt: dish.readyAt,
+            remainingMs: dish.remainingMs,
+            isReady: dish.isReady,
+          });
+        }
+
+        // 15.5 Компостери (виробництво добрив)
+        for (const comp of compostersList) {
+          if (comp.status === 'producing' || comp.status === 'ready') {
+            const rAt = comp.readyAt || now;
+            const rMs = comp.remainingMs || 0;
+            timelineEvents.push({
+              id: `composter_${comp.name}`,
+              category: 'composter',
+              name: comp.name,
+              details: comp.producingItem || 'Добриво',
+              icon: `/api/im/${encodeURIComponent(comp.producingItem || comp.name)}.png`,
+              readyAt: rAt,
+              remainingMs: rMs,
+              isReady: comp.status === 'ready' || rMs === 0,
+            });
+          }
+        }
+
+        // 15.6 Кури: пробудження (сон) та готовність до любові
+        const chickensSleeping = chickensList.filter(ch => ch.isSleeping);
+        if (chickensSleeping.length > 0) {
+          const wakeGroups: Record<string, { count: number; awakeAt: number }> = {};
+          for (const ch of chickensSleeping) {
+            const minKey = `${Math.floor((now + ch.sleepRemainingMs) / 60000)}`;
+            if (!wakeGroups[minKey]) {
+              wakeGroups[minKey] = { count: 0, awakeAt: now + ch.sleepRemainingMs };
+            }
+            wakeGroups[minKey].count++;
+          }
+          for (const [key, grp] of Object.entries(wakeGroups)) {
+            const rMs = Math.max(0, grp.awakeAt - now);
+            timelineEvents.push({
+              id: `chicken_wake_${key}`,
+              category: 'chicken',
+              name: 'Кури (пробудження)',
+              details: `${grp.count} ${grp.count === 1 ? 'курка' : 'курей'} (Яйця)`,
+              count: grp.count,
+              icon: '/api/im/Chicken.png',
+              readyAt: grp.awakeAt,
+              remainingMs: rMs,
+              isReady: rMs === 0,
+            });
+          }
+        }
+        const chickensNeedingCare = chickensList.filter(ch => ch.canCare);
+        for (const ch of chickensNeedingCare) {
+          timelineEvents.push({
+            id: `chicken_care_${ch.id}`,
+            category: 'chicken',
+            name: `Курка L${ch.level} (увага)`,
+            details: `Погладити: ${ch.desiredItem}`,
+            icon: `/api/im/${encodeURIComponent(ch.desiredItem)}.png`,
+            readyAt: now,
+            remainingMs: 0,
+            isReady: true,
+          });
+        }
+
+        // 15.7 Відновлення ресурсів (дерево, камінь, залізо тощо)
+        for (const res of resourcesList) {
+          if (res.readyCount < res.totalCount && res.remainingMs > 0) {
+            timelineEvents.push({
+              id: `resource_${res.name}`,
+              category: 'resource',
+              name: res.name,
+              details: `Відновлення (${res.readyCount}/${res.totalCount})`,
+              icon: `/api/im/${encodeURIComponent(res.name)}.png`,
+              readyAt: now + res.remainingMs,
+              remainingMs: res.remainingMs,
+              isReady: false,
+            });
+          }
+        }
+
+        // Сортуємо хронологічно: спочатку готові (0 мс), потім за зростанням часу до готовності
+        timelineEvents.sort((a, b) => a.remainingMs - b.remainingMs);
+
         cards.push({
           projectName,
           level,
@@ -1113,6 +1312,7 @@ export async function getAllFarmCardsOverview(_req: Request, res: Response): Pro
           bigFruitProjects,
           fishing,
           islandUpgrade,
+          timelineEvents,
         });
       } catch (projErr) {
         logger.warn(`Failed to process farm card for ${projectName}`, { error: String(projErr) });

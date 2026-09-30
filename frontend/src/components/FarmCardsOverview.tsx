@@ -143,6 +143,18 @@ export interface FarmCardData {
     isLastUpgrade?: boolean;
     canUpgrade: boolean;
   } | null;
+  timelineEvents?: {
+    id: string;
+    category: 'crop' | 'fruit' | 'flower' | 'cooking' | 'composter' | 'chicken' | 'resource';
+    name: string;
+    details?: string;
+    amount?: number;
+    count?: number;
+    icon?: string;
+    readyAt: number;
+    remainingMs: number;
+    isReady: boolean;
+  }[];
 }
 
 // Налаштування видимості блоків
@@ -163,6 +175,7 @@ export interface CardSettings {
   showBigFruits: boolean;            // 14. Великі фрукти Project
   showFishing: boolean;              // 15. Риболовля
   showIslandUpgrade: boolean;        // 16. Ресурси для покращення острова
+  showTimeline: boolean;             // 17. Часова шкала дозрівання та таймерів
   columnsCount: number;              // Кількість колонок (за замовчуванням 5)
 }
 
@@ -183,6 +196,7 @@ const DEFAULT_SETTINGS: CardSettings = {
   showBigFruits: true,
   showFishing: true,
   showIslandUpgrade: true,
+  showTimeline: true,
   columnsCount: 5,
 };
 
@@ -461,6 +475,7 @@ export const FarmCardsOverview: React.FC<FarmCardsOverviewProps> = ({ setCurrent
                 { key: 'showBigFruits', label: '14. Великі фрукти Project на острові (прогрес 16/25)' },
                 { key: 'showFishing', label: '15. Риболовля (спроби дня, вудки, наживка)' },
                 { key: 'showIslandUpgrade', label: '16. Ресурси та рівень для покращення острова' },
+                { key: 'showTimeline', label: '17. Часова шкала (Timeline): коли що дозріє, приготується чи відновиться' },
               ].map(item => {
                 const isChecked = (settings as any)[item.key];
                 return (
@@ -553,6 +568,11 @@ interface FarmCardItemProps {
 }
 
 const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinceFetch }) => {
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState<boolean>(false);
+  const timelineEvents = card.timelineEvents || [];
+  const readyTimelineEventsCount = timelineEvents.filter(evt => Math.max(0, evt.remainingMs - elapsedSinceFetch) === 0).length;
+  const displayedTimelineEvents = isTimelineExpanded ? timelineEvents : timelineEvents.slice(0, 5);
+
   return (
     <div className="farm-card">
       {/* 1. Назва проекту, Lvl, тип та розширення острова */}
@@ -748,7 +768,7 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
               const liveCareRemaining = Math.max(0, chicken.careRemainingMs - elapsedSinceFetch);
               const isSleeping = liveSleepRemaining > 0;
               const isSick = chicken.isSick;
-              const canCare = liveCareRemaining === 0;
+              const canCare = Boolean(chicken.canCare && isSleeping);
 
               let stateBorderClass = 'border-slate-700';
               let stateIcon = '🌾';
@@ -758,10 +778,14 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
                 stateBorderClass = 'border-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.4)]';
                 stateIcon = '🩹';
                 stateText = 'Слаба / хвора';
+              } else if (canCare) {
+                stateBorderClass = 'border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.35)]';
+                stateIcon = '❤️';
+                stateText = 'Чекає піклування (спить)';
               } else if (isSleeping) {
                 stateBorderClass = 'border-indigo-500/70';
                 stateIcon = '💤';
-                stateText = 'Спить';
+                stateText = 'Спить (погладжено)';
               } else {
                 stateBorderClass = 'border-amber-500/80 shadow-[0_0_5px_rgba(245,158,11,0.25)]';
                 stateIcon = '🌾';
@@ -772,7 +796,7 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
                 <div
                   key={chicken.id}
                   className={`chicken-square-card ${stateBorderClass}`}
-                  title={`Курка #${chicken.id} | Рівень: ${chicken.level} (${chicken.experience} XP) | Стан: ${stateText} | Іграшка: ${chicken.desiredItem} | Пробудження: ${isSleeping ? formatRemaining(liveSleepRemaining) : 'Прокинулась'} | Піклування: ${canCare ? 'Готова' : formatRemaining(liveCareRemaining)}`}
+                  title={`Курка #${chicken.id} | Рівень: ${chicken.level} (${chicken.experience} XP) | Стан: ${stateText} | Бажає: ${chicken.desiredItem} | Пробудження: ${isSleeping ? formatRemaining(liveSleepRemaining) : 'Прокинулась'} | Піклування: ${canCare ? 'Чекає любові!' : isSleeping ? 'Вже погладжено в цьому сні' : 'Доступне після годування'}`}
                 >
                   {/* Верхній рядок: Рівень та іконка стану */}
                   <div className="w-full flex items-center justify-between px-0.5">
@@ -815,16 +839,30 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
                     </span>
                   </div>
 
-                  {/* Таймер до піклування */}
+                  {/* Таймер / стан піклування */}
                   <div className="w-full text-center leading-none mt-0.5 border-t border-slate-800/80 pt-0.5">
-                    <span
-                      className={`chicken-timer-sub block truncate ${
-                        canCare ? 'text-emerald-400 font-bold' : 'text-slate-400'
-                      }`}
-                      title={canCare ? 'Готова до піклування' : `Час до піклування: ${formatRemaining(liveCareRemaining)}`}
-                    >
-                      {canCare ? '❤️ Готова' : `❤️ ${formatRemaining(liveCareRemaining)}`}
-                    </span>
+                    {canCare ? (
+                      <span
+                        className="chicken-timer-sub block truncate text-emerald-400 font-bold animate-pulse"
+                        title={`Курка потребує любові прямо зараз! Інструмент: ${chicken.desiredItem}`}
+                      >
+                        ❤️ Увага!
+                      </span>
+                    ) : isSleeping ? (
+                      <span
+                        className="chicken-timer-sub block truncate text-indigo-300/80 font-medium"
+                        title={liveCareRemaining > 0 ? `Погладжено. Наступне піклування після пробудження: ${formatRemaining(liveCareRemaining)}` : 'Погладжено в цьому сні'}
+                      >
+                        ❤️ Погладжено
+                      </span>
+                    ) : (
+                      <span
+                        className="chicken-timer-sub block truncate text-slate-500 font-medium"
+                        title="Прокинулась (піклування доступне під час сну)"
+                      >
+                        🌾 Голодна
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -1208,6 +1246,85 @@ const FarmCardItem: React.FC<FarmCardItemProps> = ({ card, settings, elapsedSinc
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 17. Часова шкала (Timeline: коли що дозріє, приготується чи відновиться) */}
+      {settings.showTimeline && timelineEvents.length > 0 && (
+        <div className="farm-card-section timeline-card-section">
+          {/* Заголовок секції */}
+          <div className="flex items-center justify-between pb-1 border-b border-slate-800/90">
+            <div className="flex items-center gap-1.5">
+              <Clock size={12} className="text-amber-400" />
+              <span className="farm-card-section-title text-[10px]">Часова шкала</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {readyTimelineEventsCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
+                  Готово: {readyTimelineEventsCount}
+                </span>
+              )}
+              <span className="text-[9px] font-medium text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700">
+                {timelineEvents.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Список подій */}
+          <div className="space-y-1 pt-1">
+            {displayedTimelineEvents.map((evt) => {
+              const liveRemaining = Math.max(0, evt.remainingMs - elapsedSinceFetch);
+              const isReady = liveRemaining === 0;
+              const formattedTime = new Date(evt.readyAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+              return (
+                <div
+                  key={evt.id}
+                  className={`timeline-event-row ${isReady ? 'timeline-event-ready' : ''}`}
+                  title={`${evt.name} ${evt.details ? `(${evt.details})` : ''} | Час: ${formattedTime} | Залишилось: ${formatRemaining(liveRemaining)}`}
+                >
+                  <div className="flex items-center gap-1.5 overflow-hidden min-w-0">
+                    {evt.icon && (
+                      <img
+                        src={getCleanImageUrl(evt.icon)}
+                        alt={evt.name}
+                        onError={handleImageErrorWithCacheBust}
+                        className="w-3.5 h-3.5 object-contain flex-shrink-0"
+                      />
+                    )}
+                    <span className="text-slate-200 font-medium truncate text-[10.5px]" title={evt.name}>
+                      {evt.name}
+                    </span>
+                    {evt.details && (
+                      <span className="text-[9px] text-slate-400 font-semibold truncate">
+                        {evt.details}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <span className="text-[8.5px] text-slate-500 hidden sm:inline">
+                      {formattedTime}
+                    </span>
+                    <span className={isReady ? 'timer-badge-ready text-[9px]' : liveRemaining < 15 * 60 * 1000 ? 'timer-badge-soon text-[9px]' : 'timer-badge-waiting text-[9px]'}>
+                      {formatRemaining(liveRemaining)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Кнопка показати більше / згорнути */}
+          {timelineEvents.length > 5 && (
+            <button
+              type="button"
+              onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
+              className="w-full mt-1 py-0.5 text-[9.5px] font-semibold text-amber-400 hover:text-amber-300 bg-slate-800/60 hover:bg-slate-800 rounded border border-slate-700/60 transition-colors text-center"
+            >
+              {isTimelineExpanded ? '▲ Згорнути шкалу' : `▼ Ще +${timelineEvents.length - 5} подій...`}
+            </button>
+          )}
         </div>
       )}
     </div>

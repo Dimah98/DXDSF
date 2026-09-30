@@ -141,6 +141,7 @@ import androidx.compose.runtime.collectAsState // Метод перетворе�
 import androidx.compose.runtime.getValue // Спрощення зчитування змінних
 import androidx.compose.runtime.mutableStateOf // Метод декларації локальних змінних
 import androidx.compose.runtime.remember // Органайзер збереження значень під час рекомпозицій
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue // Спрощення перезапису локальних змінних
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment // Вирівнювання вкладених дочірніх компонентів
@@ -4774,6 +4775,33 @@ private fun collectAllExpandablePaths(node: JsonTreeNode, out: MutableSet<String
     }
 }
 
+private val saveFileDateFormatter = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", java.util.Locale.getDefault())
+
+/**
+ * Перевіряє, чи є число або числовий рядок Unix-таймстемом (у діапазоні мілісекунд),
+ * і форматує його у читабельний вигляд: "dd.MM.yyyy HH:mm:ss" (наприклад: 29.09.2026 19:54:54).
+ */
+private fun formatTimestampIfDate(value: Any?): String? {
+    val ms = when (value) {
+        is Number -> {
+            val l = value.toLong()
+            if (l in 1_000_000_000_000L..3_500_000_000_000L) l else null
+        }
+        is String -> {
+            val trimmed = value.trim()
+            val l = trimmed.toLongOrNull()
+            if (l != null && l in 1_000_000_000_000L..3_500_000_000_000L) l else null
+        }
+        else -> null
+    } ?: return null
+
+    return try {
+        saveFileDateFormatter.format(java.util.Date(ms))
+    } catch (_: Exception) {
+        null
+    }
+}
+
 @Composable
 fun SaveFileViewerComponent(
     modifier: Modifier = Modifier,
@@ -4786,6 +4814,7 @@ fun SaveFileViewerComponent(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var isSearchOpen by remember { mutableStateOf(false) }
+    var humanTimeFormat by rememberSaveable { mutableStateOf(true) }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -4896,9 +4925,12 @@ fun SaveFileViewerComponent(
                     }
                     if (rootNode != null) {
                         // Кнопка перемикання формату часу (Unix → читабельний)
-                        var humanTimeFormat by remember { mutableStateOf(true) }
                         IconButton(
-                            onClick = { humanTimeFormat = !humanTimeFormat },
+                            onClick = {
+                                humanTimeFormat = !humanTimeFormat
+                                val msg = if (humanTimeFormat) "Формат часу: 29.09.2026 19:54:54 (читабельна дата)" else "Формат часу: 1790700894257 (сирий Unix timestamp)"
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            },
                             modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
@@ -5136,7 +5168,8 @@ fun SaveFileViewerComponent(
                                     Toast.makeText(context, "Скопійовано шлях:\n$path", Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            searchQuery = searchQuery
+                            searchQuery = searchQuery,
+                            humanTimeFormat = humanTimeFormat
                         )
                     }
                 }
@@ -5153,15 +5186,30 @@ private fun JsonNodeTreeRenderer(
     expandedPaths: Set<String>,
     onToggleExpand: (String) -> Unit,
     onCopyPath: (String) -> Unit,
-    searchQuery: String
+    searchQuery: String,
+    humanTimeFormat: Boolean = true
 ) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     val isExpanded = expandedPaths.contains(node.fullPath) || (node.fullPath.isEmpty() && depth == 0)
 
-    val matchesSearch = remember(node, searchQuery) {
+    val formattedDate = remember(node, humanTimeFormat) {
+        if (humanTimeFormat && node is JsonTreeNode.LeafNode) {
+            formatTimestampIfDate(node.value)
+        } else null
+    }
+
+    val formattedKeyDate = remember(node.key, humanTimeFormat) {
+        if (humanTimeFormat) formatTimestampIfDate(node.key) else null
+    }
+
+    val matchesSearch = remember(node, searchQuery, formattedDate, formattedKeyDate) {
         if (searchQuery.isBlank()) true
         else {
             node.key.contains(searchQuery, ignoreCase = true) ||
+            (formattedKeyDate != null && formattedKeyDate.contains(searchQuery, ignoreCase = true)) ||
             (node is JsonTreeNode.LeafNode && node.value.toString().contains(searchQuery, ignoreCase = true)) ||
+            (formattedDate != null && formattedDate.contains(searchQuery, ignoreCase = true)) ||
             node.fullPath.contains(searchQuery, ignoreCase = true)
         }
     }
@@ -5177,6 +5225,14 @@ private fun JsonNodeTreeRenderer(
                         onClick = {
                             if (node is JsonTreeNode.ObjectNode || node is JsonTreeNode.ArrayNode) {
                                 onToggleExpand(node.fullPath)
+                            } else if (node is JsonTreeNode.LeafNode) {
+                                val textToCopy = if (formattedDate != null) {
+                                    "${node.key}: $formattedDate (Unix: ${node.value})"
+                                } else {
+                                    "${node.key}: ${node.value}"
+                                }
+                                clipboardManager.setText(AnnotatedString(if (formattedDate != null) formattedDate else node.value.toString()))
+                                Toast.makeText(context, "Скопійовано:\n$textToCopy", Toast.LENGTH_SHORT).show()
                             }
                         },
                         onLongClick = {
@@ -5187,6 +5243,8 @@ private fun JsonNodeTreeRenderer(
                     .padding(vertical = 3.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val keyLabel = if (formattedKeyDate != null) "${node.key} ($formattedKeyDate)" else node.key
+
                 when (node) {
                     is JsonTreeNode.ObjectNode -> {
                         Icon(
@@ -5197,7 +5255,7 @@ private fun JsonNodeTreeRenderer(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = if (node.key.isNotEmpty()) "${node.key}: " else "",
+                            text = if (keyLabel.isNotEmpty()) "$keyLabel: " else "",
                             color = GlassIndigoLight,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -5219,7 +5277,7 @@ private fun JsonNodeTreeRenderer(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = if (node.key.isNotEmpty()) "${node.key}: " else "",
+                            text = if (keyLabel.isNotEmpty()) "$keyLabel: " else "",
                             color = GlassIndigoLight,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -5235,23 +5293,29 @@ private fun JsonNodeTreeRenderer(
                     is JsonTreeNode.LeafNode -> {
                         Spacer(Modifier.width(20.dp))
                         Text(
-                            text = "${node.key}: ",
+                            text = "$keyLabel: ",
                             color = GlassIndigoLight,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace
                         )
-                        val valueColor = when (node.valueType) {
-                            "string" -> GlassSuccess
-                            "number" -> GlassWarning
-                            "boolean" -> GlassBalance
+                        val valueColor = when {
+                            formattedDate != null -> GlassGem
+                            node.valueType == "string" -> GlassSuccess
+                            node.valueType == "number" -> GlassWarning
+                            node.valueType == "boolean" -> GlassBalance
                             else -> Color.White.copy(alpha = 0.5f)
                         }
-                        val displayValue = if (node.valueType == "string") "\"${node.value}\"" else "${node.value}"
+                        val displayValue = when {
+                            formattedDate != null -> formattedDate
+                            node.valueType == "string" -> "\"${node.value}\""
+                            else -> "${node.value}"
+                        }
                         Text(
                             text = displayValue,
                             color = valueColor,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
+                            fontWeight = if (formattedDate != null) FontWeight.SemiBold else FontWeight.Normal,
                             maxLines = 3
                         )
                     }
@@ -5269,7 +5333,8 @@ private fun JsonNodeTreeRenderer(
                             expandedPaths = expandedPaths,
                             onToggleExpand = onToggleExpand,
                             onCopyPath = onCopyPath,
-                            searchQuery = searchQuery
+                            searchQuery = searchQuery,
+                            humanTimeFormat = humanTimeFormat
                         )
                     }
                 }
@@ -5281,7 +5346,8 @@ private fun JsonNodeTreeRenderer(
                             expandedPaths = expandedPaths,
                             onToggleExpand = onToggleExpand,
                             onCopyPath = onCopyPath,
-                            searchQuery = searchQuery
+                            searchQuery = searchQuery,
+                            humanTimeFormat = humanTimeFormat
                         )
                     }
                 }
