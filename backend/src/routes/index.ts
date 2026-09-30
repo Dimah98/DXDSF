@@ -14,11 +14,13 @@ import notificationsRoutes from './notificationsRoutes';
 import buildingsRoutes from './buildingsRoutes';
 import npcDeliveriesRoutes from './npcDeliveriesRoutes';
 import swaggerRoutes from '../docs/swagger';
+import apmRoutes from './apmRoutes';
 
 const router = Router();
 
 // Mount all route modules
 router.use(swaggerRoutes);
+router.use(apmRoutes);
 router.use(systemRoutes);
 router.use(projectsRoutes);
 router.use(logsRoutes);

@@ -17,6 +17,56 @@ try {
   db.exec('PRAGMA busy_timeout = 5000;');
 } catch {}
 
+// ─── APM Database Query Instrumentation ─────────────────────────────────────
+import { apmService } from '../apm/APMService';
+import { performance } from 'perf_hooks';
+
+const originalPrepare = db.prepare.bind(db);
+db.prepare = function(sql: string) {
+  const stmt: any = originalPrepare(sql);
+  const origRun = stmt.run.bind(stmt);
+  const origAll = stmt.all.bind(stmt);
+  const origGet = stmt.get.bind(stmt);
+
+  stmt.run = function(...args: any[]) {
+    const t0 = performance.now();
+    try {
+      const res = origRun(...args);
+      apmService.recordQuery(sql, performance.now() - t0, 'stmt.run', args);
+      return res;
+    } catch (err) {
+      apmService.recordQuery(sql, performance.now() - t0, 'stmt.run (error)', args);
+      throw err;
+    }
+  };
+
+  stmt.all = function(...args: any[]) {
+    const t0 = performance.now();
+    try {
+      const res = origAll(...args);
+      apmService.recordQuery(sql, performance.now() - t0, 'stmt.all', args);
+      return res;
+    } catch (err) {
+      apmService.recordQuery(sql, performance.now() - t0, 'stmt.all (error)', args);
+      throw err;
+    }
+  };
+
+  stmt.get = function(...args: any[]) {
+    const t0 = performance.now();
+    try {
+      const res = origGet(...args);
+      apmService.recordQuery(sql, performance.now() - t0, 'stmt.get', args);
+      return res;
+    } catch (err) {
+      apmService.recordQuery(sql, performance.now() - t0, 'stmt.get (error)', args);
+      throw err;
+    }
+  };
+
+  return stmt;
+};
+
 // ─── Schema ──────────────────────────────────────────────────────────────
 
 const BASE_SCHEMA = `

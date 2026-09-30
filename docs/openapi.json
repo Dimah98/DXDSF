@@ -139,6 +139,177 @@
         }
       }
     },
+    "/api/system/apm-metrics": {
+      "get": {
+        "summary": "Зведений звіт APM продуктивності",
+        "description": "Затримки (p50, p95, p99), активні транзакції, пам'ять, CPU, лаги Event Loop та RUM.",
+        "tags": [
+          "APM та Моніторинг"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Метрики APM",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/traces": {
+      "get": {
+        "summary": "Останні транзакції та спани",
+        "description": "Повертає список останніх виконаних запитів із розбивкою на спани (Waterfall / Flamegraph).",
+        "tags": [
+          "APM та Моніторинг"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список транзакцій",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/slow-queries": {
+      "get": {
+        "summary": "Список повільних SQL запитів",
+        "description": "Запити до SQLite бази даних, що виконувалися довше 20 мс.",
+        "tags": [
+          "APM та Моніторинг"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Повільні запити",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/traces/otlp": {
+      "get": {
+        "summary": "Експорт трас OpenTelemetry (OTLP JSON)",
+        "description": "Формує OpenTelemetry-сумісний потік трас для Jaeger, Zipkin, Tempo або Datadog.",
+        "tags": [
+          "APM та Моніторинг"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OTLP ResourceSpans",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/rum": {
+      "post": {
+        "summary": "Збереження RUM метрик з браузера клієнта",
+        "description": "Прийом Web Vitals (FCP, LCP, TTFB) та помилок JavaScript.",
+        "tags": [
+          "APM та Моніторинг"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Метрики прийнято"
+          }
+        }
+      },
+      "get": {
+        "summary": "Зведена статистика Real User Monitoring",
+        "description": "Отримання усереднених показників завантаження інтерфейсу користувачами.",
+        "tags": [
+          "APM та Моніторинг"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Статистика RUM",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/system/restart": {
       "post": {
         "summary": "Плавне перезавантаження бекенду",

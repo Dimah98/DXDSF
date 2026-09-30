@@ -11,6 +11,7 @@
 - 📮 **Postman Колекція v2.1:** [`docs/postman_collection.json`](file:///d:/SF%20k/docs/postman_collection.json) (готова до імпорту в Postman/Insomnia)
 - 🤖 **Генерація клієнтських SDK (TypeScript, Kotlin, Python):** [`docs/CLIENT_GENERATION.md`](file:///d:/SF%20k/docs/CLIENT_GENERATION.md)
 - 🔌 **Повна специфікація WebSocket протоколу:** [`docs/websocket-protocol.md`](file:///d:/SF%20k/docs/websocket-protocol.md)
+- ⏱️ **Моніторинг продуктивності та APM:** [`docs/APM.md`](file:///d:/SF%20k/docs/APM.md)
 
 ---
 

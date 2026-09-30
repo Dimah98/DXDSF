@@ -13,6 +13,7 @@ import { startMassLaunchScheduler, stopMassLaunchScheduler } from './runner/Mass
 import { runAutoMigration } from './db/migrate';
 import { sessions } from './browserManager';
 import { flushPendingLogs } from './RunLogger';
+import { apmMiddleware } from './apm/APMMiddleware';
 import {
   wsLifecycle,
   browserLifecycle,
@@ -38,6 +39,7 @@ process.on('uncaughtException', (err: Error) => {
 const app = express();
 
 app.use(cors());
+app.use(apmMiddleware);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -198,6 +200,11 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
     : 500;
   const message: string = err.message || 'Internal Server Error';
   const code: string = err.code || (status >= 500 ? 'INTERNAL_SERVER_ERROR' : 'CLIENT_ERROR');
+
+  if ((_req as any).apmTransaction) {
+    (_req as any).apmTransaction.error = message;
+    (_req as any).apmTransaction.status = 'error';
+  }
 
   if (status >= 500) {
     logger.error('Unhandled route error', err, {

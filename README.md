@@ -193,6 +193,7 @@ flowchart TD
 - 🔌 **[WebSocket Протокол (`docs/websocket-protocol.md`)](file:///d:/SF%20k/docs/websocket-protocol.md):** Детальний опис взаємодії в реальному часі, життєвий цикл стріму, payload schemas та коди помилок.
 - 📮 **[Postman Колекція (`docs/postman_collection.json`)](file:///d:/SF%20k/docs/postman_collection.json):** Готова колекція запитів для швидкого тестування в Postman / Insomnia.
 - 🤖 **[Генерація клієнтських SDK (`docs/CLIENT_GENERATION.md`)](file:///d:/SF%20k/docs/CLIENT_GENERATION.md):** Автоматична генерація клієнтів для TypeScript (Web), Kotlin (Android) та Python.
+- ⏱️ **[Моніторинг APM та Трасування (`docs/APM.md`)](file:///d:/SF%20k/docs/APM.md):** Розподілений трекінг затримок (p50/p95/p99), slow queries в SQLite, аналіз витоків пам'яті, Web Vitals RUM та OpenTelemetry.
 - 🚢 **[Посібник з розгортання (`docs/DEPLOYMENT.md`)](file:///d:/SF%20k/docs/DEPLOYMENT.md):** Налаштування на VPS, робота з CasaOS, ротація логів, резервне копіювання даних та усунення проблем.
 - 💻 **[Гайд для розробників (`docs/DEVELOPMENT.md`)](file:///d:/SF%20k/docs/DEVELOPMENT.md):** Створення власних кастомних нод, конвенції оформлення коду, запуск тестів та робота з гілками.
 - 🛡️ **[Безпека та конфіденційність (`docs/SECURITY.md`)](file:///d:/SF%20k/docs/SECURITY.md):** Ізоляція сесій, зберігання облікових записів Web3, шифрування та запобігання витокам.
