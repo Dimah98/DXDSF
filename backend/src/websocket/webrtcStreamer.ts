@@ -153,21 +153,43 @@ const IN_PAGE_WEBRTC_SCRIPT = `
     });
     await pc.setLocalDescription(offer);
 
+    // Wait up to 400ms for initial ICE gathering so candidates are bundled in offer SDP
+    await new Promise((resolve) => {
+      if (pc.iceGatheringState === 'complete') return resolve(null);
+      const onGather = () => {
+        if (pc.iceGatheringState === 'complete') {
+          pc.removeEventListener('icegatheringstatechange', onGather);
+          resolve(null);
+        }
+      };
+      pc.addEventListener('icegatheringstatechange', onGather);
+      setTimeout(() => {
+        pc.removeEventListener('icegatheringstatechange', onGather);
+        resolve(null);
+      }, 400);
+    });
+
+    const finalOffer = pc.localDescription || offer;
     const devWidth = targetCanvas ? targetCanvas.width : (window.innerWidth || 1280);
     const devHeight = targetCanvas ? targetCanvas.height : (window.innerHeight || 720);
 
-    sendSignal({
+    const offerPayload = {
       type: 'offer',
-      sdp: offer.sdp,
+      sdp: finalOffer.sdp,
       metadata: {
         deviceWidth: devWidth,
         deviceHeight: devHeight
       }
-    });
+    };
+
+    sendSignal(offerPayload);
+    return offerPayload;
 
   } catch (initErr) {
     console.error('[WebRTC-InPage] Initialization failed:', initErr);
-    sendSignal({ type: 'error', message: String(initErr) });
+    const errPayload = { type: 'error', message: String(initErr) };
+    sendSignal(errPayload);
+    return errPayload;
   }
 
   window.__sf_webrtc_handle_signal = async function(sig) {
@@ -278,8 +300,15 @@ export async function startWebRTCStream(session: ProjectSession, ws: WebSocket, 
 
   // Inject in-page streamer script
   try {
-    await session.page.evaluate(IN_PAGE_WEBRTC_SCRIPT);
+    const offerPayload: any = await session.page.evaluate(IN_PAGE_WEBRTC_SCRIPT);
     logger.info(`WebRTC streamer injected successfully for project ${projectName}`);
+    if (offerPayload && offerPayload.sdp && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'WEBRTC_SIGNAL',
+        projectName,
+        signal: offerPayload
+      }));
+    }
   } catch (evalErr) {
     logger.error(`Failed to inject WebRTC streamer into page for ${projectName}`, evalErr instanceof Error ? evalErr : new Error(String(evalErr)));
     ws.send(JSON.stringify({

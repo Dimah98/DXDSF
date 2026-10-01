@@ -124,15 +124,22 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
   const videoRef = useRef<HTMLVideoElement>(null);
   const fullscreenVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const [streamMode, setStreamMode] = useState<'webrtc' | 'websocket'>('webrtc');
+  const [streamMode, setStreamMode] = useState<'webrtc' | 'websocket'>('websocket');
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const streamModeRef = useRef<'webrtc' | 'websocket'>('webrtc');
+  const streamModeRef = useRef<'webrtc' | 'websocket'>('websocket');
   useEffect(() => { streamModeRef.current = streamMode; }, [streamMode]);
 
   useEffect(() => {
     if (mediaStream) {
-      if (videoRef.current) videoRef.current.srcObject = mediaStream;
-      if (fullscreenVideoRef.current) fullscreenVideoRef.current.srcObject = mediaStream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.play().catch(() => {});
+      }
+      if (fullscreenVideoRef.current) {
+        fullscreenVideoRef.current.srcObject = mediaStream;
+        fullscreenVideoRef.current.play().catch(() => {});
+      }
     }
   }, [mediaStream, isFullscreen]);
 
@@ -201,9 +208,12 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
                 if (trackEvent.streams && trackEvent.streams[0]) {
                   const s = trackEvent.streams[0];
                   setMediaStream(s);
-                  if (videoRef.current) videoRef.current.srcObject = s;
-                  if (fullscreenVideoRef.current) fullscreenVideoRef.current.srcObject = s;
-                  setStreamMode('webrtc');
+                  [videoRef.current, fullscreenVideoRef.current].forEach(v => {
+                    if (v) {
+                      v.srcObject = s;
+                      v.play().catch(() => {});
+                    }
+                  });
                   if (!hasReceivedFrameRef.current) {
                     hasReceivedFrameRef.current = true;
                     setHasReceivedFrame(true);
@@ -223,10 +233,13 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
               };
 
               pc.oniceconnectionstatechange = () => {
-                if (pc.iceConnectionState === 'failed') {
-                  console.warn('[WebRTC] ICE Connection failed, falling back to WebSocket screencast');
+                if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+                  console.warn(`[WebRTC] ICE Connection ${pc.iceConnectionState}, keeping WebSocket screencast active`);
+                  setIsVideoPlaying(false);
                   setStreamMode('websocket');
-                  ws.send(JSON.stringify({ type: 'START_STREAM', nodeId }));
+                  if (ws && ws.readyState === 1) {
+                    ws.send(JSON.stringify({ type: 'START_STREAM', nodeId }));
+                  }
                 }
               };
 
@@ -316,25 +329,18 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
       } catch {}
     };
     ws.addEventListener('message', handleMessage);
-    // Prefer WebRTC stream by default
+    // Одразу запускаємо WebSocket-потік (кадри з'являються миттєво <100мс)
+    ws.send(JSON.stringify({ type: 'START_STREAM', nodeId }));
+    // Паралельно запускаємо узгодження WebRTC для наднизької затримки (<30мс)
     ws.send(JSON.stringify({ type: 'START_WEBRTC_STREAM', nodeId }));
-
-    // Fallback: If WebRTC does not deliver frames within 4.5 seconds, start WebSocket stream
-    const fallbackTimer = setTimeout(() => {
-      if (!hasReceivedFrameRef.current) {
-        setStreamMode('websocket');
-        ws.send(JSON.stringify({ type: 'START_STREAM', nodeId }));
-      }
-    }, 4500);
 
     const timeoutTimer = setTimeout(() => {
       if (!hasReceivedFrameRef.current) {
         setLoading(false);
       }
-    }, 7000);
+    }, 6000);
 
     return () => {
-      clearTimeout(fallbackTimer);
       clearTimeout(timeoutTimer);
       if (peerConnectionRef.current) {
         try { peerConnectionRef.current.close(); } catch (_) {}
@@ -348,18 +354,19 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
   // Ручне перемикання режиму трансляції (WebRTC <-> WebSocket)
   const toggleStreamMode = useCallback(() => {
     if (!ws) return;
-    if (streamMode === 'webrtc') {
+    if (streamMode === 'webrtc' && isVideoPlaying) {
       if (peerConnectionRef.current) {
         try { peerConnectionRef.current.close(); } catch (_) {}
         peerConnectionRef.current = null;
       }
+      setIsVideoPlaying(false);
       setStreamMode('websocket');
       ws.send(JSON.stringify({ type: 'START_STREAM', nodeId }));
     } else {
       setStreamMode('webrtc');
       ws.send(JSON.stringify({ type: 'START_WEBRTC_STREAM', nodeId }));
     }
-  }, [ws, streamMode, nodeId]);
+  }, [ws, streamMode, isVideoPlaying, nodeId]);
 
   // Підсвічування селектора у браузері
   const highlightElement = useCallback((selector: string) => {
@@ -375,7 +382,7 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
   // ─── Обчислення координат відносно зображення ───────────────────────────────
   const getImgCoords = useCallback((e: React.MouseEvent | React.Touch, refOverride?: React.RefObject<HTMLDivElement | null>) => {
     const ref = refOverride || (isFullscreen ? fullscreenContainerRef : containerRef);
-    const mediaElem = (streamMode === 'webrtc' ? ref.current?.querySelector('video') : null) ||
+    const mediaElem = (streamMode === 'webrtc' && isVideoPlaying ? ref.current?.querySelector('video') : null) ||
                       ref.current?.querySelector('video:not(.hidden)') ||
                       ref.current?.querySelector('canvas:not(.hidden)') ||
                       ref.current?.querySelector('video') ||
@@ -395,7 +402,7 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
       x: Math.round(relX * deviceWidth),
       y: Math.round(relY * deviceHeight),
     };
-  }, [isFullscreen, streamMode]);
+  }, [isFullscreen, streamMode, isVideoPlaying]);
 
   // ─── Допоміжна анімація кліку (Ripple) ──────────────────────────────────────
   const triggerRipple = useCallback((e: React.MouseEvent, colorClass: string) => {
@@ -764,14 +771,22 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
             deviceHeightRef.current = v.videoHeight;
           }
         }}
-        className={`w-full h-auto select-none pointer-events-none ${streamMode === 'webrtc' ? 'block' : 'hidden'}`}
+        onPlaying={() => {
+          setIsVideoPlaying(true);
+          setStreamMode('webrtc');
+        }}
+        onError={() => {
+          setIsVideoPlaying(false);
+          setStreamMode('websocket');
+        }}
+        className={`w-full h-auto select-none pointer-events-none ${streamMode === 'webrtc' && isVideoPlaying ? 'block' : 'hidden'}`}
         style={{ imageRendering: zoom > 1.5 ? 'pixelated' : 'auto' }}
       />
 
       {/* WebSocket Screencast потік (Резервний режим) */}
       <canvas
         ref={isFull ? fullscreenCanvasRef : canvasRef}
-        className={`w-full h-auto select-none pointer-events-none ${streamMode === 'webrtc' ? 'hidden' : 'block'}`}
+        className={`w-full h-auto select-none pointer-events-none ${streamMode === 'webrtc' && isVideoPlaying ? 'hidden' : 'block'}`}
         style={{ imageRendering: zoom > 1.5 ? 'pixelated' : 'auto' }}
       />
 
@@ -802,14 +817,14 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
               toggleStreamMode();
             }}
             className={`pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border shadow-lg transition-all ${
-              streamMode === 'webrtc'
+              streamMode === 'webrtc' && isVideoPlaying
                 ? 'bg-emerald-600/90 hover:bg-emerald-500 text-white border-emerald-400/40 shadow-emerald-500/20'
                 : 'bg-amber-600/90 hover:bg-amber-500 text-white border-amber-400/40 shadow-amber-500/20'
             }`}
             title="Натисніть для перемикання між WebRTC (<30ms) та WebSocket screencast"
           >
-            <span className={`w-2 h-2 rounded-full ${streamMode === 'webrtc' ? 'bg-emerald-300 animate-pulse' : 'bg-amber-200'}`} />
-            <span>{streamMode === 'webrtc' ? '⚡ WebRTC (<30ms)' : '🌐 WS Screencast'}</span>
+            <span className={`w-2 h-2 rounded-full ${streamMode === 'webrtc' && isVideoPlaying ? 'bg-emerald-300 animate-pulse' : 'bg-amber-200'}`} />
+            <span>{streamMode === 'webrtc' && isVideoPlaying ? '⚡ WebRTC (<30ms)' : '🌐 WS Screencast'}</span>
           </button>
 
           {(() => {
@@ -1680,7 +1695,8 @@ const StreamPicker: React.FC<StreamPickerProps> = ({ onClose, ws: propsWs, wsUrl
                       <button
                         onClick={() => {
                           setLoading(true);
-                          ws?.send(JSON.stringify({ type: streamMode === 'webrtc' ? 'START_WEBRTC_STREAM' : 'START_STREAM', nodeId }));
+                          ws?.send(JSON.stringify({ type: 'START_STREAM', nodeId }));
+                          ws?.send(JSON.stringify({ type: 'START_WEBRTC_STREAM', nodeId }));
                         }}
                         className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-500/20 transition-all mt-1"
                       >

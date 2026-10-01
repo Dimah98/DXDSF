@@ -73,7 +73,7 @@ describe('ActionNode - Click All Copies', () => {
       takeDebugSnapshot,
       logToClient,
       smartSleep
-    });
+    } as any);
 
     expect(clickedElements).toEqual([0, 1, 2, 3]);
     expect(clickedElements.length).toBe(4);
@@ -135,7 +135,7 @@ describe('ActionNode - Click All Copies', () => {
       takeDebugSnapshot,
       logToClient,
       smartSleep
-    });
+    } as any);
 
     expect(clickedElements).toEqual([0]);
     expect(clickedElements.length).toBe(1);
@@ -204,7 +204,7 @@ describe('ActionNode - Click All Copies', () => {
       takeDebugSnapshot,
       logToClient,
       smartSleep
-    });
+    } as any);
 
     // Перевіряємо: всі 6 рослин мають бути зібрані по черзі [0, 1, 2, 3, 4, 5],
     // Жодна друга рослина не пропущена!
