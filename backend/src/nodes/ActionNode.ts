@@ -362,123 +362,183 @@ export const actionNodeHandler = async ({
         const currentFrame = targetFrame || activePage;
         const markerAttr = `data-sf-clicked-${Date.now()}`;
         let executedClicks = 0;
+        const maxPasses = shouldClickAll ? 5 : 1;
+        const delayBetweenClicks = quick ? 80 : 150;
 
         try {
-          const maxSteps = shouldClickAll ? Math.min(count * 2, 100) : 1;
-
-          for (let step = 0; step < maxSteps; step++) {
-            const freshLoc = currentFrame.locator(String(selector));
-            const currentCount = await freshLoc.count();
-            if (currentCount === 0) {
-              if (executedClicks === 0) throw new Error('Елемент не знайдено');
-              break; // Усі копії успішно зклікано
+          for (let pass = 0; pass < maxPasses; pass++) {
+            // Отримуємо стабільні хендли ElementHandle для всіх знайдених елементів
+            let allHandles = await currentFrame.$$(String(selector));
+            if (allHandles.length === 0 && currentFrame !== activePage) {
+              allHandles = await activePage.$$(String(selector));
             }
 
-            let targetIndex = 0;
-            let el: any = null;
+            if (allHandles.length === 0) {
+              if (executedClicks === 0 && pass === 0) {
+                throw new Error('Елемент не знайдено');
+              }
+              break;
+            }
 
-            if (shouldClickAll) {
-              // Знаходимо перший або останній елемент, який ще не було клікнуто
-              let foundIndex = -1;
+            // Фільтруємо лише елементи, які ще НЕ клікалися в цьому виклику ноди
+            const unclickedHandles: any[] = [];
+            for (const h of allHandles) {
+              let isMarked = false;
               try {
-                foundIndex = await currentFrame.evaluate(({ sel, marker, isLast }: any) => {
-                  const all = Array.from(document.querySelectorAll(sel));
-                  if (isLast) {
-                    for (let i = all.length - 1; i >= 0; i--) {
-                      if (!all[i].hasAttribute(marker)) return i;
-                    }
-                  } else {
-                    for (let i = 0; i < all.length; i++) {
-                      if (!all[i].hasAttribute(marker)) return i;
-                    }
-                  }
-                  return -1;
-                }, { sel: String(selector), marker: markerAttr, isLast: clickLast });
+                isMarked = await h.evaluate((node: Element, m: string) => {
+                  return node.hasAttribute(m) || (node as any).__sf_clicked === true;
+                }, markerAttr);
               } catch (_) {
-                foundIndex = -1;
+                isMarked = false;
               }
 
-              if (foundIndex >= 0 && foundIndex < currentCount) {
-                targetIndex = foundIndex;
-                el = freshLoc.nth(targetIndex);
+              if (!isMarked) {
+                unclickedHandles.push(h);
               } else {
-                // Фолбек: перевірка через getAttribute Playwright для кожного елемента
-                for (let i = 0; i < currentCount; i++) {
-                  const idx = clickLast ? currentCount - 1 - i : i;
-                  const cand = freshLoc.nth(idx);
-                  const isMarked = await cand.getAttribute(markerAttr).catch(() => null);
-                  if (!isMarked) {
-                    targetIndex = idx;
-                    el = cand;
-                    break;
-                  }
+                try { await h.dispose(); } catch (_) {}
+              }
+            }
+
+            if (unclickedHandles.length === 0) {
+              break; // Усі доступні копії вже оброблені
+            }
+
+            // Якщо режим одного кліку — беремо тільки один елемент (перший або останній)
+            let targets: any[] = [];
+            if (!shouldClickAll) {
+              targets = [clickLast ? unclickedHandles[unclickedHandles.length - 1] : unclickedHandles[0]];
+              // Звільняємо невикористані хендли
+              for (const h of unclickedHandles) {
+                if (h !== targets[0]) {
+                  try { await h.dispose(); } catch (_) {}
                 }
               }
-
-              // Якщо всі доступні копії вже позначені або оброблені — завершуємо
-              if (!el) {
-                break;
-              }
             } else {
-              targetIndex = clickLast ? currentCount - 1 : 0;
-              el = freshLoc.nth(targetIndex);
+              targets = clickLast ? unclickedHandles.reverse() : unclickedHandles;
             }
 
-            // Чекаємо готовності конкретного елемента
-            await el.waitFor({ state: 'attached', timeout: Math.min(timeout, 500) }).catch(() => {});
+            let clickedInThisPass = 0;
 
-            if (actionType === 'double_click') {
-              await el.dblclick({ force: true, timeout: Math.max(timeout, 1000) });
-            } else if (actionType === 'triple_click') {
-              // Швидке позиціонування без зависань scrollIntoView
-              await el.evaluate((node: HTMLElement | SVGElement) => node.scrollIntoView({ block: 'nearest', inline: 'nearest' })).catch(() => {});
-              let box = await el.boundingBox();
-              if (!box) {
-                await el.scrollIntoViewIfNeeded({ timeout: 300 }).catch(() => {});
-                box = await el.boundingBox();
+            for (let i = 0; i < targets.length; i++) {
+              const handle = targets[i];
+              try {
+                // Перевіряємо, що елемент досі прикріплений до DOM
+                let isAttached = false;
+                try {
+                  isAttached = await handle.evaluate((n: Element) => n.isConnected);
+                } catch (_) {
+                  isAttached = false;
+                }
+                if (!isAttached) {
+                  try { await handle.dispose(); } catch (_) {}
+                  continue;
+                }
+
+                // Позначаємо елемент як опрацьований одразу, щоб уникнути повторних кліків
+                if (shouldClickAll) {
+                  try {
+                    await handle.evaluate((node: Element, m: string) => {
+                      node.setAttribute(m, '1');
+                      try { (node as any).__sf_clicked = true; } catch (_) {}
+                    }, markerAttr);
+                  } catch (_) {}
+                }
+
+                // Скролимо елемент у видиму область (якщо не scroll_center)
+                if (actionType !== 'scroll_center') {
+                  try { await handle.scrollIntoViewIfNeeded({ timeout: 500 }); } catch (_) {}
+                }
+
+                if (actionType === 'double_click') {
+                  await handle.dblclick({ force: true, timeout: Math.max(timeout, 1000) });
+                } else if (actionType === 'triple_click') {
+                  let box: any = null;
+                  try { box = await handle.boundingBox(); } catch (_) {}
+                  if (!box) {
+                    try { await handle.scrollIntoViewIfNeeded({ timeout: 300 }); } catch (_) {}
+                    try { box = await handle.boundingBox(); } catch (_) {}
+                  }
+                  if (box) {
+                    const cx = box.x + box.width / 2;
+                    const cy = box.y + box.height / 2;
+                    await activePage.mouse.click(cx, cy);
+                    await activePage.waitForTimeout(100);
+                    await activePage.mouse.click(cx, cy);
+                    await activePage.waitForTimeout(100);
+                    await activePage.mouse.click(cx, cy);
+                  } else {
+                    try { await handle.click({ force: true, timeout: 1000 }); } catch (_) {}
+                    await activePage.waitForTimeout(100);
+                    try { await handle.click({ force: true, timeout: 1000 }); } catch (_) {}
+                    await activePage.waitForTimeout(100);
+                    try { await handle.click({ force: true, timeout: 1000 }); } catch (_) {}
+                  }
+                } else if (actionType === 'hover') {
+                  await handle.hover({ timeout: 1000 });
+                } else if (actionType === 'scroll') {
+                  await handle.scrollIntoViewIfNeeded({ timeout: 1000 });
+                } else if (actionType === 'scroll_center') {
+                  try {
+                    await handle.evaluate((node: HTMLElement | SVGElement) => node.scrollIntoView({ block: 'center', inline: 'center' }));
+                  } catch (_) {}
+                } else {
+                  // Звичайний клік / force_click: надійна обробка з фолбеком для SVG/img
+                  try {
+                    await handle.click({ force: true, timeout: Math.max(timeout, 1000) });
+                  } catch (clickErr) {
+                    // Фолбек: якщо елемент заблокований pointer-events: none, клікаємо по координатах через сторінку
+                    let box: any = null;
+                    try { box = await handle.boundingBox(); } catch (_) {}
+                    if (box) {
+                      const cx = box.x + box.width / 2;
+                      const cy = box.y + box.height / 2;
+                      try { await activePage.mouse.click(cx, cy); } catch (_) {}
+                    } else {
+                      // Другий фолбек: пряма диспетчеризація MouseEvent у DOM
+                      try {
+                        await handle.evaluate((el: HTMLElement) => {
+                          el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                          try { el.click(); } catch (_) {}
+                        });
+                      } catch (_) {}
+                    }
+                  }
+                }
+
+                executedClicks++;
+                clickedInThisPass++;
+
+                if (!shouldClickAll) break;
+
+                // Затримка між кліками для оновлення гри та запобігання втраті кліків
+                if (i < targets.length - 1) {
+                  await activePage.waitForTimeout(delayBetweenClicks);
+                }
+              } catch (err: any) {
+                logger.debug(`ActionNode: error handling element ${i}: ${err?.message}`);
+              } finally {
+                try { await handle.dispose(); } catch (_) {}
               }
-              if (box) {
-                const cx = box.x + box.width / 2;
-                const cy = box.y + box.height / 2;
-                await activePage.mouse.click(cx, cy);
-                await activePage.waitForTimeout(120);
-                await activePage.mouse.click(cx, cy);
-                await activePage.waitForTimeout(120);
-                await activePage.mouse.click(cx, cy);
-              } else {
-                await el.click({ force: true, timeout: 1000 });
-                await activePage.waitForTimeout(120);
-                await el.click({ force: true, timeout: 1000 });
-                await activePage.waitForTimeout(120);
-                await el.click({ force: true, timeout: 1000 });
-              }
-            } else if (actionType === 'hover') {
-              await el.hover({ timeout: 1000 });
-            } else if (actionType === 'scroll') {
-              await el.scrollIntoViewIfNeeded({ timeout: 1000 });
-            } else if (actionType === 'scroll_center') {
-              await el.evaluate((node: HTMLElement | SVGElement) => node.scrollIntoView({ block: 'center', inline: 'center' })).catch(() => {});
-            } else {
-              await el.click({ force: true, timeout: Math.max(timeout, 1000) });
             }
 
-            // Позначаємо цей елемент як опрацьований
-            if (shouldClickAll) {
-              await el.evaluate((node: HTMLElement | SVGElement, m: string) => {
-                node.setAttribute(m, '1');
-              }, markerAttr).catch(() => {});
+            if (!shouldClickAll || clickedInThisPass === 0) {
+              break;
             }
 
-            executedClicks++;
-            if (!shouldClickAll) break;
-            await activePage.waitForTimeout(100); // пауза для стабілізації гри між кліками на різні об'єкти
+            // Невелика пауза перед наступним проходом (якщо є залишок)
+            await activePage.waitForTimeout(delayBetweenClicks);
           }
         } finally {
-          // Очищаємо тимчасові маркери
+          // Очищаємо тимчасові маркери опрацьованих елементів
           if (shouldClickAll) {
-            await currentFrame.evaluate((m: string) => {
-              document.querySelectorAll(`[${m}]`).forEach(e => e.removeAttribute(m));
-            }, markerAttr).catch(() => {});
+            try {
+              await currentFrame.evaluate((m: string) => {
+                document.querySelectorAll(`[${m}]`).forEach(e => {
+                  e.removeAttribute(m);
+                  try { delete (e as any).__sf_clicked; } catch (_) {}
+                });
+              }, markerAttr);
+            } catch (_) {}
           }
         }
 
