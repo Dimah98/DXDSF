@@ -16,6 +16,7 @@ export type WSResponse =
   | { type: 'GLOBAL_VARIABLES_UPDATE'; variables: Record<string, unknown> }
   | { type: 'CONSOLE_LOG'; message: string; logType: 'info' | 'error' | 'success' | 'debug' }
   | { type: 'STREAM_FRAME'; frame: string }
+  | { type: 'WEBRTC_SIGNAL'; projectName?: string; signal: any }
   | { type: 'SELECTOR_INFO_PICKED'; nodeId: string; selector: string }
   | { type: 'CSRF_TOKEN'; token: string };
 
@@ -28,7 +29,9 @@ export type WSMessage =
   | { type: 'RUN_SINGLE_NODE'; nodeId: string; nodes: unknown[]; edges: unknown[] }
   | { type: 'UPDATE_VARIABLE'; name: string; value: unknown }
   | { type: 'START_STREAM' }
+  | { type: 'START_WEBRTC_STREAM'; nodeId?: string; projectName?: string }
   | { type: 'STOP_STREAM' }
+  | { type: 'WEBRTC_SIGNAL'; signal: any; projectName?: string }
   | { type: 'PICK_SELECTOR'; nodeId: string; pickType?: string }
   | { type: 'CANCEL_PICKER' };
 
@@ -52,9 +55,12 @@ export function isWSMessage(msg: unknown): msg is WSMessage {
     case 'UPDATE_VARIABLE':
       return typeof (msg as any).name === 'string' && (msg as any).value !== undefined;
     case 'START_STREAM':
+    case 'START_WEBRTC_STREAM':
     case 'STOP_STREAM':
     case 'CANCEL_PICKER':
       return true;
+    case 'WEBRTC_SIGNAL':
+      return (msg as any).signal !== undefined;
     case 'PICK_SELECTOR':
       return typeof (msg as any).nodeId === 'string';
     default:

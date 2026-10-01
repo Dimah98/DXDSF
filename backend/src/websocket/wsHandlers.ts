@@ -28,6 +28,7 @@ import {
 } from '../runner/ProjectRunner';
 import { browserLifecycle, wsLifecycle } from '../services';
 import { ProjectSession, ExtendedWebSocket } from '../types';
+import { startWebRTCStream, handleWebRTCSignal, stopWebRTCStream } from './webrtcStreamer';
 
 const logger = new Logger('WSHandlers');
 
@@ -85,6 +86,49 @@ export async function handleClientMessage(
     } catch (e: any) {
       logger.error(`Failed to open browser via WS for project ${projectName}`, e instanceof Error ? e : new Error(String(e)));
       ws.send(JSON.stringify({ type: 'ERROR', message: `Помилка відкриття браузера: ${e.message || String(e)}` }));
+    }
+    return;
+  }
+
+  if (data.type === 'START_WEBRTC_STREAM') {
+    (ws as any).isStreaming = true;
+
+    await ensureBrowserSettings(projectName, session);
+    await connectToBrowser(
+      session,
+      session.botSettings?.width || session.botSettings?.browserWidth,
+      session.botSettings?.height || session.botSettings?.browserHeight,
+      session.botSettings?.profile,
+      session.botSettings?.profileDir,
+      session.botSettings?.proxy
+    ).catch((e) => {
+      logger.error(`Failed to connect to browser for WebRTC stream in project ${projectName}`, e instanceof Error ? e : new Error(String(e)));
+      (ws as any).isStreaming = false;
+      ws.send(JSON.stringify({
+        type: 'WEBRTC_SIGNAL',
+        projectName,
+        signal: { type: 'error', message: 'Failed to connect to browser' }
+      }));
+    });
+
+    if (isSessionBrowserAlive(session) && session.page) {
+      await startWebRTCStream(session, ws, projectName).catch((e) => {
+        logger.error(`Failed to start WebRTC stream for project ${projectName}`, e instanceof Error ? e : new Error(String(e)));
+        ws.send(JSON.stringify({
+          type: 'WEBRTC_SIGNAL',
+          projectName,
+          signal: { type: 'error', message: String(e?.message || e) }
+        }));
+      });
+    }
+    return;
+  }
+
+  if (data.type === 'WEBRTC_SIGNAL') {
+    if (data.signal) {
+      await handleWebRTCSignal(session, ws, data.signal).catch((e) => {
+        logger.debug(`Error handling WEBRTC_SIGNAL for ${projectName}`, { error: String(e) });
+      });
     }
     return;
   }
@@ -196,6 +240,7 @@ export async function handleClientMessage(
 
   if (data.type === 'STOP_STREAM') {
     (ws as any).isStreaming = false;
+    await stopWebRTCStream(session, ws).catch(() => {});
     if ((ws as any)._cdpScreencast) {
       try {
         (ws as any)._cdpScreencast.send('Page.stopScreencast').catch(() => {});

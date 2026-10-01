@@ -9,7 +9,7 @@ describe('ActionNode - Click All Copies', () => {
     const mockHandles = [0, 1, 2, 3].map((index) => {
       let isMarked = false;
       return {
-        evaluate: vi.fn().mockImplementation(async (fn: any, marker: string) => {
+        evaluate: vi.fn().mockImplementation(async (fn: any, _marker?: string) => {
           // Якщо функція перевіряє маркер
           if (fn.toString().includes('hasAttribute')) {
             return isMarked;
@@ -67,7 +67,7 @@ describe('ActionNode - Click All Copies', () => {
         }
       } as any,
       activePage: mockPage as any,
-      ws: null,
+      ws: null as any,
       context: {},
       nodeTitle: 'Дія (Клік)',
       takeDebugSnapshot,
@@ -129,7 +129,7 @@ describe('ActionNode - Click All Copies', () => {
         }
       } as any,
       activePage: mockPage as any,
-      ws: null,
+      ws: null as any,
       context: {},
       nodeTitle: 'Дія (Клік)',
       takeDebugSnapshot,
@@ -198,7 +198,7 @@ describe('ActionNode - Click All Copies', () => {
         }
       } as any,
       activePage: mockPage as any,
-      ws: null,
+      ws: null as any,
       context: {},
       nodeTitle: 'Збір врожаю',
       takeDebugSnapshot,

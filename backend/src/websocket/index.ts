@@ -8,6 +8,7 @@ import { wsRateLimiter } from '../auth/RateLimiter';
 import { wsLifecycle } from '../services';
 import { getOrCreateSession } from '../browserManager';
 import { handleClientMessage } from './wsHandlers';
+import { stopWebRTCStream } from './webrtcStreamer';
 import { ExtendedWebSocket } from '../types';
 
 const logger = new Logger('WebSocketServer');
@@ -133,6 +134,7 @@ export function setupWebSocketServer(server: http.Server): WebSocketServer {
     ws.on('close', () => {
       try {
         cleanupSocketSession();
+        stopWebRTCStream(session, ws).catch(() => {});
         if ((ws as any)._streamTimer) clearTimeout((ws as any)._streamTimer);
         if ((ws as any)._cdpScreencast) {
           try {
@@ -153,6 +155,7 @@ export function setupWebSocketServer(server: http.Server): WebSocketServer {
     ws.on('error', (_err) => {
       try {
         cleanupSocketSession();
+        stopWebRTCStream(session, ws).catch(() => {});
         if ((ws as any)._streamTimer) clearTimeout((ws as any)._streamTimer);
         if ((ws as any)._cdpScreencast) {
           try {

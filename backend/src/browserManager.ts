@@ -984,6 +984,7 @@ except Exception:
     return await firefox.launchPersistentContext(activeUserData, {
       executablePath: camoufoxExe && fs.existsSync(camoufoxExe) ? camoufoxExe : undefined,
       headless: isHeadless,
+      bypassCSP: true,
       viewport: { width, height },
       args: firefoxArgs,
       proxy: proxyConfig,
@@ -998,6 +999,12 @@ except Exception:
         'xpinstall.signatures.required': false,
         'xpinstall.whitelist.required': false,
         'extensions.webextensions.restrictedDomains': '',
+        // --- WebRTC налаштування для прямої ультра-низьколатентної трансляції ---
+        'media.peerconnection.enabled': true,
+        'media.navigator.permission.disabled': true,
+        'media.peerconnection.ice.no_host': false,
+        'media.peerconnection.ice.default_address_only': false,
+        'media.peerconnection.ice.proxy_only': false,
         // --- Оптимізації для слабких процесорів (Intel Pentium / 2 ядра) ---
         'media.volume_scale': '0.0', // Повне вимкнення звуку та декодування аудіо (безпечно для рушія гри)
         'media.autoplay.default': 5, // Блокування автовідтворення аудіо/відео
